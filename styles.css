@@ -6220,6 +6220,7 @@ body[data-theme="plain-light"] .verified-source-badge {
 .review-dialog.startup-login-dialog .dialog-actions,
 body[data-theme="plain-light"] .startup-login-dialog .dialog-actions {
   background: transparent;
+  border-top: 0;   /* the base row draws a light divider — the "white line" over the buttons */
   bottom: auto;
   justify-content: stretch;
   margin: 4px 0 0;
@@ -6234,6 +6235,14 @@ body[data-theme="plain-light"] .startup-login-dialog .dialog-actions {
 /* Buttons inside the dark branded card: the base ghost/primary styles carry
    light-theme backgrounds/borders that read as a sloppy white sliver here —
    pin them to the shell's own palette (constants, not theme tokens). */
+/* the status line under the fields is themed white — keep it transparent on
+   the dark card so sign-in progress/errors don't paint a white strip */
+.review-dialog.startup-login-dialog .generate-status,
+body[data-theme="plain-light"] .startup-login-dialog .generate-status {
+  background: transparent;
+  border: 0;
+}
+
 .review-dialog.startup-login-dialog .ghost-button {
   background: rgba(13, 17, 22, 0.55);
   border: 1px solid rgba(92, 123, 142, 0.58);
