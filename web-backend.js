@@ -24,7 +24,19 @@
   if (params.get("web") === "0") WEB = false;      // explicit opt-out for testing
   if (!WEB) return;                                 // desktop: do nothing
   window.__SPRINKFLOW_WEB__ = true;
-  console.log("[web-backend] SprinkFlow Web Edition active — serving ./api/* client-side.");
+  // stamped by packaging/build_web_edition.py at deploy time; "dev" locally
+  var WEB_BUILD = "b0728-2221-48f266b";
+  window.__SPRINKFLOW_WEB_BUILD__ = WEB_BUILD;
+  console.log("[web-backend] SprinkFlow Web Edition active — build " + WEB_BUILD);
+  // admin accounts see the build id in the version pill to verify deploys
+  var WEB_ADMIN_EMAILS = ["jamesallenquinn@gmail.com", "james@calculated-fs.com"];
+  function webIsAdmin() {
+    var s = webSessionSafe();
+    return !!(s && WEB_ADMIN_EMAILS.indexOf(String(s.email || "").toLowerCase()) >= 0);
+  }
+  function webSessionSafe() {
+    try { return JSON.parse(localStorage.getItem("sprinkflow.web.session.v1")) || null; } catch (e) { return null; }
+  }
 
   var AI_MSG = "This AI step runs in the desktop / Pro version. In the web edition, " +
                "add and organize your datasheets manually — everything else works.";
@@ -263,7 +275,7 @@
       return loadScript(PYODIDE_URL + "pyodide.js")
         .then(function () { return window.loadPyodide({ indexURL: PYODIDE_URL }); })
         .then(function (py) {
-          return fetch("./assets/seismic/seismic-engine.zip?v=1").then(function (r) {
+          return fetch("./assets/seismic/seismic-engine.zip?v=" + encodeURIComponent(WEB_BUILD)).then(function (r) {
             if (!r.ok) throw new Error("seismic-engine.zip not found");
             return r.arrayBuffer();
           }).then(function (buf) {
@@ -522,7 +534,7 @@
   function dispatch(route, url, body) {
     switch (route) {
       // ---- boot ----
-      case "/api/app-info":   return Promise.resolve(jsonResp({ ok: true, app: { name: "SprinkFlow", version: "1.1.6", channel: "web", publisher: "SprinkFlow" }, license: webLicense() }));
+      case "/api/app-info":   return Promise.resolve(jsonResp({ ok: true, app: { name: "SprinkFlow", version: "1.1.6" + (webIsAdmin() ? " · " + WEB_BUILD : ""), channel: "web", publisher: "SprinkFlow" }, license: webLicense() }));
       case "/api/app-data":   return Promise.all([kvGet("state"), kvGet("projects")]).then(function (r) { return jsonResp({ ok: true, state: r[0] || {}, projects: r[1] || [] }); });
       case "/api/app-state":  return kvSet("state", body.state || {}).then(function () { return jsonResp({ ok: true }); });
       case "/api/projects":   return kvSet("projects", body.projects || []).then(function () { return jsonResp({ ok: true }); });
