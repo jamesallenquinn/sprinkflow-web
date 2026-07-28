@@ -4154,9 +4154,15 @@ async function processProjectIntakeFiles(files) {
 
   if (planFiles.length) {
     storeProjectPlanFiles(planFiles);
-    await analyzePlansPdf(planFiles[0].file, planFiles[0].dataUrl);
-    if (planFiles.length > 1) {
-      setOcrStatus(`Plans scan applied. ${planFiles.length - 1} additional plan PDF${planFiles.length === 2 ? "" : "s"} were not scanned yet; drop them again if needed.`);
+    if (window.__SPRINKFLOW_WEB__) {
+      // web edition: the AI project-info scan is desktop-only — don't run it
+      // just to fail; the drop itself succeeded and the plans are stored.
+      setOcrStatus(`${planFiles.length === 1 ? "Plan set" : planFiles.length + " plan PDFs"} added to the project package ✓ — fill in the project info on the right (the AI auto-fill scan runs in the desktop app).`);
+    } else {
+      await analyzePlansPdf(planFiles[0].file, planFiles[0].dataUrl);
+      if (planFiles.length > 1) {
+        setOcrStatus(`Plans scan applied. ${planFiles.length - 1} additional plan PDF${planFiles.length === 2 ? "" : "s"} were not scanned yet; drop them again if needed.`);
+      }
     }
   } else if (hydraulicFiles.length) {
     activateTool("hydraulic");
