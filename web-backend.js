@@ -25,7 +25,7 @@
   if (!WEB) return;                                 // desktop: do nothing
   window.__SPRINKFLOW_WEB__ = true;
   // stamped by packaging/build_web_edition.py at deploy time; "dev" locally
-  var WEB_BUILD = "b0728-2221-48f266b";
+  var WEB_BUILD = "b0728-2231-a8b4924";
   window.__SPRINKFLOW_WEB_BUILD__ = WEB_BUILD;
   console.log("[web-backend] SprinkFlow Web Edition active — build " + WEB_BUILD);
   // admin accounts see the build id in the version pill to verify deploys
@@ -556,7 +556,7 @@
       case "/api/catalog/rename":   return catalogRename(body).then(jsonResp);
       case "/api/catalog/delete":   return catalogDelete(body).then(jsonResp);
       case "/api/catalog/open":     return Promise.resolve(jsonResp({ ok: true, path: body.relativePath || "" }));
-      case "/api/catalog/download": return Promise.resolve(jsonResp({ ok: false, error: "Downloading manufacturer sheets from the web needs the desktop app (browser security blocks cross-site PDF fetches). Import your own PDF instead." }));
+      case "/api/catalog/download": return catalogDownloadWeb(body);
 
       // ---- PDF generation (client-side; exports need an active subscription) ----
       case "/api/generate-submittal":         return Promise.resolve(webRequireOutputs("generate a material submittal") || generateSubmittal(body).then(jsonResp));
@@ -682,6 +682,45 @@
   function catalogDelete(body) {
     if (body && body.id) return kvDel("pdf:" + body.id).then(function () { return { ok: true }; });
     return Promise.resolve({ ok: true });
+  }
+
+  // "Import Datasheet" on the web: route the manufacturer download through the
+  // cloud datasheet proxy (browsers can't fetch their PDFs cross-origin), then
+  // store it in the local IndexedDB catalog exactly like a manual import.
+  function catalogDownloadWeb(body) {
+    var src = String(body.sourceUrl || "");
+    var s = webSession();
+    if (!src) return Promise.resolve(jsonResp({ ok: false, error: "This catalog entry has no source URL - import its PDF manually." }));
+    if (!s || !s.accessToken) return Promise.resolve(jsonResp({ ok: false, error: "Sign in first to import datasheets." }));
+    return orig(WEB_AUTH.apiBase + "/datasheets/fetch", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + s.accessToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ url: src }),
+    }).then(function (r) {
+      if (!r.ok) {
+        return r.json().catch(function () { return {}; }).then(function (j) {
+          var why = (j && (j.detail || j.error)) ||
+            (r.status === 404 ? "The datasheet import service isn't live yet." : "Datasheet fetch failed (HTTP " + r.status + ").");
+          return jsonResp({ ok: false, error: why + " Use “Open datasheet” to save the PDF, then drop it into the Material Catalog." });
+        });
+      }
+      return r.arrayBuffer().then(function (buf) {
+        var bytes = new Uint8Array(buf);
+        var bin = "", CH = 0x8000;
+        for (var i = 0; i < bytes.length; i += CH) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+        var dataUrl = "data:application/pdf;base64," + btoa(bin);
+        var name = (body.name || "Datasheet").replace(/[\\/:*?"<>|]+/g, " ").trim() + ".pdf";
+        return importDatasheet({ file: { name: name, dataUrl: dataUrl },
+                                 category: body.category || "Miscellaneous",
+                                 displayName: body.name || "" }).then(function (res) {
+          if (!res.ok) return jsonResp(res);
+          if (body.manufacturer) res.item.manufacturer = body.manufacturer;
+          return jsonResp({ ok: true, item: res.item });
+        });
+      });
+    }).catch(function () {
+      return jsonResp({ ok: false, error: "Could not reach the datasheet import service. Use “Open datasheet” to save the PDF, then drop it into the Material Catalog." });
+    });
   }
 
   // pull an item's PDF bytes for merging (imported items live in IndexedDB)

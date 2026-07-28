@@ -5428,6 +5428,20 @@ function showPlansReviewDialog(review) {
       button.textContent = "Importing...";
       const updated = await downloadCatalogItem(item.id);
       if (!updated) {
+        const fallbackUrl = item.sourceUrl || item.datasheetUrl || item.productPage || "";
+        if (window.__SPRINKFLOW_WEB__ && fallbackUrl) {
+          // browser couldn't import it directly — swap the button for a real
+          // link (a user click opens reliably; scripted opens get popup-blocked)
+          const link = document.createElement("a");
+          link.className = "small-button download-button";
+          link.href = fallbackUrl;
+          link.target = "_blank";
+          link.rel = "noopener";
+          link.textContent = "Open datasheet ↗";
+          link.title = "Save the PDF, then drop it into the Material Catalog to add it";
+          button.replaceWith(link);
+          return;
+        }
         button.disabled = false;
         button.textContent = "Import Datasheet";
         return;
@@ -6440,7 +6454,15 @@ async function downloadCatalogItem(id) {
   const name = displayName(item);
   try {
     setGenerateStatus(`Importing datasheet from ${item.verifiedSource || item.manufacturer || "manufacturer"}...`, "info");
-    const result = await postCatalogAction("./api/catalog/download", { id: item.id });
+    // extra fields are ignored by the desktop server; the web shim uses them
+    // to route the download through the cloud datasheet proxy
+    const result = await postCatalogAction("./api/catalog/download", {
+      id: item.id,
+      sourceUrl: item.sourceUrl || item.datasheetUrl || "",
+      name: displayName(item),
+      manufacturer: item.manufacturer || "",
+      category: item.category || "",
+    });
     const updated = result.item;
     if (!updated?.id) throw new Error("The server did not return the downloaded catalog item.");
     const tocName = state.tocTitles[item.id] || displayName(updated) || name;
@@ -6456,6 +6478,16 @@ async function downloadCatalogItem(id) {
     return updated;
   } catch (error) {
     setGenerateStatus(`Could not import datasheet: ${error.message || "Import failed."}`, "error");
+    // the submittal status line is invisible behind dialogs (e.g. the plans
+    // review) — on web, surface the failure as a toast, throttled so a bulk
+    // "Import All" doesn't stack eight of them
+    if (window.__SPRINKFLOW_WEB__ && typeof showAppToast === "function") {
+      const now = Date.now();
+      if (!window.__lastImportToastAt || now - window.__lastImportToastAt > 6000) {
+        window.__lastImportToastAt = now;
+        showAppToast(`Couldn't import automatically: ${error.message || "Import failed."}`);
+      }
+    }
     return null;
   }
 }
