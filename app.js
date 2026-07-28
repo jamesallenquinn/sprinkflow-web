@@ -4157,7 +4157,7 @@ async function processProjectIntakeFiles(files) {
     if (window.__SPRINKFLOW_WEB__) {
       // web edition: the AI project-info scan is desktop-only — don't run it
       // just to fail; the drop itself succeeded and the plans are stored.
-      setOcrStatus(`${planFiles.length === 1 ? "Plan set" : planFiles.length + " plan PDFs"} added to the project package ✓ — fill in the project info on the right (the AI auto-fill scan runs in the desktop app).`);
+      setOcrStatus(`${planFiles.length === 1 ? "Plan set" : planFiles.length + " plan PDFs"} added to the project package ✓ — fill in the project info on the right (the full plan scan runs in the desktop app for now; web support is coming).`);
       // mirror the desktop scan's success behavior: a stored plan completes
       // step 1 in Quick mode, so move the wizard forward like desktop does.
       if (state.viewMode === "simple" && state.simpleStep === "intake") {
