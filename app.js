@@ -12654,7 +12654,52 @@ function initPdfcad() {
 }
 
 // ---- Explode CAD Blocks ----
-const cadxState = { token: null, fileName: "", stats: null };
+const cadxState = { token: null, fileName: "", stats: null, picked: false, dataUrl: "", webXrefFiles: [] };
+
+function cadxApplyAnalyze(payload, fileName, picked) {
+  cadxState.token = payload.token;
+  cadxState.stats = payload;
+  cadxState.picked = !!picked;
+  if (fileName) cadxState.fileName = fileName;
+  renderCadxSummary(payload);
+  renderCadxBlocks(payload);
+  const hint = document.getElementById("cadxBlockHint");
+  if (hint) hint.textContent = `${payload.uniqueBlocks || 0} unique block${payload.uniqueBlocks === 1 ? "" : "s"}`;
+  const has = (payload.blockRefs || 0) > 0;
+  document.getElementById("cadxConvertButton").disabled = !has && (payload.entities || 0) === 0;
+  const status = document.getElementById("cadxFileStatus");
+  const xrefs = payload.xrefs || [];
+  const unresolved = xrefs.filter((x) => !x.resolvable);
+  let note = "";
+  if (xrefs.length) {
+    note = ` ${xrefs.length} xref${xrefs.length === 1 ? "" : "s"} attached — ${xrefs.length - unresolved.length} will bind before exploding.`;
+    if (unresolved.length && window.__SPRINKFLOW_WEB__) {
+      note += ` ${unresolved.length} missing (${unresolved.map((x) => x.path || x.name).slice(0, 3).join(", ")}) — add the xref file${unresolved.length === 1 ? "" : "s"} below so they bind.`;
+    } else if (unresolved.length && !picked) {
+      note += ` ${unresolved.length} can't be found from a dropped copy — use "Choose file" so xrefs sitting next to the drawing can bind.`;
+    } else if (unresolved.length) {
+      note += ` ${unresolved.length} missing next to the drawing (${unresolved.map((x) => x.path || x.name).slice(0, 3).join(", ")}).`;
+    }
+  }
+  const xrefRow = document.getElementById("cadxXrefRow");
+  if (xrefRow) xrefRow.hidden = !(window.__SPRINKFLOW_WEB__ && xrefs.length);
+  if (status) status.textContent = `${cadxState.fileName} loaded - ${(payload.blockRefs || 0).toLocaleString()} block reference${payload.blockRefs === 1 ? "" : "s"} found.${note}`;
+}
+
+async function cadxPick() {
+  const status = document.getElementById("cadxFileStatus");
+  const oda = document.getElementById("cadxOdaNote");
+  if (oda) oda.hidden = true;
+  if (status) status.textContent = "Choose a DWG or DXF in the dialog...";
+  try {
+    const payload = await readApiJson("./api/cad-explode/pick", { method: "POST", body: JSON.stringify({}) });
+    cadxApplyAnalyze(payload, payload.fileName || "", true);
+  } catch (error) {
+    if (/cancel/i.test(error.message || "")) { if (status) status.textContent = ""; return; }
+    if (status) status.textContent = error.message || "Could not open that drawing.";
+    if (/ODA File Converter/i.test(error.message || "") && oda) oda.hidden = false;
+  }
+}
 
 async function cadxAnalyze(fileDataUrl, fileName) {
   const status = document.getElementById("cadxFileStatus");
@@ -12662,20 +12707,14 @@ async function cadxAnalyze(fileDataUrl, fileName) {
   if (oda) oda.hidden = true;
   if (status) status.textContent = "Reading drawing...";
   try {
+    if (fileDataUrl) { cadxState.dataUrl = fileDataUrl; cadxState.webXrefFiles = []; }
     const body = fileDataUrl ? { file: { name: fileName, dataUrl: fileDataUrl } } : { token: cadxState.token };
+    if (window.__SPRINKFLOW_WEB__) {
+      body.file = body.file || { name: cadxState.fileName, dataUrl: cadxState.dataUrl };
+      body.xrefFiles = cadxState.webXrefFiles;
+    }
     const payload = await readApiJson("./api/cad-explode/analyze", { method: "POST", body: JSON.stringify(body) });
-    cadxState.token = payload.token;
-    cadxState.stats = payload;
-    if (fileName) cadxState.fileName = fileName;
-    renderCadxSummary(payload);
-    renderCadxBlocks(payload);
-    const hint = document.getElementById("cadxBlockHint");
-    if (hint) hint.textContent = (payload.uniqueBlocks || 0) > 0
-      ? `${(payload.uniqueBlocks || 0).toLocaleString()} unique block${payload.uniqueBlocks === 1 ? "" : "s"} - Explode & Save to flatten`
-      : "No blocks to explode";
-    const has = (payload.blockRefs || 0) > 0;
-    document.getElementById("cadxConvertButton").disabled = !has && (payload.entities || 0) === 0;
-    if (status) status.textContent = `${cadxState.fileName} loaded - ${(payload.blockRefs || 0).toLocaleString()} block reference${payload.blockRefs === 1 ? "" : "s"} found.`;
+    cadxApplyAnalyze(payload, fileName, false);
   } catch (error) {
     // needsOda comes back as a normal (ok:false) body via readApiJson throwing with the message
     if (status) status.textContent = error.message || "Could not read that drawing.";
@@ -12687,11 +12726,14 @@ function renderCadxSummary(p) {
   const box = document.getElementById("cadxSummary");
   if (!box) return;
   const line = (k, v) => `<div class="layout-result-line"><span>${k}</span><strong>${v}</strong></div>`;
+  const xrefs = p.xrefs || [];
+  const unresolved = xrefs.filter((x) => !x.resolvable).length;
   box.innerHTML =
     line("Source format", p.isDwg ? "DWG (via ODA)" : "DXF") +
     line("Block references", (p.blockRefs || 0).toLocaleString()) +
     line("Unique blocks", (p.uniqueBlocks || 0).toLocaleString()) +
-    line("Entities (model space)", (p.entities || 0).toLocaleString());
+    line("Entities (model space)", (p.entities || 0).toLocaleString()) +
+    (xrefs.length ? line("Attached xrefs", `${xrefs.length} — ${xrefs.length - unresolved} bind before exploding${unresolved ? `, ${unresolved} missing` : ""}`) : "");
 }
 
 function renderCadxBlocks(p) {
@@ -12716,11 +12758,23 @@ async function cadxConvert() {
   if (status) status.textContent = "Exploding blocks... choose where to save the DXF.";
   try {
     const base = (cadxState.fileName || "drawing").replace(/\.(dwg|dxf)$/i, "");
+    const convBody = { token: cadxState.token, defaultName: `${base}-exploded.dxf` };
+    if (window.__SPRINKFLOW_WEB__) {
+      // web is token-less: resend the drawing + any added xref files so the
+      // in-browser engine can stage them together and bind before exploding
+      convBody.file = { name: cadxState.fileName, dataUrl: cadxState.dataUrl };
+      convBody.xrefFiles = cadxState.webXrefFiles;
+    }
     const payload = await readApiJson("./api/cad-explode/convert", {
       method: "POST",
-      body: JSON.stringify({ token: cadxState.token, defaultName: `${base}-exploded.dxf` }),
+      body: JSON.stringify(convBody),
     });
-    if (status) status.textContent = `Saved DXF: ${payload.path} - exploded ${(payload.exploded || 0).toLocaleString()} block${payload.exploded === 1 ? "" : "s"} into ${(payload.after || 0).toLocaleString()} entities` + (payload.dropped ? ` (${payload.dropped} xref/unresolved dropped).` : ".");
+    const boundN = (payload.xrefsBound || []).length;
+    const missing = payload.xrefsMissing || [];
+    let tail = boundN ? ` Bound ${boundN} xref${boundN === 1 ? "" : "s"} first.` : "";
+    if (missing.length) tail += ` ⚠ ${missing.length} xref${missing.length === 1 ? "" : "s"} could not bind (${missing.map((m) => m.name).slice(0, 3).join(", ")}) — ${missing[0].reason}.`;
+    if (payload.dropped) tail += ` (${payload.dropped} unresolved reference${payload.dropped === 1 ? "" : "s"} dropped.)`;
+    if (status) status.textContent = `Saved DXF: ${payload.path} - exploded ${(payload.exploded || 0).toLocaleString()} block${payload.exploded === 1 ? "" : "s"} into ${(payload.after || 0).toLocaleString()} entities.` + tail;
   } catch (error) {
     if (status) status.textContent = (error.message === "Save cancelled." ? "Save cancelled." : (error.message || "Explode failed."));
     if (/ODA File Converter/i.test(error.message || "")) { const oda = document.getElementById("cadxOdaNote"); if (oda) oda.hidden = false; }
@@ -12747,9 +12801,33 @@ function initCadx() {
   drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("drag-over"); });
   drop.addEventListener("dragleave", () => drop.classList.remove("drag-over"));
   drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("drag-over"); if (e.dataTransfer.files[0]) takeFile(e.dataTransfer.files[0]); });
+  const pickBtn = document.getElementById("cadxPickButton");
+  if (pickBtn) {
+    if (window.__SPRINKFLOW_WEB__) pickBtn.closest(".pdfcad-pick-row").hidden = true;   // native dialogs are desktop-only
+    else pickBtn.addEventListener("click", cadxPick);
+  }
+  const xrefInput = document.getElementById("cadxXrefInput");
+  document.getElementById("cadxXrefButton")?.addEventListener("click", () => xrefInput?.click());
+  xrefInput?.addEventListener("change", async (e) => {
+    const files = [...(e.target.files || [])].filter((f) => /\.dxf$/i.test(f.name));
+    for (const f of files) {
+      const dataUrl = await readFileAsDataUrl(f);
+      const existing = cadxState.webXrefFiles.findIndex((x) => x.name === f.name);
+      if (existing >= 0) cadxState.webXrefFiles[existing] = { name: f.name, dataUrl };
+      else cadxState.webXrefFiles.push({ name: f.name, dataUrl });
+    }
+    e.target.value = "";
+    if (files.length && cadxState.dataUrl) {
+      const note = document.getElementById("cadxXrefNote");
+      if (note) note.textContent = `${cadxState.webXrefFiles.length} xref file${cadxState.webXrefFiles.length === 1 ? "" : "s"} added — re-checking the drawing…`;
+      await cadxAnalyze("", "");   // re-analyze with the staged xrefs
+    }
+  });
   document.getElementById("cadxConvertButton")?.addEventListener("click", cadxConvert);
   document.getElementById("cadxClearButton")?.addEventListener("click", () => {
     cadxState.token = null; cadxState.fileName = ""; cadxState.stats = null;
+    cadxState.dataUrl = ""; cadxState.webXrefFiles = []; cadxState.picked = false;
+    const xrow = document.getElementById("cadxXrefRow"); if (xrow) xrow.hidden = true;
     document.getElementById("cadxConvertButton").disabled = true;
     document.getElementById("cadxFileStatus").textContent = "";
     document.getElementById("cadxStatus").textContent = "";

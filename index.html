@@ -1775,6 +1775,15 @@
               <strong>Drop a DWG or DXF here</strong>
               <span>Click anywhere to browse, or drag a file in. Every block is exploded into plain lines, arcs, text &amp; hatches &mdash; no AutoCAD needed.</span>
             </div>
+            <div class="pdfcad-pick-row">
+              <button class="secondary-button" id="cadxPickButton" type="button" title="Open straight off disk so xrefs sitting next to the drawing bind before exploding">&#128194; Choose file (binds xrefs)</button>
+              <span class="pdfcad-pick-note">Drawings with <strong>xrefs</strong>? Use this button &mdash; attached xrefs are bound (merged in) before exploding, and they only resolve when the file opens from its original folder.</span>
+            </div>
+            <div class="pdfcad-pick-row" id="cadxXrefRow" hidden>
+              <input id="cadxXrefInput" type="file" accept=".dxf" multiple class="hidden-input" />
+              <button class="secondary-button" id="cadxXrefButton" type="button">&#128206; Add xref files&hellip;</button>
+              <span class="pdfcad-pick-note" id="cadxXrefNote">This drawing references external files (xrefs). Add them here and they bind into the drawing before exploding.</span>
+            </div>
             <p class="calculator-status" id="cadxFileStatus"></p>
 
             <div id="cadxSummary" class="pdfcad-summary hydreport-subhead"></div>
@@ -3375,7 +3384,7 @@
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
     <script src="./web-backend.js?v=3"></script>
-    <script src="./app.js?v=321"></script>
+    <script src="./app.js?v=322"></script>
     <script src="./pwa/tools/prelim-calc-engine.js?v=10"></script>
     <script src="./pwa/tools/hydro-solver.js?v=1"></script>
     <script src="./pwa/tools/hydro-grid.js?v=3"></script>

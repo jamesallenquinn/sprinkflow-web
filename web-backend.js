@@ -298,6 +298,82 @@
     });
   }
 
+  // ---- CAD block exploder (the REAL cad_explode.py via Pyodide) ------------
+  // DXF only in the browser (DWG needs the desktop's ODA converter). Xrefs
+  // bind exactly like desktop: the host + any user-added xref files are staged
+  // into ONE folder (/cadx) so cad_explode.bind_xrefs resolves them there.
+  var _ezdxfReady = null;
+  function ensureEzdxf(py) {
+    if (_ezdxfReady) return _ezdxfReady;
+    setBadge("Loading DXF engine (first use)…");
+    _ezdxfReady = py.loadPackage("micropip")
+      .then(function () { return py.runPythonAsync("import micropip\nawait micropip.install('ezdxf')"); })
+      .then(function () { setBadge(null); }, function (e) { setBadge(null); _ezdxfReady = null; throw e; });
+    return _ezdxfReady;
+  }
+
+  function cadxStage(py, body) {
+    // wipe + restage /cadx with the host drawing and any provided xref files
+    py.runPython("import shutil, pathlib\nshutil.rmtree('/cadx', ignore_errors=True)\npathlib.Path('/cadx').mkdir()");
+    var host = body.file || {};
+    var name = (host.name || "drawing.dxf").replace(/[\\/]/g, "_");
+    if (/\.dwg$/i.test(name)) throw new Error("DWG files need the desktop app (the free ODA converter is a Windows program). Export to DXF first, or use the desktop SprinkFlow.");
+    py.FS.writeFile("/cadx/" + name, dataUrlToBytes(host.dataUrl));
+    (body.xrefFiles || []).forEach(function (x) {
+      var xn = (x.name || "").replace(/[\\/]/g, "_");
+      if (!xn || !x.dataUrl) return;
+      if (/\.dwg$/i.test(xn)) return;   // silently skip DWG xrefs; bind reports them missing
+      py.FS.writeFile("/cadx/" + xn, dataUrlToBytes(x.dataUrl));
+    });
+    return name;
+  }
+
+  function cadxRun(body, mode) {
+    return seismicEngine().then(function (py) {
+      return ensureEzdxf(py).then(function () {
+        var name = cadxStage(py, body);
+        py.globals.set("_cadx_name", name);
+        py.globals.set("_cadx_mode", mode);
+        var out = py.runPython(
+          "import json, base64, pathlib, importlib\n" +
+          "import cad_explode\n" +
+          "_p = pathlib.Path('/cadx') / _cadx_name\n" +
+          "if _cadx_mode == 'analyze':\n" +
+          "    _r = cad_explode.analyze(_p)\n" +
+          "else:\n" +
+          "    _doc, _r = cad_explode.convert(_p)\n" +
+          "    _out = pathlib.Path('/cadx/__exploded.dxf')\n" +
+          "    _doc.saveas(str(_out))\n" +
+          "    _r['dxfB64'] = base64.b64encode(_out.read_bytes()).decode()\n" +
+          "json.dumps(_r)");
+        return JSON.parse(out);
+      });
+    });
+  }
+
+  function cadxAnalyzeWeb(body) {
+    return cadxRun(body, "analyze").then(function (r) {
+      // token-less web flow: the frontend resends the file bytes on convert
+      return jsonResp(Object.assign({ ok: true, token: "web-inline" }, r));
+    }, function (e) {
+      return jsonResp({ ok: false, error: String((e && e.message) || e).split("\n").filter(Boolean).pop() });
+    });
+  }
+
+  function cadxConvertWeb(body) {
+    var gate = webRequireOutputs("explode CAD blocks");
+    if (gate) return Promise.resolve(gate);
+    return cadxRun(body, "convert").then(function (r) {
+      var b64 = r.dxfB64; delete r.dxfB64;
+      var base = String((body.file || {}).name || "drawing").replace(/\.(dwg|dxf)$/i, "");
+      var fn = cleanName(base + "-exploded") + ".dxf";
+      download(dataUrlToBytes("data:application/dxf;base64," + b64), fn, "application/dxf");
+      return jsonResp(Object.assign({ ok: true, path: fn }, r));
+    }, function (e) {
+      return jsonResp({ ok: false, error: String((e && e.message) || e).split("\n").filter(Boolean).pop() });
+    });
+  }
+
   // reportlab isn't a Pyodide built-in; micropip pulls it (~1s) on first export.
   var _rlReady = null;
   function ensureReportlab(py) {
@@ -461,6 +537,11 @@
       case "/api/file-info":           return Promise.resolve(jsonResp({ ok: true, files: [] }));
       case "/api/clipboard-copy":      return clip(body).then(function () { return jsonResp({ ok: true }); });
       case "/api/create-email-draft":  return Promise.resolve(jsonResp({ ok: false, error: "Email drafts need the desktop app." }));
+
+      // ---- CAD block exploder (real cad_explode.py via Pyodide; DXF only) ----
+      case "/api/cad-explode/analyze":  return cadxAnalyzeWeb(body);
+      case "/api/cad-explode/convert":  return cadxConvertWeb(body);
+      case "/api/cad-explode/pick":     return Promise.resolve(jsonResp({ ok: false, error: "The file picker is desktop-only here - drop the DXF on the drop zone instead (add its xref files too and they bind before exploding)." }));
 
       // ---- intake classification (heuristic port of the desktop classifier - no AI) ----
       case "/api/classify-pdf-upload":  return classifyPdfWeb(body).then(jsonResp);
