@@ -468,7 +468,28 @@
       // ---- AI (runs in the desktop / subscriber cloud) ----
       case "/api/analyze-plans":
         return Promise.resolve(jsonResp({ ok: false, error: "The AI plan scan runs in the desktop app. Your plans were still added to the project package - enter the project info by hand (or use the desktop app to auto-fill it)." }));
+      // cut-sheet import: the AI reader is desktop-only, but the import flow
+      // ABORTS entirely when this endpoint errors (before the review dialog
+      // ever opens). Return lightweight filename-based guesses instead - the
+      // review dialog lets the user fix category/name, and the desktop's
+      // heuristic path works the same way when its AI is unavailable.
       case "/api/analyze-cut-sheets":
+        return Promise.resolve(jsonResp({
+          ok: true,
+          items: ((body.files || []).map(function (f) {
+            var n = String(f.name || "").toLowerCase();
+            var cat = "Miscellaneous";
+            if (/sprinkler|pendent|upright|sidewall|concealed|esfr|cmsa|attic/.test(n)) cat = "Sprinklers";
+            else if (/valve|check|butterfly|riser|backflow|prv|deluge|preaction/.test(n)) cat = "Valves";
+            else if (/coupling|fitting|tee|elbow|grooved|flange|reducer|mechanical/.test(n)) cat = "Fittings";
+            else if (/hanger|clevis|strut|rod|attachment|clamp/.test(n)) cat = "Hangers";
+            else if (/brace|sway|seismic|restraint/.test(n)) cat = "Bracing";
+            else if (/flex|drop|braided|hose/.test(n)) cat = "Flex Drops";
+            else if (/pipe|sch|schedule|tube|cpvc|blazemaster|dyna|megaflow/.test(n)) cat = "Pipe";
+            return { category: cat };
+          })),
+        }));
+
       case "/api/specs/scan":
       case "/api/identify-datasheet":
       case "/api/bid-plan-intake":
