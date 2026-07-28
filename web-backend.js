@@ -25,9 +25,16 @@
   if (!WEB) return;                                 // desktop: do nothing
   window.__SPRINKFLOW_WEB__ = true;
   // stamped by packaging/build_web_edition.py at deploy time; "dev" locally
-  var WEB_BUILD = "b0728-2326-3865c39";
+  var WEB_BUILD = "b0728-2358-6372d30";
   window.__SPRINKFLOW_WEB_BUILD__ = WEB_BUILD;
   console.log("[web-backend] SprinkFlow Web Edition active — build " + WEB_BUILD);
+  // mobile layer: web-only stylesheet (media-query gated), never active on desktop
+  (function () {
+    var l = document.createElement("link");
+    l.rel = "stylesheet";
+    l.href = "./web-mobile.css?v=" + encodeURIComponent(WEB_BUILD);
+    document.head.appendChild(l);
+  })();
   // admin accounts see the build id in the version pill to verify deploys
   var WEB_ADMIN_EMAILS = ["jamesallenquinn@gmail.com", "james@calculated-fs.com"];
   function webIsAdmin() {
