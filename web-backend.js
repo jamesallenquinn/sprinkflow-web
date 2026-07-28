@@ -25,7 +25,7 @@
   if (!WEB) return;                                 // desktop: do nothing
   window.__SPRINKFLOW_WEB__ = true;
   // stamped by packaging/build_web_edition.py at deploy time; "dev" locally
-  var WEB_BUILD = "b0728-2231-a8b4924";
+  var WEB_BUILD = "b0728-2326-3865c39";
   window.__SPRINKFLOW_WEB_BUILD__ = WEB_BUILD;
   console.log("[web-backend] SprinkFlow Web Edition active — build " + WEB_BUILD);
   // admin accounts see the build id in the version pill to verify deploys
@@ -550,8 +550,8 @@
       case "/api/billing/checkout":  return webBilling("checkout");
       case "/api/billing/portal":    return webBilling("portal");
 
-      // ---- catalog (let the app fall back to the bundled static ./data catalog) ----
-      case "/api/catalog":    return Promise.resolve(jsonResp({ ok: false, web: true }, 200));
+      // ---- catalog: static seed + IndexedDB imports, like the desktop's live catalog ----
+      case "/api/catalog":    return catalogListWeb();
       case "/api/import-datasheet": return importDatasheet(body).then(jsonResp);
       case "/api/catalog/rename":   return catalogRename(body).then(jsonResp);
       case "/api/catalog/delete":   return catalogDelete(body).then(jsonResp);
@@ -661,7 +661,9 @@
           originalFileName: name, pages: pages, subcategory: body.subcategory || "",
           aliases: body.aliases || []
         };
-        return { ok: true, item: item, path: "web://" + id };
+        return rememberImportedItem(item).then(function () {
+          return { ok: true, item: item, path: "web://" + id };
+        });
       });
     });
   }
@@ -680,8 +682,50 @@
     }) });
   }
   function catalogDelete(body) {
-    if (body && body.id) return kvDel("pdf:" + body.id).then(function () { return { ok: true }; });
+    if (body && body.id) {
+      return Promise.all([kvDel("pdf:" + body.id), forgetImportedItem(body.id)])
+        .then(function () { return { ok: true }; });
+    }
     return Promise.resolve({ ok: true });
+  }
+
+  // Imported-item metadata persists in IndexedDB so imports SURVIVE catalog
+  // refreshes and reloads: /api/catalog serves seed + imports merged (the
+  // desktop's live catalog does the same from disk). replacedSeeds maps a
+  // seed entry to the local item that superseded it, so it stops re-listing.
+  function catalogListWeb() {
+    return Promise.all([kvGet("importedItems"), kvGet("replacedSeeds"),
+                        orig("./data/datasheet_catalog.json?ts=" + Date.now(), { cache: "no-store" })
+                          .then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; })])
+      .then(function (res) {
+        var imported = res[0] || {};
+        var replaced = res[1] || {};
+        var seedDoc = res[2];
+        var seed = Array.isArray(seedDoc) ? seedDoc : (seedDoc.items || []);
+        var items = seed.filter(function (i) { return !replaced[i.id]; });
+        Object.keys(imported).forEach(function (k) { items.push(imported[k]); });
+        return jsonResp({ ok: true, items: items });
+      });
+  }
+
+  function rememberImportedItem(item, replacedSeedId) {
+    return Promise.all([kvGet("importedItems"), kvGet("replacedSeeds")]).then(function (res) {
+      var imported = res[0] || {};
+      var replaced = res[1] || {};
+      imported[item.id] = item;
+      if (replacedSeedId) replaced[replacedSeedId] = item.id;
+      return Promise.all([kvSet("importedItems", imported), kvSet("replacedSeeds", replaced)]);
+    });
+  }
+
+  function forgetImportedItem(id) {
+    return Promise.all([kvGet("importedItems"), kvGet("replacedSeeds")]).then(function (res) {
+      var imported = res[0] || {};
+      var replaced = res[1] || {};
+      delete imported[id];
+      Object.keys(replaced).forEach(function (seedId) { if (replaced[seedId] === id) delete replaced[seedId]; });
+      return Promise.all([kvSet("importedItems", imported), kvSet("replacedSeeds", replaced)]);
+    });
   }
 
   // "Import Datasheet" on the web: route the manufacturer download through the
@@ -715,7 +759,9 @@
                                  displayName: body.name || "" }).then(function (res) {
           if (!res.ok) return jsonResp(res);
           if (body.manufacturer) res.item.manufacturer = body.manufacturer;
-          return jsonResp({ ok: true, item: res.item });
+          return rememberImportedItem(res.item, body.id).then(function () {
+            return jsonResp({ ok: true, item: res.item });
+          });
         });
       });
     }).catch(function () {

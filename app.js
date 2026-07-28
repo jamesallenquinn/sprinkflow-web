@@ -5571,10 +5571,11 @@ async function importMissingPlanSuggestions(review, { selectImported = false, on
     const item = planSuggestionSelectedItem(suggestion);
     return item && isRemoteCatalogItem(item) && (!onlyChecked || suggestion.checked);
   });
+  let failures = 0;
   for (const suggestion of missing) {
     const item = planSuggestionSelectedItem(suggestion);
     const updated = await downloadCatalogItem(item.id);
-    if (!updated) return false;
+    if (!updated) { failures += 1; continue; }   // one bad sheet must not kill the batch
     if (suggestion.item) suggestion.item = updated;
     if (Array.isArray(suggestion.options)) {
       suggestion.options = suggestion.options.map((option) => option.id === item.id ? updated : option);
@@ -5585,7 +5586,10 @@ async function importMissingPlanSuggestions(review, { selectImported = false, on
     if (selectImported) suggestion.checked = true;
   }
   refreshPlansReviewSuggestionList(review);
-  return true;
+  if (failures) {
+    setGenerateStatus(`${missing.length - failures} of ${missing.length} datasheets imported; ${failures} could not be fetched (use their Open datasheet links).`, failures === missing.length ? "error" : "info");
+  }
+  return failures < missing.length;
 }
 
 function applyPlansReviewSelections(review) {
