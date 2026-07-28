@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">SprinkFlow Icon Option 6 - Flow Gauge</title>
+  <desc id="desc">A pressure gauge with water flow and fire orange needle.</desc>
+  <defs>
+    <linearGradient id="bg" x1="28" y1="24" x2="228" y2="232" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#263541"/>
+      <stop offset="1" stop-color="#0b1118"/>
+    </linearGradient>
+    <linearGradient id="dial" x1="69" y1="58" x2="190" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f7fbfd"/>
+      <stop offset="1" stop-color="#aebdc6"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="48" fill="url(#bg)"/>
+  <circle cx="128" cy="126" r="74" fill="url(#dial)" stroke="#4e6575" stroke-width="10"/>
+  <circle cx="128" cy="126" r="48" fill="#111b24"/>
+  <path d="M84 127a44 44 0 0 1 88 0" fill="none" stroke="#44d7ff" stroke-width="12" stroke-linecap="round"/>
+  <path d="M128 126 166 91" stroke="#ff5634" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="128" cy="126" r="11" fill="#ffb13b"/>
+  <path d="M92 61 80 42M164 61l12-19M63 112H42M193 112h21" stroke="#dfe8ed" stroke-width="8" stroke-linecap="round"/>
+  <path d="M128 163c-12 15-27 30-27 47 0 16 12 27 27 27s27-11 27-27c0-17-15-32-27-47Z" fill="#25aede"/>
+  <path d="M137 190c6 7 9 14 8 22 8-8 8-21-4-36 1 6 0 10-4 14Z" fill="#c5f6ff"/>
+</svg>

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">SprinkFlow Icon Option 5 - SF Monogram</title>
+  <desc id="desc">A bold SprinkFlow monogram with water and fire marks.</desc>
+  <defs>
+    <linearGradient id="bg" x1="24" y1="24" x2="232" y2="232" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#263541"/>
+      <stop offset="0.5" stop-color="#121c25"/>
+      <stop offset="1" stop-color="#080f15"/>
+    </linearGradient>
+    <linearGradient id="sf" x1="54" y1="54" x2="202" y2="202" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f8fcff"/>
+      <stop offset="1" stop-color="#b8c6ce"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="54" fill="url(#bg)"/>
+  <path d="M61 89c0-25 19-42 54-42h63v36h-62c-12 0-18 5-18 13 0 9 7 13 21 16l26 6c33 8 50 22 50 47 0 27-21 44-58 44H66v-36h70c13 0 20-5 20-14 0-8-6-12-21-16l-28-7c-31-7-46-23-46-47Z" fill="url(#sf)"/>
+  <path d="M84 207V61h112v36h-73v25h60v35h-60v50H84Z" fill="#0d1720" opacity="0.72"/>
+  <path d="M55 173c22 22 53 32 91 31" fill="none" stroke="#44d7ff" stroke-width="12" stroke-linecap="round"/>
+  <path d="M177 60c19 14 31 33 33 56" fill="none" stroke="#ff5634" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="52" cy="173" r="9" fill="#ffb13b"/>
+</svg>

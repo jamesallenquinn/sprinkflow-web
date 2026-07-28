@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">SprinkFlow Icon Option 2 - Pipe Flow</title>
+  <desc id="desc">A pipe fitting shaped like an S with blue water and orange pressure accent.</desc>
+  <defs>
+    <linearGradient id="bg" x1="30" y1="24" x2="226" y2="232" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#243642"/>
+      <stop offset="1" stop-color="#0b1118"/>
+    </linearGradient>
+    <linearGradient id="pipe" x1="64" y1="60" x2="191" y2="199" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#edf7fa"/>
+      <stop offset="0.48" stop-color="#97aab6"/>
+      <stop offset="1" stop-color="#536876"/>
+    </linearGradient>
+    <linearGradient id="flow" x1="76" y1="73" x2="176" y2="181" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#44d7ff"/>
+      <stop offset="1" stop-color="#176f9b"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="48" fill="url(#bg)"/>
+  <path d="M75 77h84c23 0 42 19 42 42s-19 42-42 42H96c-10 0-18 8-18 18s8 18 18 18h91" fill="none" stroke="#0a1118" stroke-width="53" stroke-linecap="round"/>
+  <path d="M75 77h84c23 0 42 19 42 42s-19 42-42 42H96c-10 0-18 8-18 18s8 18 18 18h91" fill="none" stroke="url(#pipe)" stroke-width="37" stroke-linecap="round"/>
+  <path d="M79 77h76c16 0 29 12 29 28 0 17-13 29-29 29h-56c-25 0-45 20-45 45 0 15 7 28 19 36" fill="none" stroke="url(#flow)" stroke-width="16" stroke-linecap="round"/>
+  <path d="M189 55 217 76l-28 21" fill="none" stroke="#ffb13b" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="69" cy="77" r="13" fill="#ff5634"/>
+  <circle cx="188" cy="197" r="13" fill="#44d7ff"/>
+</svg>

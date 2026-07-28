@@ -1,0 +1,3384 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#111820" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="SprinkFlow" />
+    <title>SprinkFlow</title>
+    <script>
+      if (window.location.hostname === "localhost") {
+        window.location.replace(window.location.href.replace("//localhost", "//127.0.0.1"));
+      }
+    </script>
+    <link rel="manifest" href="./manifest.webmanifest?v=110" />
+    <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
+    <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
+    <link rel="stylesheet" href="./styles.css?v=254" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-lockup">
+          <img class="brand-mark" src="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" alt="" />
+          <div>
+            <h1>SprinkFlow</h1>
+          </div>
+        </div>
+        <div class="app-top-actions">
+          <div class="license-pill" id="licensePill" role="status" aria-live="polite">
+            <span class="license-status-dot" id="licenseStatusDot"></span>
+            <div>
+              <strong id="licenseStatusLabel">Local Mode</strong>
+              <span id="appVersionLabel">Checking version...</span>
+            </div>
+          </div>
+          <button class="update-pill" id="updateAvailablePill" type="button" hidden title="A newer SprinkFlow version is available. Click to open the Account dialog and download it.">&#8593; Update available</button>
+          <button class="app-refresh-button" id="licenseAccountButton" type="button">Account</button>
+          <button class="app-refresh-button" id="appRefreshButton" type="button" title="Reload SprinkFlow">Reload</button>
+          <label class="theme-control" for="themeSelect">
+            <span>Appearance</span>
+            <select id="themeSelect" aria-label="Appearance theme">
+              <option value="default">Dark</option>
+              <option value="plain-light">Plain Light</option>
+            </select>
+          </label>
+        </div>
+      </header>
+
+      <div class="tool-shell">
+      <nav class="tool-tabs" aria-label="Fire sprinkler design tools">
+        <div class="tool-tab-group">Generators</div>
+        <button class="tool-tab active" type="button" data-tool-tab="submittal" aria-pressed="true">Material Data Submittal</button>
+        <button class="tool-tab" type="button" data-tool-tab="hydraulic" aria-pressed="false">Hydraulic Calculation Package</button>
+        <button class="tool-tab" type="button" data-tool-tab="storage" aria-pressed="false">Storage Analysis</button>
+        <button class="tool-tab" type="button" data-tool-tab="water" aria-pressed="false">Water Supply Analysis</button>
+        <button class="tool-tab" type="button" data-tool-tab="layout" aria-pressed="false">Head Layout Generator</button>
+        <button class="tool-tab" type="button" data-tool-tab="vicinity" aria-pressed="false">Vicinity Map</button>
+        <button class="tool-tab" type="button" data-tool-tab="hanger" aria-pressed="false">Hanger Detail</button>
+        <button class="tool-tab" type="button" data-tool-tab="estimator" aria-pressed="false">Bid Estimator</button>
+
+        <div class="tool-tab-group">Design Tools</div>
+        <button class="tool-tab" type="button" data-tool-tab="catalog" aria-pressed="false">Material Catalog</button>
+        <button class="tool-tab" type="button" data-tool-tab="prelim" aria-pressed="false">Preliminary Calculation</button>
+        <button class="tool-tab" type="button" data-tool-tab="hydreport" aria-pressed="false">Hydraulic Analysis Report</button>
+        <button class="tool-tab" type="button" data-tool-tab="seismic" aria-pressed="false">Seismic Bracing</button>
+        <button class="tool-tab" type="button" data-tool-tab="spacing" aria-pressed="false">Sprinkler Spacing Calculator</button>
+        <button class="tool-tab" type="button" data-tool-tab="bracing" aria-pressed="false">Hangers / Bracing Spacing</button>
+        <button class="tool-tab" type="button" data-tool-tab="feet" aria-pressed="false">Feet / Inch Calculator</button>
+
+        <div class="tool-tab-group">Code</div>
+        <button class="tool-tab" type="button" data-tool-tab="code" aria-pressed="false">NFPA Code Assist</button>
+        <button class="tool-tab" type="button" data-tool-tab="nfpa1142" aria-pressed="false">NFPA 1142 Calculator</button>
+
+        <div class="tool-tab-group">Tools</div>
+        <button class="tool-tab" type="button" data-tool-tab="pdfcad" aria-pressed="false">Convert PDF to CAD</button>
+        <button class="tool-tab" type="button" data-tool-tab="cadexplode" aria-pressed="false">Explode CAD Blocks</button>
+        <button class="tool-tab" type="button" data-tool-tab="cadviewer" aria-pressed="false">DWG / DXF Viewer</button>
+        <button class="tool-tab" type="button" data-tool-tab="pdf" aria-pressed="false">Merge / Compress PDFs</button>
+        <button class="tool-tab" type="button" data-tool-tab="settings" aria-pressed="false">Settings</button>
+      </nav>
+      <div class="tool-content">
+
+      <section class="license-tool-gate" id="licenseToolGateBanner" hidden>
+        <div>
+          <p class="eyebrow">License required</p>
+          <strong>SprinkFlow tools are locked on this computer.</strong>
+          <span id="licenseToolGateMessage">Connect an active trial, beta grant, subscription, or offline lease to use the design tools.</span>
+        </div>
+        <button class="secondary-button" id="licenseToolGateAccountButton" type="button">Open Account</button>
+      </section>
+
+      <main class="tool-panel active" data-tool-panel="submittal">
+      <div class="workspace">
+        <div class="quick-center-col">
+        <nav class="simple-step-nav" id="simpleStepNav" aria-label="Simple view workflow navigation" hidden>
+          <div class="step-nav-left">
+            <button class="ghost-button" id="simpleBackButton" type="button">Back</button>
+            <button class="ghost-button" id="simpleStartOverButton" type="button" title="Jump back to the first step — your work is kept">&#8676; Start over</button>
+          </div>
+          <div class="step-chips" id="stepChips" role="tablist" aria-label="Submittal steps"></div>
+          <div class="step-nav-right">
+            <button class="secondary-button" id="simpleSaveProjectButton" type="button" title="Save this project so you can reload it later (Ctrl+S)">&#128190; Save Project</button>
+            <button class="primary-button" id="simpleContinueButton" type="button">Continue</button>
+          </div>
+        </nav>
+        <section class="builder-panel" aria-label="Submittal inputs">
+          <div class="session-banner" id="sessionBanner" hidden role="status">
+            <div class="session-banner-text">
+              <strong>Picking up a submittal in progress</strong>
+              <span id="sessionBannerDetail">You have items from a previous session loaded.</span>
+            </div>
+            <div class="session-banner-actions">
+              <button class="ghost-button compact-button" type="button" id="sessionContinueButton">Continue this one</button>
+              <button class="secondary-button compact-button" type="button" id="sessionStartFreshButton">Start fresh</button>
+            </div>
+          </div>
+          <section class="panel-section project-controls-section">
+            <div class="section-heading"><div class="section-title">
+              <span class="section-icon fire-icon" aria-hidden="true"><svg viewBox="0 0 24 24" role="img"><path d="M5 5h14v14H5z" /><path d="M8 9h8M8 13h8M8 17h5" /></svg></span>
+              <p class="eyebrow">Project</p>
+            </div>
+            <button class="secondary-button compact-button" id="legacySaveProjectButton" type="button" title="Save this project so you can reload it later (Ctrl+S)">&#128190; Save Project</button>
+            </div>
+            <div class="project-tabs" role="tablist" aria-label="Project">
+              <button class="project-tab active" type="button" role="tab" data-project-tab="new" aria-selected="true">New Project</button>
+              <button class="project-tab" type="button" role="tab" data-project-tab="saved" aria-selected="false">Saved Projects</button>
+            </div>
+            <div class="project-tab-panel" data-project-tabpanel="new">
+            <div class="field-grid two">
+              <label>
+                Project Name
+                <input id="projectNameInput" type="text" autocomplete="off" />
+              </label>
+              <label>
+                Project Address
+                <input id="projectAddressInput" type="text" autocomplete="street-address" />
+              </label>
+              <label class="wide-field">
+                Cover Subtitle
+                <input id="projectSubtitleInput" type="text" autocomplete="off" placeholder="Fire Sprinkler Installation" />
+              </label>
+            </div>
+            <div class="cover-additional-info">
+              <label class="toggle-row cover-additional-toggle">
+                <input id="coverAdditionalInfoToggle" type="checkbox" />
+                <span>Additional Information</span>
+              </label>
+              <div class="cover-additional-fields" id="coverAdditionalInfoFields" hidden>
+                <label>
+                  Information Type
+                  <select id="coverAdditionalInfoTypeSelect">
+                    <option value="ahj">AHJ</option>
+                    <option value="generalContractor">General Contractor</option>
+                    <option value="engineer">Engineer</option>
+                    <option value="owner">Owner</option>
+                  </select>
+                </label>
+                <div class="field-grid two cover-additional-editor" id="coverAdditionalInfoEditor">
+                  <label>
+                    Name
+                    <input id="coverAdditionalInfoNameInput" type="text" autocomplete="organization" />
+                  </label>
+                  <label>
+                    Phone Number
+                    <input id="coverAdditionalInfoPhoneInput" type="tel" autocomplete="tel" />
+                  </label>
+                  <label>
+                    License Number
+                    <input id="coverAdditionalInfoLicenseInput" type="text" autocomplete="off" />
+                  </label>
+                  <label class="wide-field">
+                    Address
+                    <textarea id="coverAdditionalInfoAddressInput" rows="2" autocomplete="street-address"></textarea>
+                  </label>
+                </div>
+                <div class="cover-additional-summary" id="coverAdditionalInfoSummary" aria-live="polite"></div>
+              </div>
+            </div>
+            </div>
+            <div class="project-tab-panel" data-project-tabpanel="saved" hidden>
+              <label>
+                Project File
+                <select id="projectSelect" aria-label="Saved projects"></select>
+              </label>
+              <div class="project-actions">
+                <span class="unsaved-indicator" id="unsavedIndicator" hidden title="This project has changes that are not saved to a project file yet. Click Save Project or press Ctrl+S.">&#9679; Unsaved</span>
+                <button class="secondary-button" id="saveProjectButton" type="button" title="Save Project (Ctrl+S)">Save Project</button>
+                <button class="ghost-button" id="loadProjectButton" type="button">Load</button>
+                <button class="ghost-button" id="deleteProjectButton" type="button">Delete</button>
+                <button class="ghost-button" id="resetProjectButton" type="button">New Project</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel-section project-intake-section">
+            <div class="section-heading">
+              <div class="section-title">
+                <span class="section-icon water-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="img">
+                    <path d="M4 20h16" />
+                    <path d="M6 20V9l6-4 6 4v11" />
+                    <path d="M9 20v-6h6v6" />
+                    <path d="M9 11h.01M15 11h.01" />
+                  </svg>
+                </span>
+                <p class="eyebrow">Project intake</p>
+              </div>
+              <span class="privacy-tip" tabindex="0" role="note" aria-label="How your plans are handled">Privacy<span class="privacy-pop">Your plans stay on this computer. SprinkFlow reads them locally to auto-fill project details &mdash; they're not uploaded anywhere and are never used to train AI. (The optional AI cut-sheet reader does send documents to a secure AI to read them &mdash; never to train it.)</span></span>
+            </div>
+            <input id="plansPdfInput" class="hidden-input" type="file" accept=".pdf,application/pdf,image/*" multiple />
+            <div class="datasheet-drop project-info-drop" id="imageIntake" tabindex="0">
+              <strong>Drop fire sprinkler plans and hydraulic calcs here</strong>
+              <span id="ocrStatus">I will route letter-size hydraulic calculations into the calc package builder, scan large-format plans for project/material info, then ask you to confirm before anything is applied.</span>
+              <div class="scan-progress" id="planScanProgress" hidden>
+                <div class="scan-progress-track">
+                  <span id="planScanProgressBar"></span>
+                </div>
+                <small id="planScanProgressLabel">Waiting for plans PDF</small>
+                <ul id="planScanProgressDetails" class="scan-progress-details" aria-live="polite" hidden></ul>
+              </div>
+              <img id="pastedImagePreview" alt="Pasted plan snippet preview" />
+            </div>
+          </section>
+
+          <section class="panel-section contractor-section">
+            <div class="section-heading">
+              <div class="section-title">
+                <span class="section-icon fire-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="img">
+                    <path d="M14.7 6.3a4 4 0 0 0-5.66 0L7.9 7.44l2.83 2.83 1.14-1.14a1 1 0 0 1 1.41 0l1.59 1.59a1 1 0 0 1 0 1.41l-1.14 1.14 2.83 2.83 1.14-1.14a4 4 0 0 0 0-5.66z" />
+                    <path d="M5.2 18.8l4.7-4.7" />
+                    <path d="M3 21l2.2-2.2" />
+                    <path d="M10 14l-1.5-1.5" />
+                  </svg>
+                </span>
+                <p class="eyebrow">Contractor</p>
+              </div>
+              <div class="inline-actions">
+                <button class="secondary-button" id="saveContractorButton" type="button">Save</button>
+                <button class="ghost-button" id="deleteContractorButton" type="button">Delete</button>
+              </div>
+            </div>
+            <label class="contractor-select-label">
+              Saved Contractor
+              <select id="contractorSelect"></select>
+            </label>
+            <div class="field-grid two">
+              <label>
+                Contractor Name
+                <input id="contractorNameInput" type="text" autocomplete="organization" />
+              </label>
+              <label>
+                Phone Number
+                <input id="contractorPhoneInput" type="tel" autocomplete="tel" />
+              </label>
+              <label>
+                License Number
+                <input id="contractorLicenseInput" type="text" autocomplete="off" />
+              </label>
+              <label>
+                Logo
+                <input id="contractorLogoInput" type="file" accept="image/*" />
+              </label>
+            </div>
+            <div class="logo-paste-drop" id="contractorLogoDrop" tabindex="0">
+              <div class="logo-preview-box" id="contractorLogoPreview">
+                <span>No logo</span>
+              </div>
+              <div>
+                <strong>Paste or drop contractor logo here</strong>
+                <span>Click this box and press Ctrl+V, or use the button below.</span>
+                <div class="logo-button-row">
+                  <button class="secondary-button compact-button logo-paste-button" id="pasteContractorLogoButton" type="button">Paste from Clipboard</button>
+                  <button class="ghost-button compact-button logo-clear-button" id="clearContractorLogoButton" type="button">Clear Logo</button>
+                </div>
+              </div>
+            </div>
+            <label class="contractor-address-label">
+              Contractor Address
+              <textarea id="contractorAddressInput" rows="3"></textarea>
+            </label>
+            <label class="contractor-disclaimer-label">
+              Disclaimer
+              <textarea id="disclaimerInput" rows="3"></textarea>
+            </label>
+            <label class="toggle-row contractor-disclaimer-toggle">
+              <input id="coverDisclaimerToggle" type="checkbox" checked />
+              <span>Show disclaimer on the cover sheet</span>
+            </label>
+          </section>
+
+          <section class="preview-panel" aria-label="Submittal preview">
+            <div class="preview-toolbar">
+              <div>
+                <p class="eyebrow">Generated submittal</p>
+                <strong id="documentTitle">Untitled Project</strong>
+              </div>
+              <div class="preview-toolbar-right">
+                <div class="preview-view-toggle" role="group" aria-label="Preview page view">
+                  <button type="button" class="preview-view-btn active" data-preview-view-btn="both" aria-pressed="true">Both</button>
+                  <button type="button" class="preview-view-btn" data-preview-view-btn="cover" aria-pressed="false">Cover</button>
+                  <button type="button" class="preview-view-btn" data-preview-view-btn="toc" aria-pressed="false">TOC</button>
+                </div>
+                <span id="pageCount">2 pages</span>
+              </div>
+            </div>
+            <p class="generate-status" id="generateStatus" role="status" aria-live="polite"></p>
+            <div class="output-actions" id="materialOutputActions" hidden>
+              <span class="output-actions-label">Last generated submittal:</span>
+              <button class="ghost-button compact-button" id="materialOpenFolderButton" type="button">Open Folder</button>
+              <button class="ghost-button compact-button" id="materialCopyPathButton" type="button">Copy Path</button>
+            </div>
+            <div class="document-preview" id="documentPreview"></div>
+          </section>
+
+          <div class="builder-col3">
+          <aside class="panel-section submittal-cart-section submittal-cart-compact" id="submittalCartAdvanced" aria-label="My submittal package">
+            <div class="section-heading">
+              <p class="eyebrow">My submittal package</p>
+            </div>
+            <ul class="cart-items">
+              <li class="cart-item" data-cart-item="plans">
+                <span class="cart-check" aria-hidden="true"></span>
+                <div class="cart-item-body"><strong>Fire Sprinkler Plans</strong><span>No plans added yet</span></div>
+              </li>
+              <li class="cart-item" data-cart-item="hydraulic">
+                <span class="cart-check" aria-hidden="true"></span>
+                <div class="cart-item-body"><strong>Hydraulic Calculation Package</strong><span>Not generated yet</span></div>
+              </li>
+              <li class="cart-item" data-cart-item="material">
+                <span class="cart-check" aria-hidden="true"></span>
+                <div class="cart-item-body"><strong>Material Data Submittal</strong><span>Not generated yet</span></div>
+              </li>
+            </ul>
+            <button class="primary-button full-width-button" type="button" data-package-export disabled>Export full package&hellip;</button>
+            <p class="calculator-status" data-package-status></p>
+          </aside>
+          <section class="panel-section datasheet-database-section">
+            <div class="section-heading">
+              <div class="section-title">
+                <span class="section-icon water-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="img">
+                    <rect x="4" y="4" width="16" height="6" rx="1.5" />
+                    <rect x="4" y="14" width="16" height="6" rx="1.5" />
+                    <path d="M7 7h.01M7 17h.01" />
+                    <path d="M11 7h6M11 17h6" />
+                  </svg>
+                </span>
+                <p class="eyebrow">Datasheet database</p>
+              </div>
+              <div class="inline-actions">
+                <button class="ghost-button compact-button" id="addCategoryButton" type="button">Add Category</button>
+                <button class="secondary-button" id="importButton" type="button">Import PDF Files</button>
+              </div>
+            </div>
+            <input id="datasheetInput" class="hidden-input" type="file" accept=".pdf,application/pdf" multiple />
+            <div class="datasheet-drop" id="datasheetDrop" tabindex="0">
+              <strong>Drop PDF cut sheets here</strong>
+              <span>Each PDF will be read, checked for duplicates, and reviewed before it is saved to the catalog.</span>
+            </div>
+            <p class="import-status" id="datasheetImportStatus" role="status" aria-live="polite"></p>
+          </section>
+          <section class="panel-section cover-template-section">
+            <p class="eyebrow">Cover Template</p>
+            <div class="cover-template-options" id="coverTemplateOptions"></div>
+          </section>
+          </div>
+
+          <section class="panel-section selected-sheets-section">
+            <div id="specRequirementsPanel" class="spec-reqs hidden"></div>
+            <div class="catalog-command-bar">
+              <label class="catalog-search-field">
+                <input id="catalogSearchInput" type="search" placeholder="Search the datasheet catalog — manufacturer, model, product, or filename" />
+              </label>
+              <label class="catalog-selected-filter">
+                <input id="catalogSelectedOnlyInput" type="checkbox" />
+                <span>Selected only</span>
+              </label>
+              <span class="catalog-bar-spacer"></span>
+              <span id="selectedCount">0 selected</span>
+              <button class="ghost-button compact-button" id="refreshCatalogButton" type="button">Refresh</button>
+              <button class="ghost-button compact-button danger-ghost-button" id="deleteSelectedDatasheetsButton" type="button" disabled>Delete Selected</button>
+              <button class="ghost-button compact-button" id="clearSelectionsButton" type="button">Clear</button>
+            </div>
+            <details class="loadout-disclosure">
+              <summary>Saved material sets &amp; loadouts</summary>
+              <div class="loadout-panel" aria-label="Saved material loadouts">
+                <select id="loadoutSelect" aria-label="Saved loadouts">
+                  <option value="">Saved loadouts</option>
+                </select>
+                <div class="loadout-actions">
+                  <button class="ghost-button compact-button" id="applyLoadoutButton" type="button" disabled>Apply</button>
+                  <button class="ghost-button compact-button" id="saveLoadoutButton" type="button">Save Current</button>
+                  <button class="ghost-button compact-button" id="editLoadoutButton" type="button" disabled>Edit</button>
+                  <button class="ghost-button compact-button" id="exportLoadoutButton" type="button" disabled>Export</button>
+                  <button class="ghost-button compact-button" id="importLoadoutButton" type="button">Import</button>
+                  <button class="ghost-button compact-button danger-ghost-button" id="deleteLoadoutButton" type="button" disabled>Delete</button>
+                </div>
+                <input id="loadoutImportInput" class="hidden-input" type="file" accept=".json,application/json" />
+              </div>
+            </details>
+            <div class="catalog-list" id="catalogList"></div>
+          </section>
+        </section>
+        </div>
+        <aside class="panel-section submittal-cart-section" id="submittalCart">
+          <div class="section-heading">
+            <p class="eyebrow">My submittal package</p>
+          </div>
+          <div class="cart-project-readout" id="cartProjectReadout">
+            <p class="eyebrow cart-project-eyebrow">Project</p>
+            <strong class="cart-readout-name" id="cartProjectName">Untitled project</strong>
+            <span class="cart-readout-line" id="cartProjectAddress" hidden></span>
+            <span class="cart-readout-line cart-readout-subtitle" id="cartProjectSubtitle" hidden></span>
+          </div>
+          <div class="cart-sheets" id="cartSheets" hidden>
+            <p class="eyebrow">Sheets in this submittal</p>
+            <div id="quickTocSummaryBody"></div>
+          </div>
+          <ul class="cart-items">
+            <li class="cart-item" data-cart-item="plans">
+              <span class="cart-check" aria-hidden="true"></span>
+              <div class="cart-item-body">
+                <strong>Fire Sprinkler Plans</strong>
+                <span>No plans added yet</span>
+              </div>
+            </li>
+            <li class="cart-item" data-cart-item="hydraulic">
+              <span class="cart-check" aria-hidden="true"></span>
+              <div class="cart-item-body">
+                <strong>Hydraulic Calculation Package</strong>
+                <span>Not generated yet</span>
+              </div>
+            </li>
+            <li class="cart-item" data-cart-item="material">
+              <span class="cart-check" aria-hidden="true"></span>
+              <div class="cart-item-body">
+                <strong>Material Data Submittal</strong>
+                <span>Not generated yet</span>
+              </div>
+            </li>
+          </ul>
+          <button class="primary-button full-width-button" type="button" data-package-export disabled>Export full package&hellip;</button>
+          <p class="cart-hint">Pick a folder &mdash; it opens automatically after saving.</p>
+          <p class="calculator-status" data-package-status></p>
+        </aside>
+      </div>
+      </main>
+
+      <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="catalog" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">Reference</p>
+            <h2>Material Catalog</h2>
+          </div>
+          <button class="ghost-button" id="matcatRefresh" type="button" title="Reload the catalog from disk">Refresh</button>
+        </div>
+        <section class="panel-section calculator-section">
+          <p class="hydreport-note">Browse, preview, and manage every datasheet in your catalog &mdash; no submittal required. Drop a PDF to add one; multi-select to download or delete in bulk.</p>
+          <div class="matcat-drop" id="matcatDrop">
+            <strong>Drop PDF cut sheets here</strong>
+            <span>or <button class="link-button" id="matcatImport" type="button">choose files</button> to add them to the catalog</span>
+            <input id="matcatFileInput" type="file" accept=".pdf,application/pdf" multiple hidden />
+          </div>
+          <p class="calculator-status" id="matcatStatus"></p>
+          <div class="matcat-toolbar">
+            <input id="matcatSearch" type="search" placeholder="Search &mdash; manufacturer, model, product, filename" aria-label="Search catalog" />
+            <select id="matcatCategory" aria-label="Category"><option value="All">All categories</option></select>
+            <select id="matcatSort" aria-label="Sort by">
+              <option value="manufacturer">Sort: Manufacturer</option>
+              <option value="name">Sort: Name</option>
+              <option value="category">Sort: Category</option>
+            </select>
+          </div>
+          <div class="matcat-sprfilters" id="matcatSprinklerFilters" hidden>
+            <span class="matcat-sprfilters-label">Sprinkler filters:</span>
+            <select id="matcatManufacturer" aria-label="Manufacturer"><option value="All">All manufacturers</option></select>
+            <select id="matcatType" aria-label="Sprinkler type"><option value="All">All types</option></select>
+            <select id="matcatOrientation" aria-label="Orientation"><option value="All">All orientations</option></select>
+            <select id="matcatKfactor" aria-label="K-factor"><option value="All">All K-factors</option></select>
+            <select id="matcatTemp" aria-label="Temperature rating"><option value="All">All temperatures</option></select>
+            <select id="matcatResponse" aria-label="Response"><option value="All">All responses</option></select>
+            <button class="link-button" id="matcatClearFilters" type="button" hidden>Clear filters</button>
+            <span class="matcat-tempnote" id="matcatTempNote" hidden></span>
+          </div>
+          <div class="matcat-bulkbar">
+            <label class="matcat-selall"><input type="checkbox" id="matcatSelectAll" /> Select all shown</label>
+            <span class="matcat-count" id="matcatSelCount">0 selected</span>
+            <span class="matcat-bulkspacer"></span>
+            <button class="secondary-button compact-button" id="matcatDownloadSel" type="button" disabled>&#8681; Download selected</button>
+            <button class="ghost-button compact-button" id="matcatDeleteSel" type="button" disabled>Delete selected</button>
+            <button class="ghost-button compact-button" id="matcatClearSel" type="button">Clear</button>
+          </div>
+          <div class="matcat-list" id="materialCatalogList"></div>
+
+          <div class="matcat-ai">
+            <div class="section-heading"><p class="eyebrow">Can&rsquo;t find it in the catalog?</p></div>
+            <p class="hydreport-note">Ask AI to track down a datasheet that isn&rsquo;t here yet &mdash; it searches the internet for the manufacturer&rsquo;s cut sheet and attempts to download the PDF so you can add it to your catalog in one click. Always verify the model / SIN against the manufacturer datasheet before submitting.</p>
+            <div class="matcat-ai-row">
+              <input id="matcatAiQuery" type="text" placeholder="e.g. Viking VK302 pendent, or Tyco TY-FRB K5.6" aria-label="Datasheet to find" />
+              <button class="secondary-button" id="matcatAiFind" type="button">&#10024; Ask AI to find this datasheet</button>
+            </div>
+            <div id="matcatAiResult" class="ai-datasheet-result" hidden></div>
+          </div>
+        </section>
+      </section>
+
+      <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="seismic" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">Seismic Design</p>
+            <h2>Seismic Bracing</h2>
+          </div>
+          <div class="seismic-hero-actions">
+            <button class="ghost-button" id="seismicStartOverButton" type="button" title="Reset everything — brand-new project, cleared job &amp; SDS lookup, fresh brace">Start Over</button>
+            <button class="ghost-button" id="seismicClearButton" type="button">Clear</button>
+          </div>
+        </div>
+        <div class="seismic-grid">
+          <section class="panel-section calculator-section seismic-input-section">
+            <nav class="seismic-wiz-nav" aria-label="Seismic bracing steps">
+              <button class="ghost-button compact-button" id="seismicWizBack" type="button">Back</button>
+              <div class="step-chips" id="seismicStepChips" role="tablist" aria-label="Seismic steps"></div>
+              <button class="primary-button compact-button" id="seismicWizNext" type="button">Continue</button>
+            </nav>
+            <div class="seismic-context-bar" id="seismicContextBar" aria-label="Current brace summary">
+              <span class="ctx-type" id="ctxType">LATERAL</span>
+              <span class="ctx-seg"><span class="ctx-label">Orientation</span><span class="ctx-val" id="ctxOrient">&mdash;</span></span>
+              <span class="ctx-seg"><span class="ctx-label">Main Pipe</span><span class="ctx-val" id="ctxMain">&mdash;</span></span>
+              <span class="ctx-seg"><span class="ctx-label">Spacing</span><span class="ctx-val" id="ctxSpacing">&mdash;</span></span>
+            </div>
+
+            <div class="seismic-step" data-sstep="project">
+              <div class="section-heading"><p class="eyebrow">Step 1 &mdash; Project</p></div>
+              <p class="hydreport-note seismic-step1-intro">Set the project up once &mdash; name, address, and design standard &mdash; look up the seismic load, save it, then add braces.</p>
+
+              <label>Saved Project
+                <select id="seismicProjectSelect"><option value="">New project</option></select>
+              </label>
+              <div class="field-grid two">
+                <label>Project Name<input id="seismicJobName" type="text" placeholder="e.g. Harrison St High Rise" /></label>
+                <label>Job Number<input id="seismicJobNumber" type="text" /></label>
+              </div>
+              <label>Project Address<input id="seismicJobAddress" type="text" autocomplete="street-address" placeholder="street, city, state" /></label>
+
+              <div class="field-grid three hydreport-subhead">
+                <label>Design Standard
+                  <select id="seismicEdition"></select>
+                </label>
+                <label id="seismicCpModeLabel">Seismic Load Basis
+                  <select id="seismicCpMode">
+                    <option value="cp">Enter Cp directly</option>
+                    <option value="sds" selected>From SDS</option>
+                    <option value="ss">From Ss</option>
+                  </select>
+                </label>
+                <label><span id="seismicCpValueLabel">SDS</span>
+                  <input id="seismicCpValue" type="number" step="0.01" min="0" value="0.5" />
+                </label>
+              </div>
+              <div class="seismic-lookup-row">
+                <button class="secondary-button" id="seismicSdsLookup" type="button" title="Geocode the project address and pull SDS / Ss from the USGS design maps">Lookup From Job Address</button>
+                <span class="seismic-lookup-note">Fills SDS / Ss from the USGS design maps using the Project Address above (Site Class &amp; hazard in the fold).</span>
+              </div>
+              <p class="calculator-status" id="seismicSdsStatus"></p>
+              <div class="seismic-sds-doc" id="seismicSdsDoc" hidden></div>
+
+              <div class="project-actions">
+                <button class="secondary-button" id="seismicSaveProjectBtn" type="button" title="Save this whole job &mdash; project info and every brace on the rack &mdash; so you can reload it later">&#128190; Save Project</button>
+                <button class="ghost-button compact-button" id="seismicNewProjectBtn" type="button" title="Start a fresh, empty project">New</button>
+                <button class="ghost-button compact-button" id="seismicDeleteProjectBtn" type="button" title="Delete the selected saved project">Delete</button>
+              </div>
+              <p class="calculator-status" id="seismicProjectStatus"></p>
+
+              <button class="primary-button full-width-button seismic-add-brace" id="seismicAddBraceBtn" type="button" title="Start a new brace and step through the wizard">+ Add New Brace to Project</button>
+              <p class="hydreport-note">Every brace shares this project info and gets an ID automatically (LAT-1, LONG-1&hellip;). Attachment height is set per brace on the next step.</p>
+
+              <details class="seismic-fold seismic-setup-fold" id="seismicFoldProject">
+                <summary>Designer &amp; contractor<span class="seismic-fold-hint" id="seismicFoldProjectHint">optional &mdash; shows on the calc sheet</span></summary>
+                <label>Designer<input id="seismicDesigner" type="text" /></label>
+                <div class="field-grid three hydreport-subhead">
+                  <label>Contractor / Engineer
+                    <select id="seismicFirmRole">
+                      <option value="contractor" selected>Contractor</option>
+                      <option value="engineer">Engineer</option>
+                    </select>
+                  </label>
+                  <label>Pick From Saved Contractors
+                    <select id="seismicFirmPick"><option value="">&mdash; pick from list &mdash;</option></select>
+                  </label>
+                  <label>License #<input id="seismicFirmLicense" type="text" /></label>
+                  <label><span id="seismicFirmNameLabel">Contractor Name</span><input id="seismicFirmName" type="text" /></label>
+                  <label class="wide-field"><span id="seismicFirmAddressLabel">Contractor Address</span><input id="seismicFirmAddress" type="text" /></label>
+                </div>
+              </details>
+
+              <details class="seismic-fold seismic-setup-fold" id="seismicFoldSite">
+                <summary>Site &amp; hazard<span class="seismic-fold-hint" id="seismicFoldSiteHint">site class &amp; hazard &mdash; defaults are fine</span></summary>
+                <div class="field-grid three">
+                  <label>Site Class
+                    <select id="seismicSiteClass">
+                      <option value="Default" selected>Default (unknown)</option>
+                      <option value="A">A &mdash; hard rock</option>
+                      <option value="B">B &mdash; rock</option>
+                      <option value="C">C &mdash; very dense soil</option>
+                      <option value="D">D &mdash; stiff soil</option>
+                      <option value="E">E &mdash; soft clay</option>
+                    </select>
+                  </label>
+                  <label>Hazard Data
+                    <select id="seismicAsce">
+                      <option value="asce7-22" selected>ASCE 7-22</option>
+                      <option value="asce7-16">ASCE 7-16</option>
+                    </select>
+                  </label>
+                  <label>Risk Category
+                    <select id="seismicRiskCat">
+                      <option value="I">I</option>
+                      <option value="II" selected>II</option>
+                      <option value="III">III</option>
+                      <option value="IV">IV</option>
+                    </select>
+                  </label>
+                </div>
+                <p class="hydreport-note">Site Class, ASCE hazard version and Risk Category feed the address &rarr; SDS lookup above (Risk Category doesn&rsquo;t change SDS itself, but sets the Seismic Design Category on the documentation).</p>
+              </details>
+            </div>
+
+            <div class="seismic-step" data-sstep="orientation">
+              <div class="section-heading"><p class="eyebrow">Step 2 &mdash; Brace Type &amp; Orientation</p></div>
+              <div class="field-grid two">
+                <label>Brace Type
+                  <select id="seismicBraceType">
+                    <option value="lateral" selected>Lateral</option>
+                    <option value="longitudinal">Longitudinal</option>
+                    <option value="riser">4-Way (riser)</option>
+                  </select>
+                </label>
+                <label>Brace Attaches To
+                  <select id="seismicOrientGroup">
+                    <option value="overhead" selected>Structure overhead (A / B / C)</option>
+                    <option value="perp">Load perpendicular to member (D / E / F)</option>
+                    <option value="para">Load parallel to member (G / H / I)</option>
+                  </select>
+                </label>
+              </div>
+              <p class="hydreport-note" id="seismicBraceTypeHint"></p>
+              <div class="seismic-orient-box hydreport-subhead">
+                <svg id="seismicOrientSvg" viewBox="0 0 340 250" role="img" aria-label="Brace angle diagram"></svg>
+                <div class="seismic-orient-side">
+                  <div class="seismic-orient-letter"><span id="seismicOrientLetter">B</span></div>
+                  <div id="seismicOrientRange" class="seismic-orient-range">45&deg; to 59&deg; from vertical</div>
+                  <input id="seismicOrientSlider" type="range" min="30" max="90" step="1" value="45" />
+                  <div id="seismicOrientStats" class="seismic-orient-stats"></div>
+                </div>
+              </div>
+              <p class="hydreport-note">Flatter braces carry more axial load for the same seismic force. Component listed ratings are adjusted per Table 18.5.2.3 &mdash; 30&ndash;44&deg;: &divide;2.000, 45&ndash;59&deg;: &divide;1.414, 60&ndash;90&deg;: &divide;1.155 &mdash; so steeper braces keep more of their rated capacity.</p>
+
+              <div class="section-heading hydreport-subhead"><p class="eyebrow">Brace Elevation (Cp height reduction)</p></div>
+              <div class="field-grid three">
+                <label>Attachment Height (ft)
+                  <input id="seismicAttachHeight" type="number" step="0.5" min="0" placeholder="this brace" />
+                </label>
+                <label>Avg. Roof Height (ft)
+                  <input id="seismicRoofHeight" type="number" step="0.5" min="1" placeholder="building" />
+                </label>
+                <label>Cp Height Factor
+                  <input id="seismicHeightFactor" type="text" readonly tabindex="-1" placeholder="enter both heights" />
+                </label>
+              </div>
+              <p class="hydreport-note" id="seismicHeightNote">A brace low in the building gets a reduced Cp (18.5.9.3.3/.3.4): below 50% of the average roof height &times;0.75, 50&ndash;75% &times;0.875. Applies to the SDS-formula editions (2025 / 2022 post-TIA). Set per brace &mdash; each brace sits at its own elevation.</p>
+            </div>
+
+            <div class="seismic-step" data-sstep="main">
+              <div class="section-heading"><p class="eyebrow">Step 3 &mdash; Main &amp; Spacing</p></div>
+              <div class="field-grid three">
+                <label>Main Size
+                  <select id="seismicMainSize"></select>
+                </label>
+                <label>Main Pipe Type
+                  <select id="seismicMainSched"></select>
+                </label>
+                <label><span id="seismicSpacingLabel">Brace Spacing (ft) &mdash; max 40</span>
+                  <input id="seismicSpacing" type="number" step="0.5" min="1" value="40" />
+                </label>
+              </div>
+              <div class="field-grid two hydreport-subhead">
+                <label>Main in ZOI (auto = brace spacing)
+                  <input id="seismicMainAuto" type="text" readonly placeholder="select the main size" tabindex="-1" />
+                </label>
+                <label>Stress Check (auto from main)
+                  <input id="seismicStressAuto" type="text" readonly tabindex="-1" />
+                </label>
+              </div>
+              <div class="field-grid two seismic-stress-override" id="seismicStressOverride" hidden>
+                <label>Braced Pipe (stress table)
+                  <select id="seismicBracedTable"></select>
+                </label>
+                <label>Braced Pipe Size
+                  <select id="seismicBracedSize"></select>
+                </label>
+              </div>
+              <p class="hydreport-note" id="seismicStressNote" hidden></p>
+              <details class="seismic-fold hydreport-subhead">
+                <summary>Not sure what spacing to try? Open the Spacing Optimizer</summary>
+                <p class="hydreport-note">Enter the whole stretch (main + everything hanging off it). SprinkFlow finds the largest brace spacing that passes every check &mdash; no more guess-and-recalc.</p>
+                <div class="field-grid three">
+                  <label>Main Pipe Size
+                    <select id="seismicOptMainSize"></select>
+                  </label>
+                  <label>Main Pipe Type
+                    <select id="seismicOptMainSched"></select>
+                  </label>
+                  <label>Main Total Length (ft)
+                    <input id="seismicOptMainLen" type="number" step="1" min="1" placeholder="e.g. 300" />
+                  </label>
+                </div>
+                <p class="seismic-zoi-head">Piping in the Zone of Influence</p>
+                <p class="hydreport-note">Branch lines, armovers, drops, sprigs &mdash; total footage hanging off the whole stretch.</p>
+                <div class="seismic-row is-pipe seismic-row-head" aria-hidden="true">
+                  <span>Pipe Size</span><span>Pipe Type</span><span>lb/ft</span><span>Total Feet</span><span></span>
+                </div>
+                <div id="seismicStretchRows" class="seismic-rows"></div>
+                <div class="seismic-row-actions">
+                  <button class="compact-button" id="seismicAddStretchRow" type="button">+ Add pipe</button>
+                  <button class="secondary-button" id="seismicOptimize" type="button">Find Max Spacing</button>
+                </div>
+                <div id="seismicOptResult" class="seismic-demand"></div>
+              </details>
+            </div>
+
+            <div class="seismic-step" data-sstep="zoi">
+              <div class="section-heading"><p class="eyebrow">Step 4 &mdash; Piping in the Zone of Influence</p></div>
+              <p class="hydreport-note" id="seismicZoiHint">Branch lines, armovers, drops, sprigs &mdash; footage inside one brace zone. The main is added automatically from Step 3.</p>
+              <div class="seismic-row is-pipe seismic-row-head" aria-hidden="true">
+                <span>Pipe Size</span><span>Pipe Type</span><span>lb/ft</span><span>Feet of Pipe</span><span></span>
+              </div>
+              <div id="seismicZoiRows" class="seismic-rows"></div>
+              <div class="seismic-row-actions">
+                <button class="compact-button" id="seismicAddZoiRow" type="button">+ Add pipe</button>
+                <label class="seismic-inline">Concentrated loads (lb)
+                  <input id="seismicConcentrated" type="number" step="1" min="0" value="0" />
+                </label>
+              </div>
+            </div>
+
+            <div class="seismic-step" data-sstep="member">
+              <div class="section-heading"><p class="eyebrow">Step 5 &mdash; Brace Member</p></div>
+              <div class="field-grid two">
+                <label>Member
+                  <select id="seismicMemberCategory"></select>
+                </label>
+                <label>Size
+                  <select id="seismicMemberSize"></select>
+                </label>
+              </div>
+              <div class="field-grid three hydreport-subhead">
+                <label>Length (ft-in)
+                  <input id="seismicMemberLength" type="text" value="7-0" placeholder="7-0 (ft-in)" />
+                </label>
+                <label><span id="seismicAngleHint">Angle from Vertical (&deg;)</span>
+                  <input id="seismicAngle" type="number" step="1" min="30" max="89" value="45" />
+                </label>
+                <label>Fine-tune Angle
+                  <input id="seismicAngleSlider" type="range" min="45" max="59" step="1" value="45" />
+                </label>
+              </div>
+              <p class="seismic-zoi-head">Auto-Length Calculator</p>
+              <p class="hydreport-note">Enter the vertical distance from the pipe centerline up to the attachment point. SprinkFlow subtracts half the main&rsquo;s OD (braces run from the top of pipe) and works the slope from your Step 2 angle.</p>
+              <div class="field-grid three">
+                <label>Centerline to Attachment (in.)
+                  <input id="seismicRiseIn" type="number" step="0.5" min="1" placeholder="e.g. 36" />
+                </label>
+                <label>Computed Brace Length
+                  <input id="seismicAutoLen" type="text" readonly tabindex="-1" />
+                </label>
+                <label>&nbsp;
+                  <button class="secondary-button" id="seismicApplyLen" type="button" disabled>Use This Length</button>
+                </label>
+              </div>
+            </div>
+
+            <div class="seismic-step" data-sstep="attach">
+              <div class="section-heading"><p class="eyebrow">Step 6 &mdash; Attachments</p></div>
+              <div id="seismicComponentRows" class="seismic-rows seismic-attach-rows"></div>
+              <p class="hydreport-note">Pipe attachment size follows the main pipe size from Step 3.</p>
+              <div class="field-grid two hydreport-subhead">
+                <label>Structural Member (optional)
+                  <select id="seismicStructMember">
+                    <option value="">Generic / by fastener table only</option>
+                    <option value="redbuilt">RedBuilt engineered wood</option>
+                  </select>
+                </label>
+                <label id="seismicRbDetailWrap" hidden>RedBuilt Detail
+                  <select id="seismicRbDetail"></select>
+                </label>
+              </div>
+              <p class="hydreport-note" id="seismicRbNote" hidden></p>
+            </div>
+
+            <div class="seismic-step" data-sstep="fastener">
+              <div class="section-heading"><p class="eyebrow">Step 7 &mdash; Fastener to Structure</p></div>
+              <div class="field-grid three">
+                <label>Fastener to Structure
+                  <select id="seismicFastenerTable"></select>
+                </label>
+                <label>Fastener Size
+                  <select id="seismicFastenerSize"></select>
+                </label>
+                <label>Fastener Orientation
+                  <select id="seismicOrientation"></select>
+                </label>
+              </div>
+              <div class="field-grid two hydreport-subhead" id="seismicPrWrap" hidden>
+                <label>Prying Factor (Pr)
+                  <select id="seismicPrBand"></select>
+                </label>
+                <label>&nbsp;
+                  <span class="hydreport-note">Pr accounts for leverage on the anchor when the brace attachment is offset from it. Higher prying, lower capacity.</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="seismic-step" data-sstep="review">
+              <div class="section-heading"><p class="eyebrow">Step 8 &mdash; Review &amp; Export</p></div>
+              <div id="seismicWizSummary" class="seismic-demand"></div>
+              <div class="seismic-autofit hydreport-subhead" id="seismicSpacingTuner" hidden>
+                <p class="seismic-zoi-head">Tune Brace Spacing</p>
+                <div id="seismicTunerBody">
+                  <p class="hydreport-note">Drag to adjust the on-center spacing &mdash; the branch piping in each brace zone scales with it and the results update live. Verify the real footage in each zone doesn&rsquo;t exceed the scaled lengths.</p>
+                  <div class="seismic-tuner-row">
+                    <input id="seismicSpacingSlider" type="range" min="5" max="40" step="1" value="40" />
+                    <output id="seismicSpacingOut" class="seismic-tuner-out">40 ft</output>
+                  </div>
+                  <p class="calculator-status" id="seismicSpacingTunerNote"></p>
+                </div>
+                <p class="hydreport-note" id="seismicTunerNa" hidden>Spacing tuning is for <strong>lateral</strong> braces &mdash; this is a <strong id="seismicTunerNaType">longitudinal</strong> brace, so the slider is off.</p>
+              </div>
+              <div class="seismic-autofit hydreport-subhead">
+                <button class="secondary-button" id="seismicAutoFit" type="button">Auto-Fit Spacing Until It Passes</button>
+                <p class="hydreport-note">Steps the brace spacing down (keeping the same ZOI-to-main ratio) until every check passes. Double-check that the real branch footage in each zone doesn&rsquo;t exceed the scaled lengths.</p>
+                <p class="calculator-status" id="seismicAutoFitStatus"></p>
+              </div>
+              <div class="seismic-autofit hydreport-subhead" id="seismicQuickLongBox" hidden>
+                <p class="seismic-zoi-head">Quick Longitudinal Calc</p>
+                <p class="hydreport-note">Same main, member, structure attachment, and fastener as this lateral brace &mdash; just pick the longitudinal pipe attachment. SprinkFlow saves this brace, finds the largest passing longitudinal spacing (up to 80 ft, main-only zone), and lands you on the finished calc.</p>
+                <div class="field-grid three">
+                  <label>Manufacturer
+                    <select id="seismicQlMfr"></select>
+                  </label>
+                  <label>Pipe Attachment
+                    <select id="seismicQlFig"></select>
+                  </label>
+                  <label>Size
+                    <select id="seismicQlSize"></select>
+                  </label>
+                </div>
+                <button class="primary-button" id="seismicQuickLongRun" type="button">Run Quick Longitudinal Calc</button>
+                <p class="calculator-status" id="seismicQuickLongStatus"></p>
+              </div>
+              <div class="field-grid two hydreport-subhead">
+                <label>Calc Sheet Style
+                  <select id="seismicSheetStyle">
+                    <option value="tolbrace" selected>SprinkFlow standard</option>
+                    <option value="nfpa">NFPA 13 sample worksheet</option>
+                  </select>
+                </label>
+                <label>Detail Drawing
+                  <select id="seismicDetailSelect">
+                    <option value="generated" selected>Generated schematic (true angle)</option>
+                  </select>
+                </label>
+              </div>
+              <div class="seismic-export">
+                <button class="primary-button" id="seismicExportPdf" type="button" disabled>Export PDF&hellip;</button>
+                <button class="secondary-button" id="seismicCopyPng" type="button" disabled>Copy PNG (8.5&times;11)</button>
+                <button class="ghost-button" id="seismicDetailDxf" type="button" disabled title="The assembly detail as CAD linework for your plans">Detail DXF&hellip;</button>
+              </div>
+              <p class="hydreport-note">The PNG lands on your clipboard as a full 8.5" &times; 11" sheet at 200 dpi &mdash; paste it straight onto your seismic-calcs sheet. Export All&hellip; in the Brace Rack builds one bookmarked PDF for the whole job.</p>
+            </div>
+          </section>
+
+          <section class="panel-section calculator-section seismic-results-section" id="seismicSidePanel">
+            <div class="seismic-side-empty" id="seismicSideEmpty">
+              <p class="eyebrow">Brace rack &amp; results</p>
+              <p>As you walk the steps, your braces collect here with a PASS/FAIL chip each, and the live results appear the moment the calc has enough to run.</p>
+            </div>
+            <div class="section-heading"><p class="eyebrow">Brace Rack</p><span class="seismic-rack-hint">auto-saves as you work</span></div>
+            <div id="seismicBraceRack" class="seismic-rack"></div>
+            <div class="seismic-brace-bar">
+              <button class="secondary-button compact-button" id="seismicNewBrace" type="button" title="Start the next brace — project info, standard, and hardware carry over">+ New Brace</button>
+              <button class="compact-button" id="seismicDupBrace" type="button" title="Copy this brace as the next ID">Duplicate</button>
+              <label class="seismic-inline" title="Rename the active brace">ID
+                <input id="seismicBraceId" type="text" />
+              </label>
+              <button class="secondary-button" id="seismicExportAll" type="button" title="One bookmarked PDF, one calc sheet per brace">Export All&hellip;</button>
+            </div>
+            <p class="calculator-status" id="seismicBraceStatus"></p>
+
+            <div class="section-heading hydreport-subhead"><p class="eyebrow">Results</p><span id="seismicOverall" class="seismic-overall">&mdash;</span></div>
+            <div id="seismicDemand" class="seismic-demand"></div>
+            <div id="seismicConstraints" class="seismic-constraints"></div>
+            <div id="seismicSuggest" class="seismic-suggest" hidden>
+              <button class="secondary-button compact-button" id="seismicSuggestBtn" type="button" title="Try verified variations of your inputs and show only the ones that flip this brace to PASS">&#128161; Suggest Fixes</button>
+              <div id="seismicSuggestList"></div>
+            </div>
+            <div id="seismicConditions" class="seismic-conditions"></div>
+            <p class="calculator-status" id="seismicStatus"></p>
+
+            <details class="seismic-fold">
+              <summary>More checks &mdash; branch-line restraint &amp; riser nipples</summary>
+              <div class="section-heading hydreport-subhead"><p class="eyebrow">Branch-Line Restraint (Table 18.6.4)</p></div>
+              <div class="field-grid three">
+                <label>Pipe
+                  <select id="seismicRestraintTable"></select>
+                </label>
+                <label>Size
+                  <select id="seismicRestraintSize"></select>
+                </label>
+                <label>Restraint Spacing (ft)
+                  <input id="seismicRestraintSpacing" type="number" step="0.5" min="1" placeholder="e.g. 30" />
+                </label>
+              </div>
+              <div id="seismicRestraintResult" class="seismic-demand"></div>
+
+              <div class="section-heading hydreport-subhead"><p class="eyebrow">Riser-Nipple Screening (Eq. 18.5.9.6.2)</p></div>
+              <div class="field-grid four">
+                <label>Wp (lb)
+                  <input id="seismicRiserWp" type="number" step="1" min="0" placeholder="tributary" />
+                </label>
+                <label>Hr (in.)
+                  <input id="seismicRiserHr" type="number" step="0.5" min="0" placeholder="nipple" />
+                </label>
+                <label>S (in.&sup3;)
+                  <input id="seismicRiserS" type="number" step="0.001" min="0" placeholder="section mod." />
+                </label>
+                <label>Fy
+                  <select id="seismicRiserFy">
+                    <option value="30000" selected>30,000 psi (steel / copper)</option>
+                    <option value="8000">8,000 psi (CPVC)</option>
+                  </select>
+                </label>
+              </div>
+              <div id="seismicRiserResult" class="seismic-demand"></div>
+            </details>
+          </section>
+        </div>
+      </section>
+
+      <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="hydreport" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">Hydraulic Report</p>
+            <h2>Hydraulic Analysis Report</h2>
+          </div>
+          <button class="ghost-button" id="hydreportClearButton" type="button">Clear All Fields</button>
+        </div>
+        <div class="hydreport-grid">
+          <section class="panel-section calculator-section hydreport-input-section">
+            <label>Saved Report
+              <select id="hydreportReportSelect"><option value="">New report</option></select>
+            </label>
+            <div class="project-actions">
+              <button class="secondary-button compact-button" id="hydreportSaveReportButton" type="button">&#128190; Save Report</button>
+              <button class="ghost-button compact-button" id="hydreportLoadReportButton" type="button">Load</button>
+              <button class="ghost-button compact-button" id="hydreportDeleteReportButton" type="button">Delete</button>
+              <button class="ghost-button compact-button" id="hydreportNewReportButton" type="button">New</button>
+            </div>
+
+            <label class="hydreport-subhead">Project Name (optional)
+              <input id="hydreportProjectInput" type="text" autocomplete="off" placeholder="ex: Acme Warehouse - Tenant Improvement" />
+            </label>
+            <label>Link to Saved Project
+              <select id="hydreportLinkProjectSelect"><option value="">(not linked)</option></select>
+            </label>
+
+            <div class="section-heading hydreport-subhead"><p class="eyebrow">Applicable Codes</p></div>
+            <div id="hydreportCodesList" class="hydreport-rows"></div>
+            <button class="ghost-button compact-button" id="hydreportAddCode" type="button">+ Add code</button>
+
+            <div class="section-heading hydreport-subhead"><p class="eyebrow">Occupancy Hazard by Room</p></div>
+            <div id="hydreportRoomsList" class="hydreport-rows"></div>
+            <div class="hydreport-row-actions">
+              <button class="ghost-button compact-button" id="hydreportAddRoom" type="button">+ Add room</button>
+              <button class="ghost-button compact-button" id="hydreportAddHazardButton" type="button">+ Custom hazard</button>
+            </div>
+            <div class="hydreport-hazard-editor" id="hydreportHazardEditor" hidden>
+              <div class="field-grid three">
+                <label>Name<input id="hydreportHazEditName" type="text" placeholder="ex: Special Storage" /></label>
+                <label>Density (gpm/ft&sup2;)<input id="hydreportHazEditDensity" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.55" /></label>
+                <label>Design Area (ft&sup2;)<input id="hydreportHazEditArea" type="number" min="1" step="1" inputmode="decimal" placeholder="2000" /></label>
+              </div>
+              <div class="project-actions">
+                <button class="secondary-button compact-button" id="hydreportHazEditSave" type="button">Add hazard</button>
+                <button class="ghost-button compact-button" id="hydreportHazEditCancel" type="button">Cancel</button>
+              </div>
+              <p class="hydreport-note" id="hydreportHazEditNote"></p>
+            </div>
+            <div id="hydreportCustomHazardList" class="hydreport-custom-list"></div>
+
+            <div class="section-heading hydreport-subhead"><p class="eyebrow">Design Area &amp; Modifiers</p></div>
+            <label>Base Design Area (ft&sup2;)
+              <input id="hydreportBaseAreaInput" type="number" min="1" step="1" inputmode="decimal" value="1500" />
+            </label>
+            <label class="toggle-row"><input id="hydreportQrToggle" type="checkbox" /> <span>Quick-response sprinklers (wet-pipe, Light/Ordinary Hazard)</span></label>
+            <label>Ceiling Height &mdash; for QR reduction
+              <input id="hydreportCeilingInput" type="text" autocomplete="off" placeholder="ex: 12 or 15-2" />
+            </label>
+            <p class="hydreport-note" id="hydreportQrResult"></p>
+            <label class="toggle-row"><input id="hydreportDryToggle" type="checkbox" /> <span>Dry pipe or double-interlock preaction system (+30% design area)</span></label>
+            <label class="toggle-row"><input id="hydreportSlopeToggle" type="checkbox" /> <span>Ceiling slope exceeds 2 in 12 (+30% design area)</span></label>
+            <p class="hydreport-note" id="hydreportMinLengthResult"></p>
+
+            <label class="hydreport-subhead">Max Storage Height (ft)
+              <input id="hydreportStorageInput" type="number" min="0" step="0.5" inputmode="decimal" value="12" />
+            </label>
+
+            <div class="section-heading hydreport-subhead"><p class="eyebrow">Piping Specifications</p></div>
+            <div id="hydreportPipesList" class="hydreport-rows"></div>
+            <button class="ghost-button compact-button" id="hydreportAddPipe" type="button">+ Add piping spec</button>
+            <datalist id="hydreportPipeDescs">
+              <option value="Piping 1&quot; and smaller"></option>
+              <option value="Piping 1-1/4&quot; and larger"></option>
+              <option value="Piping 2&quot; and larger"></option>
+              <option value="Branch lines"></option>
+              <option value="Cross mains &amp; feed mains"></option>
+              <option value="Underground mains"></option>
+              <option value="Underground lead-in"></option>
+            </datalist>
+            <datalist id="hydreportPipeSpecs">
+              <option value="Schedule 40"></option>
+              <option value="Schedule 10"></option>
+              <option value="Schedule 30"></option>
+              <option value="Schedule 7"></option>
+              <option value="Schedule 80"></option>
+              <option value="Type K Copper"></option>
+              <option value="Type L Copper"></option>
+              <option value="CPVC (Listed)"></option>
+              <option value="C900 PVC (DR-18)"></option>
+              <option value="Ductile Iron (Class 350)"></option>
+              <option value="HDPE"></option>
+            </datalist>
+          </section>
+          <section class="panel-section calculator-section hydreport-output-section">
+            <div class="section-heading">
+              <p class="eyebrow">Report (copy &amp; paste to plans)</p>
+              <button class="secondary-button compact-button" id="hydreportCopyButton" type="button">Copy Report</button>
+            </div>
+            <textarea id="hydreportOutput" class="hydreport-output" readonly spellcheck="false" aria-label="Generated hydraulic analysis report"></textarea>
+            <p class="calculator-status" id="hydreportStatus"></p>
+          </section>
+        </div>
+      </section>
+
+      <section class="tool-panel sprinkler-calculator-panel prelim-panel" data-tool-panel="prelim" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">Preliminary calculation</p>
+            <h2>Sprinkler Demand Estimate</h2>
+          </div>
+          <div class="prelim-hero-actions">
+            <button class="secondary-button" id="prelimExportBidButton" type="button">Export to Bid Estimator →</button>
+            <button class="ghost-button" id="prelimClearButton" type="button">Reset</button>
+          </div>
+        </div>
+
+        <div class="prelim-grid">
+          <section class="panel-section calculator-section prelim-input-card">
+            <div class="section-heading"><p class="eyebrow">Building</p></div>
+            <div class="field-grid three">
+              <label>Length <span class="prelim-unit">ft or ft-in</span>
+                <input id="prelimLen" type="text" inputmode="decimal" placeholder="e.g. 200 or 200-6" /></label>
+              <label>Width <span class="prelim-unit">ft or ft-in</span>
+                <input id="prelimWid" type="text" inputmode="decimal" placeholder="e.g. 100 or 100-6" /></label>
+              <label>Height <span class="prelim-unit">ft or ft-in</span>
+                <input id="prelimHgt" type="text" inputmode="decimal" placeholder="e.g. 16 or 15-2" /></label>
+            </div>
+            <label class="wide-field">Design basis
+              <select id="prelimHazard"></select></label>
+            <div class="field-grid three" id="prelimGrpRes" hidden>
+              <label>Number of heads
+                <input id="prelimResHeads" type="number" min="1" step="1" value="4" /></label>
+              <label>Flow per head <span class="prelim-unit">gpm</span>
+                <input id="prelimResFlow" type="number" min="0" step="0.1" value="13" /></label>
+              <label>K-factor
+                <input id="prelimResK" type="number" min="0.1" step="0.1" value="4.9" /></label>
+            </div>
+            <div class="field-grid three" id="prelimGrpSda" hidden>
+              <label>Density <span class="prelim-unit">gpm/ft²</span>
+                <input id="prelimDaDensity" type="number" min="0" step="0.01" value="0.60" /></label>
+              <label>Design area <span class="prelim-unit">ft²</span>
+                <input id="prelimDaArea" type="number" min="0" step="50" value="2000" /></label>
+              <label>Sprinkler K-factor
+                <input id="prelimDaK" type="number" min="0.1" step="0.1" value="16.8" /></label>
+            </div>
+            <div class="field-grid three" id="prelimGrpEsfr" hidden>
+              <label>Number of heads
+                <input id="prelimEsfrHeads" type="number" min="1" step="1" value="12" /></label>
+              <label>K-factor
+                <input id="prelimEsfrK" type="number" min="0.1" step="0.1" value="22.4" /></label>
+              <label>Operating pressure <span class="prelim-unit">psi</span>
+                <input id="prelimEsfrPsi" type="number" min="0" step="1" value="50" /></label>
+            </div>
+            <p class="prelim-storage-hint" id="prelimStorageHint" hidden>Storage criteria unknown? <button type="button" class="ghost-button prelim-storage-link" id="prelimStorageLink">Open Storage Analysis →</button></p>
+
+            <div class="section-heading"><p class="eyebrow">System</p></div>
+            <div class="field-grid two">
+              <div class="prelim-seg-field">
+                <span class="prelim-seg-label">System type</span>
+                <div class="segmented-control" role="radiogroup" aria-label="System type">
+                  <label><input type="radio" name="prelimSysType" value="tree" checked /><span>Tree</span></label>
+                  <label><input type="radio" name="prelimSysType" value="grid" /><span>Grid</span></label>
+                </div>
+              </div>
+              <div class="prelim-seg-field">
+                <span class="prelim-seg-label">Main orientation</span>
+                <div class="segmented-control" role="radiogroup" aria-label="Main orientation">
+                  <label><input type="radio" name="prelimOrient" value="length" checked /><span>Along length</span></label>
+                  <label><input type="radio" name="prelimOrient" value="width" /><span>Along width</span></label>
+                </div>
+              </div>
+            </div>
+
+            <div class="section-heading"><p class="eyebrow">Piping</p></div>
+            <div class="field-grid three" id="prelimPipingGrid">
+              <label id="prelimPrimaryWrap">Primary main
+                <select id="prelimMainPipe"></select></label>
+              <label id="prelimSecondaryWrap">Secondary main
+                <select id="prelimSecondaryPipe"></select></label>
+              <label>Branch line
+                <select id="prelimBranchPipe"></select></label>
+            </div>
+            <div class="field-grid two">
+              <label>Underground main <span class="prelim-unit">ductile iron</span>
+                <select id="prelimUgPipe"></select></label>
+              <label>Underground length <span class="prelim-unit">ft or ft-in</span>
+                <input id="prelimUgLength" type="text" inputmode="decimal" placeholder="optional, e.g. 150" /></label>
+            </div>
+
+            <div class="section-heading"><p class="eyebrow">Backflow &amp; safety margin</p></div>
+            <div class="field-grid two">
+              <label>Backflow assembly
+                <select id="prelimBfType"></select></label>
+              <label id="prelimBfSizeWrap">Backflow line size
+                <select id="prelimBfSize"></select></label>
+              <label>Flow safety margin <span class="prelim-unit">%</span>
+                <input id="prelimGpmMargin" type="number" min="0" step="1" inputmode="decimal" value="5" /></label>
+              <label>Pressure safety margin <span class="prelim-unit">%</span>
+                <input id="prelimPsiMargin" type="number" min="0" step="1" inputmode="decimal" value="10" /></label>
+            </div>
+            <div class="field-grid two prelim-advanced">
+              <label>Hazen-Williams C
+                <input id="prelimCFactor" type="number" min="1" step="1" inputmode="decimal" value="120" /></label>
+              <label><span id="prelimKFactorLbl">Sprinkler K-factor</span>
+                <input id="prelimKFactor" type="number" min="0.1" step="0.1" inputmode="decimal" value="5.6" /></label>
+            </div>
+            <p class="prelim-fieldnote" id="prelimKFactorHint">K-factor is auto-selected so the starting head pressure lands near 7 psi — edit to override.</p>
+
+            <div class="section-heading"><p class="eyebrow">Known water supply <span class="prelim-optional">(optional)</span></p></div>
+            <div class="field-grid three">
+              <label>Static <span class="prelim-unit">psi</span>
+                <input id="prelimStatic" type="number" min="0" step="0.1" inputmode="decimal" placeholder="psi" /></label>
+              <label>Residual <span class="prelim-unit">psi</span>
+                <input id="prelimResidual" type="number" min="0" step="0.1" inputmode="decimal" placeholder="psi" /></label>
+              <label>Flow at residual <span class="prelim-unit">gpm</span>
+                <input id="prelimSupplyFlow" type="number" min="0" step="1" inputmode="decimal" placeholder="gpm" /></label>
+            </div>
+          </section>
+
+          <section class="panel-section calculator-section prelim-result-card">
+            <div class="section-heading"><p class="eyebrow">Estimate</p></div>
+            <div class="prelim-sizing" id="prelimSizingEditor">
+              <div class="prelim-sizing-head">Pipe sizing <span>— tweak on the fly</span></div>
+              <div class="field-grid three">
+                <label>Main<select id="prelimOptMain"></select></label>
+                <label id="prelimOptSecWrap">Secondary<select id="prelimOptSec"></select></label>
+                <label>Branch<select id="prelimOptBranch"></select></label>
+              </div>
+              <button class="secondary-button" id="prelimOptimizeBtn" type="button">⚡ Optimize sizing (smallest that passes)</button>
+              <p class="prelim-optmsg" id="prelimOptMsg"></p>
+            </div>
+            <p class="prelim-summary" id="prelimSummary">Enter building dimensions and a hazard classification to generate a preliminary estimate.</p>
+            <p class="prelim-status" id="prelimSupplyStatus" hidden></p>
+            <div class="prelim-breakdown" id="prelimBreakdown"></div>
+            <p class="prelim-warn" id="prelimWarn" hidden></p>
+            <div class="prelim-netsolve" id="prelimNetWrap" hidden>
+              <button class="secondary-button" id="prelimNetButton" type="button">↻ Re-run network solve</button>
+              <p class="prelim-netnote">Full pipe-network solve (Newton-Raphson nodal balance) — builds every cross main, branch line and operating head and disperses the flow across the whole grid, like a real hydraulic engine. Runs automatically; validated against AutoSPRINK reference calcs (±4%).</p>
+              <div class="prelim-net" id="prelimNetResult" hidden></div>
+            </div>
+            <p class="prelim-src" id="prelimSrc"></p>
+            <div class="prelim-supply-area" id="prelimSupplyArea">
+              <p class="prelim-supply-empty" id="prelimSupplyEmpty">Add a known water supply (static, residual &amp; flow) above to plot the supply curve and check adequacy.</p>
+              <svg id="prelimChart" class="prelim-chart" viewBox="0 0 480 240" hidden></svg>
+            </div>
+            <p class="prelim-disclaimer">
+              <strong>Preliminary estimating / feasibility tool only.</strong> Early theoretical demand
+              from simplified assumptions (single tree / two-main grid path, density-area design point,
+              chart-derived backflow loss). It does <strong>not</strong> replace a full NFPA&nbsp;13 hydraulic
+              calculation or engineering review.
+            </p>
+          </section>
+        </div>
+      </section>
+
+      <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="spacing" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">Sprinkler spacing calculator</p>
+            <h2>Coverage Area & Flow Calculator</h2>
+          </div>
+          <button class="ghost-button" id="spacingClearButton" type="button">Clear All Fields</button>
+        </div>
+
+        <div class="calculator-grid">
+          <section class="panel-section calculator-section">
+            <div class="section-heading">
+              <p class="eyebrow">Design area</p>
+            </div>
+            <div class="spacing-dimension-grid">
+              <fieldset class="calculator-fieldset">
+                <legend>X Dimension</legend>
+                <label>
+                  Off the Wall
+                  <input id="spacingXWallInput" type="text" inputmode="decimal" placeholder="ex: 7-6" />
+                </label>
+                <label>
+                  Between Heads
+                  <input id="spacingXBetweenInput" type="text" inputmode="decimal" placeholder="ex: 15" />
+                </label>
+              </fieldset>
+              <fieldset class="calculator-fieldset">
+                <legend>Y Dimension</legend>
+                <label>
+                  Off the Wall
+                  <input id="spacingYWallInput" type="text" inputmode="decimal" placeholder="ex: 6-0" />
+                </label>
+                <label>
+                  Between Heads
+                  <input id="spacingYBetweenInput" type="text" inputmode="decimal" placeholder="ex: 12" />
+                </label>
+              </fieldset>
+            </div>
+            <div class="calculator-result-card">
+              <span>Coverage Area</span>
+              <strong id="spacingAreaResult">- sq ft -</strong>
+            </div>
+          </section>
+
+          <section class="panel-section calculator-section">
+            <div class="section-heading">
+              <p class="eyebrow">Required flow</p>
+              <label class="custom-density-label">
+                Custom Density
+                <input id="spacingCustomDensityInput" type="number" min="0" step="0.001" inputmode="decimal" placeholder="gpm/sq ft" />
+              </label>
+            </div>
+            <div class="hazard-table-wrap">
+              <table class="hazard-table">
+                <thead>
+                  <tr>
+                    <th>Hazard Type</th>
+                    <th>Density</th>
+                    <th>GPM</th>
+                  </tr>
+                </thead>
+                <tbody id="spacingHazardTableBody"></tbody>
+              </table>
+            </div>
+            <p class="calculator-status copy-status" id="spacingCopyStatus"></p>
+          </section>
+
+          <section class="panel-section calculator-section flow-calculator-section">
+            <div class="section-heading">
+              <p class="eyebrow">Flow calculator</p>
+              <div class="segmented-control" role="radiogroup" aria-label="Flow calculator mode">
+                <label>
+                  <input type="radio" name="spacingFlowMode" value="Q" checked />
+                  <span>GPM</span>
+                </label>
+                <label>
+                  <input type="radio" name="spacingFlowMode" value="P" />
+                  <span>PSI</span>
+                </label>
+              </div>
+            </div>
+            <p class="formula-chip">Q = K x sqrt(P) | P = (Q / K)^2</p>
+            <div class="field-grid three">
+              <label>
+                K-Factor
+                <input id="spacingKFactorInput" type="number" min="0" step="0.01" inputmode="decimal" />
+              </label>
+              <label>
+                Flow (GPM)
+                <input id="spacingFlowInput" type="number" min="0" step="0.001" inputmode="decimal" />
+              </label>
+              <label>
+                Pressure (PSI)
+                <input id="spacingPressureInput" type="number" min="0" step="0.01" inputmode="decimal" />
+              </label>
+            </div>
+            <div class="calculator-result-card flow-result-card">
+              <span id="spacingFlowResultLabel">Calculated Flow</span>
+              <strong id="spacingFlowResult">-</strong>
+            </div>
+            <p class="calculator-status" id="spacingFlowStatus"></p>
+          </section>
+
+          <section class="panel-section calculator-section pressure-requirements-section is-locked" id="spacingPressureSection">
+            <div class="section-heading">
+              <p class="eyebrow">Required pressure</p>
+              <label class="pressure-hazard-label">
+                Hazard Type
+                <select id="spacingPressureHazardSelect" disabled>
+                  <option value="Light Hazard">Light Hazard</option>
+                  <option value="Ordinary Hazard 1">Ordinary Hazard 1</option>
+                  <option value="Ordinary Hazard 2">Ordinary Hazard 2</option>
+                  <option value="Extra Hazard 1">Extra Hazard 1</option>
+                  <option value="Extra Hazard 2">Extra Hazard 2</option>
+                  <option value="Custom">Custom Density</option>
+                </select>
+              </label>
+            </div>
+            <div class="pressure-summary-card">
+              <span>Required Flow</span>
+              <strong id="spacingPressureFlow">- GPM</strong>
+            </div>
+            <div class="pressure-table-wrap">
+              <table class="pressure-table">
+                <thead>
+                  <tr>
+                    <th>K-Factor</th>
+                    <th>Required Pressure</th>
+                  </tr>
+                </thead>
+                <tbody id="spacingPressureTableBody">
+                  <tr>
+                    <td colspan="2">Enter X and Y coverage dimensions to activate.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="calculator-status" id="spacingPressureStatus">Waiting for coverage area.</p>
+          </section>
+        </div>
+      </section>
+
+      <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="vicinity" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">Site Tool</p>
+            <h2>Vicinity Map Generator</h2>
+          </div>
+          <button class="ghost-button" id="vicinityClearButton" type="button">Clear</button>
+        </div>
+        <div class="vicinity-grid">
+          <section class="panel-section calculator-section vicinity-input-section">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Site Address</p>
+              </div>
+              <span class="privacy-tip" tabindex="0" role="note" aria-label="How the address is used">Privacy<span class="privacy-pop">Only the address (and its map coordinates) is sent to OpenStreetMap's free geocoding and street services to fetch the surrounding streets. Nothing else about your project leaves this computer.</span></span>
+            </div>
+            <label class="vicinity-address-wrap">
+              Project Address
+              <input id="vicinityAddressInput" type="text" autocomplete="off" placeholder="Start typing an address..." />
+              <div class="vicinity-suggest" id="vicinitySuggest" hidden></div>
+            </label>
+            <div class="field-grid two">
+              <label>
+                Map Coverage
+                <select id="vicinityCoverageSelect">
+                  <option value="0.5">~1/2 mile wide</option>
+                  <option value="0.75" selected>~3/4 mile wide</option>
+                  <option value="1">~1 mile wide</option>
+                  <option value="1.5">~1.5 miles wide</option>
+                </select>
+              </label>
+              <label>
+                Area of Work Size
+                <select id="vicinityWorkSizeSelect">
+                  <option value="150">150 ft square</option>
+                  <option value="220" selected>220 ft square</option>
+                  <option value="300">300 ft square</option>
+                  <option value="450">450 ft square</option>
+                </select>
+              </label>
+            </div>
+            <div class="field-grid two">
+              <label>
+                Work Box Rotation
+                <input id="vicinityWorkRotationInput" type="number" step="5" value="0" />
+              </label>
+              <label class="option-row vicinity-labels-toggle">
+                <input id="vicinityLabelsToggle" type="checkbox" checked />
+                <span>Label major streets</span>
+              </label>
+            </div>
+            <button class="primary-button full-width-button" id="vicinityGenerateButton" type="button">Generate Vicinity Map</button>
+            <p class="calculator-status" id="vicinityStatus"></p>
+            <p class="pdf-mode-hint">Tip: after generating, click any street on the map to toggle it heavy/thin. Map data &copy; OpenStreetMap contributors.</p>
+          </section>
+          <section class="panel-section calculator-section vicinity-result-section">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Vicinity Map</p>
+              </div>
+              <div class="inline-actions">
+                <button class="secondary-button compact-button" id="vicinityCopyButton" type="button" disabled title="Copy the map image so you can paste it straight into your plan set">Copy Image</button>
+                <button class="secondary-button compact-button" id="vicinityPngButton" type="button" disabled>Export PNG</button>
+                <button class="secondary-button compact-button" id="vicinityDxfButton" type="button" disabled>Export DXF</button>
+              </div>
+            </div>
+            <div class="vicinity-map-shell" id="vicinityMapShell">
+              <svg id="vicinitySvg" viewBox="0 0 1200 1015" role="img" aria-label="Vicinity map preview"></svg>
+              <div class="vicinity-map-empty" id="vicinityMapEmpty">Pick an address and hit Generate - the map renders here.</div>
+            </div>
+            <div class="vicinity-pan" id="vicinityPan" hidden aria-label="Pan the map">
+              <span class="vicinity-pan-label">Pan the frame</span>
+              <div class="vicinity-pan-grid">
+                <button type="button" data-pan="up" title="Pan north">&#8593;</button>
+                <div class="vicinity-pan-mid">
+                  <button type="button" data-pan="left" title="Pan west">&#8592;</button>
+                  <button type="button" data-pan="recenter" title="Back to the address">&#8982;</button>
+                  <button type="button" data-pan="right" title="Pan east">&#8594;</button>
+                </div>
+                <button type="button" data-pan="down" title="Pan south">&#8595;</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="layout" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">Head layout generator</p>
+            <h2>Even Spacing Layout Tool</h2>
+          </div>
+          <button class="ghost-button" id="layoutClearButton" type="button">Clear All Fields</button>
+        </div>
+
+        <div class="layout-generator-grid">
+          <section class="panel-section calculator-section layout-input-section">
+            <div class="section-heading">
+              <p class="eyebrow">Design criteria</p>
+            </div>
+            <div class="field-grid two">
+              <label>
+                Area Length
+                <input id="layoutLengthInput" type="text" inputmode="decimal" placeholder="ex: 42-6" />
+              </label>
+              <label>
+                Area Width
+                <input id="layoutWidthInput" type="text" inputmode="decimal" placeholder="ex: 24" />
+              </label>
+              <label>
+                Max Coverage per Head
+                <select id="layoutCoverageSelect">
+                  <option value="100">100 sq ft</option>
+                  <option value="130" selected>130 sq ft</option>
+                  <option value="225">225 sq ft</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </label>
+              <label>
+                Custom Coverage
+                <input id="layoutCustomCoverageInput" type="number" min="1" step="1" inputmode="decimal" placeholder="sq ft/head" disabled />
+              </label>
+              <label>
+                Maximum Head Spacing
+                <input id="layoutMaxSpacingInput" type="text" inputmode="decimal" value="15" />
+              </label>
+            </div>
+            <p class="calculator-status" id="layoutStatus"></p>
+          </section>
+
+          <section class="panel-section calculator-section layout-results-section">
+            <div class="section-heading">
+              <p class="eyebrow">Layout results</p>
+            </div>
+            <div class="layout-result-grid" id="layoutResults">
+              <div class="calculator-result-card">
+                <span>Total Sprinklers</span>
+                <strong>-</strong>
+              </div>
+              <div class="calculator-result-card">
+                <span>Layout</span>
+                <strong>-</strong>
+              </div>
+            </div>
+            <button class="primary-button full-width-button" id="layoutExportDxfButton" type="button">Export Layout to DXF</button>
+            <p class="calculator-status" id="layoutDxfStatus"></p>
+          </section>
+
+          <section class="panel-section calculator-section layout-diagram-section">
+            <div class="section-heading">
+              <p class="eyebrow">Visual layout diagram</p>
+            </div>
+            <div class="layout-diagram-shell">
+              <svg id="layoutDiagram" viewBox="0 0 900 620" role="img" aria-label="Head layout diagram"></svg>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="bracing" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">Hangers / Bracing Spacing</p>
+            <h2>Hanger &amp; Brace Spacing Tool</h2>
+          </div>
+          <button class="ghost-button" id="bracingClearButton" type="button">Clear All Fields</button>
+        </div>
+
+        <div class="hb-tabs" role="tablist" aria-label="Spacing tool">
+          <button type="button" class="hb-tab active" data-hb-tab="hanger" aria-pressed="true">Hanger spacing</button>
+          <button type="button" class="hb-tab" data-hb-tab="brace" aria-pressed="false">Brace spacing</button>
+          <button type="button" class="hb-tab" data-hb-tab="blr" aria-pressed="false">Branch line restraint</button>
+        </div>
+
+        <div class="hb-tool hb-workspace" data-hb-tool="hanger">
+          <div class="hb-col">
+            <section class="panel-section calculator-section">
+              <div class="section-heading"><p class="eyebrow">Pipe &amp; run</p></div>
+              <div class="field-grid two">
+                <label>
+                  Pipe Type
+                  <select id="hangerTypeSelect">
+                    <option value="steel">Steel pipe (except threaded lightwall)</option>
+                    <option value="threaded">Threaded lightwall steel pipe</option>
+                    <option value="cpvc">CPVC</option>
+                  </select>
+                </label>
+                <label>
+                  Pipe Size
+                  <select id="hangerSizeSelect"></select>
+                </label>
+              </div>
+              <div class="field-grid two">
+                <label>
+                  Pipe Run Length
+                  <input id="hangerLengthInput" type="text" inputmode="decimal" value="40" placeholder="ex: 40 or 8-6" />
+                </label>
+                <label>
+                  Max Hanger Spacing (ft)
+                  <input id="hangerMaxSpacingInput" type="text" inputmode="decimal" readonly />
+                </label>
+              </div>
+              <p class="hb-source" id="hangerMaxSource"></p>
+              <p class="calculator-status" id="hangerStatus"></p>
+              <details class="hb-reference" id="hangerReferenceDetails">
+                <summary>NFPA 13 (2025) max hanger spacing table</summary>
+                <div class="hanger-table-actions">
+                  <button class="ghost-button compact-button" id="hangerTableEditButton" type="button">Edit</button>
+                  <button class="ghost-button compact-button" id="hangerTableResetButton" type="button">Reset</button>
+                </div>
+                <div class="hanger-table-wrap">
+                  <table class="hazard-table hanger-table" id="hangerTable"></table>
+                </div>
+              </details>
+              <p class="hb-footnote">NFPA 13 (2025) defaults - verify against your edition and the pipe's listing; use Edit to change any value.</p>
+            </section>
+          </div>
+          <div class="hb-col">
+            <section class="panel-section calculator-section">
+              <div class="section-heading"><p class="eyebrow">Results</p></div>
+              <div id="hangerResults" class="hb-results">
+                <div class="hb-metrics">
+                  <div class="metric-tile"><span>Hangers needed</span><strong>-</strong></div>
+                  <div class="metric-tile"><span>Even spacing</span><strong>-</strong></div>
+                </div>
+              </div>
+            </section>
+            <section class="panel-section calculator-section hb-diagram-section">
+              <div class="section-heading"><p class="eyebrow">Hanger position diagram</p></div>
+              <div class="bracing-diagram-shell hb-diagram-shell">
+                <svg id="hangerDiagram" viewBox="0 0 900 300" role="img" aria-label="Hanger spacing diagram"></svg>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div class="hb-tool hb-workspace" data-hb-tool="brace" hidden>
+          <div class="hb-col">
+            <section class="panel-section calculator-section">
+              <div class="section-heading"><p class="eyebrow">Brace type &amp; run</p></div>
+              <div class="segmented-control wide-segmented-control" role="radiogroup" aria-label="Brace type">
+                <label>
+                  <input type="radio" name="bracingType" value="longitudinal" checked />
+                  <span>Longitudinal</span>
+                </label>
+                <label>
+                  <input type="radio" name="bracingType" value="lateral" />
+                  <span>Lateral</span>
+                </label>
+              </div>
+              <div class="field-grid two">
+                <label>
+                  Pipe Length
+                  <input id="bracingLengthInput" type="text" inputmode="decimal" value="90" placeholder="ex: 90 or 8-6" />
+                </label>
+                <label>
+                  Max Spacing
+                  <input id="bracingSpacingInput" type="text" inputmode="decimal" value="40" placeholder="ex: 40 or 12-0" />
+                </label>
+              </div>
+              <div class="bracing-end-tuner" id="bracingEndTuner" hidden>
+                <div class="bracing-end-tuner-head">
+                  <span class="bracing-end-tuner-label">End brace setback from each end</span>
+                  <strong id="bracingEndValue">—</strong>
+                </div>
+                <input type="range" id="bracingEndSlider" min="1" max="6" step="0.0833" value="6" aria-label="End brace setback from each end" />
+                <div class="bracing-end-tuner-scale"><span>12&Prime; · clears fittings</span><span>6&prime; · NFPA limit</span></div>
+                <p class="bracing-end-tuner-live" id="bracingEndLive"></p>
+              </div>
+              <p class="calculator-status" id="bracingStatus"></p>
+              <p class="hb-footnote">Slide the end braces between 12&Prime; (to clear end fittings) and the 6 ft NFPA limit — spacing re-solves live and never exceeds the max. Always verify with NFPA 13 and local code.</p>
+            </section>
+          </div>
+          <div class="hb-col">
+            <section class="panel-section calculator-section">
+              <div class="section-heading"><p class="eyebrow">Results</p></div>
+              <div id="bracingResults" class="hb-results">
+                <div class="hb-metrics">
+                  <div class="metric-tile"><span>Braces needed</span><strong>-</strong></div>
+                  <div class="metric-tile"><span>Brace type</span><strong>-</strong></div>
+                </div>
+              </div>
+            </section>
+            <section class="panel-section calculator-section hb-diagram-section">
+              <div class="section-heading"><p class="eyebrow">Brace position diagram</p></div>
+              <div class="bracing-diagram-shell hb-diagram-shell">
+                <svg id="bracingDiagram" viewBox="0 0 900 300" role="img" aria-label="Brace spacing diagram"></svg>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div class="hb-tool hb-workspace" data-hb-tool="blr" hidden>
+          <div class="hb-col">
+            <section class="panel-section calculator-section">
+              <div class="section-heading"><p class="eyebrow">Branch line &amp; restraint</p></div>
+              <div class="field-grid three">
+                <label>Branch Pipe Size
+                  <select id="blrSizeSelect">
+                    <option value='1/2"'>1/2"</option>
+                    <option value='3/4"'>3/4"</option>
+                    <option value='1"' selected>1"</option>
+                    <option value='1-1/4"'>1-1/4"</option>
+                    <option value='1-1/2"'>1-1/2"</option>
+                    <option value='2"'>2"</option>
+                  </select>
+                </label>
+                <label>Branch Line Length
+                  <input id="blrLengthInput" type="text" inputmode="decimal" value="60" placeholder="ex: 60 or 8-6" />
+                </label>
+                <label>Max Restraint Spacing (ft)
+                  <input id="blrSpacingInput" type="text" inputmode="decimal" value="20" placeholder="ex: 20" />
+                </label>
+              </div>
+              <p class="calculator-status" id="blrStatus"></p>
+              <p class="hb-footnote">Pipe size sets the end-restraint limit (NFPA 13 18.6.3.1): within 36 in. for 1&quot;, 48 in. for 1&frac14;&quot;, 60 in. for 1&frac12;&quot; and larger. Look up your max spacing for the pipe size &amp; seismic coefficient (Cp) in the table below &mdash; click a cell to drop it into the box.</p>
+
+              <div class="section-heading hydreport-subhead"><p class="eyebrow">NFPA 13 (2025) Table 18.6.4 &mdash; Maximum restraint spacing</p></div>
+              <div class="segmented-control wide-segmented-control" role="radiogroup" aria-label="Restraint pipe material">
+                <label><input type="radio" name="blrMaterial" value="steel" checked /><span>Steel pipe</span></label>
+                <label><input type="radio" name="blrMaterial" value="other" /><span>CPVC / Copper / Red brass</span></label>
+              </div>
+              <div class="hanger-table-wrap">
+                <table class="hazard-table blr-table" id="blrTable"></table>
+              </div>
+              <p class="hb-footnote">NFPA 13 (2025) Table 18.6.4(a) for steel pipe and 18.6.4(b) for CPVC, copper &amp; red brass restraints.</p>
+            </section>
+          </div>
+          <div class="hb-col">
+            <section class="panel-section calculator-section">
+              <div class="section-heading"><p class="eyebrow">Results</p></div>
+              <div id="blrResults" class="hb-results">
+                <div class="hb-metrics">
+                  <div class="metric-tile"><span>Restraints needed</span><strong>-</strong></div>
+                  <div class="metric-tile"><span>Even spacing</span><strong>-</strong></div>
+                </div>
+              </div>
+            </section>
+            <section class="panel-section calculator-section hb-diagram-section">
+              <div class="section-heading"><p class="eyebrow">Restraint position diagram</p></div>
+              <div class="bracing-diagram-shell hb-diagram-shell">
+                <svg id="blrDiagram" viewBox="0 0 900 300" role="img" aria-label="Restraint spacing diagram"></svg>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="pdfcad" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">CAD Prep</p>
+            <h2>Convert PDF to CAD</h2>
+          </div>
+          <button class="ghost-button" id="pdfcadClearButton" type="button">Clear</button>
+        </div>
+        <div class="pdfcad-grid">
+          <section class="panel-section calculator-section pdfcad-input-section">
+            <input id="pdfcadFileInput" type="file" accept="application/pdf,.pdf" class="hidden-input" />
+            <div class="datasheet-drop" id="pdfcadDrop" tabindex="0" role="button" aria-label="Drop or click to choose a PDF">
+              <strong>Drop a PDF here</strong>
+              <span>Click anywhere to browse, or drag a file in. A scanned/raster PDF has no linework to convert.</span>
+            </div>
+            <div class="pdfcad-pick-row">
+              <button class="secondary-button" id="pdfcadPickButton" type="button" title="Open a PDF straight off disk — the reliable way to load large drawing sets">&#128193; Choose PDF (large sets)</button>
+              <span class="pdfcad-pick-note">Big plan sets (60&nbsp;MB+) load faster and more reliably this way. A dense sheet can take a minute to read.</span>
+            </div>
+            <p class="calculator-status" id="pdfcadFileStatus"></p>
+
+            <label class="hydreport-subhead">Plot Scale
+              <select id="pdfcadScaleSelect">
+                <option value="192">1/16" = 1'-0"</option>
+                <option value="96" selected>1/8" = 1'-0"</option>
+                <option value="64">3/16" = 1'-0"</option>
+                <option value="48">1/4" = 1'-0"</option>
+                <option value="32">3/8" = 1'-0"</option>
+                <option value="24">1/2" = 1'-0"</option>
+                <option value="16">3/4" = 1'-0"</option>
+                <option value="12">1" = 1'-0"</option>
+                <option value="8">1-1/2" = 1'-0"</option>
+                <option value="1">1:1 (no scale)</option>
+              </select>
+            </label>
+
+            <div class="section-heading hydreport-subhead"><p class="eyebrow">Layers to import</p></div>
+            <p class="hydreport-note" id="pdfcadLayerNote">Each color becomes its own CAD layer.</p>
+            <div id="pdfcadGroupsList" class="pdfcad-groups"></div>
+
+            <div class="hydreport-subhead">
+              <label class="toggle-row"><input id="pdfcadTextToggle" type="checkbox" checked /> <span>Import text (as CAD text)</span></label>
+              <label class="toggle-row"><input id="pdfcadFillsToggle" type="checkbox" checked /> <span>Import solid fills</span></label>
+            </div>
+
+            <div id="pdfcadSummary" class="pdfcad-summary hydreport-subhead"></div>
+
+            <button class="primary-button full-width-button" id="pdfcadConvertButton" type="button" disabled>Convert &amp; Save DXF...</button>
+            <p class="calculator-status" id="pdfcadStatus"></p>
+            <div class="cadview-oda" id="pdfcadOdaNote" hidden>
+              Want a <strong>DWG</strong> instead of DXF? Install the <strong>free ODA File Converter</strong> and this button converts straight to DWG.
+              <button class="link-button" id="pdfcadOdaLink" type="button">Download it here (free, opendesign.com)</button>
+            </div>
+          </section>
+          <section class="panel-section calculator-section pdfcad-summary-section">
+            <div class="section-heading">
+              <p class="eyebrow">Sheets</p>
+              <span id="pdfcadPageLabel" class="pdfcad-sheet-hint">Import a PDF to browse its sheets</span>
+            </div>
+            <div class="pdfcad-cards" id="pdfcadCards">
+              <div class="pdfcad-cards-empty" id="pdfcadCardsEmpty">Drop or import a PDF and every sheet shows up here as a thumbnail &mdash; click the one you want to convert.</div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="cadexplode" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">CAD Prep</p>
+            <h2>Explode CAD Blocks</h2>
+          </div>
+          <button class="ghost-button" id="cadxClearButton" type="button">Clear</button>
+        </div>
+        <div class="pdfcad-grid">
+          <section class="panel-section calculator-section pdfcad-input-section">
+            <input id="cadxFileInput" type="file" accept=".dwg,.dxf" class="hidden-input" />
+            <div class="datasheet-drop" id="cadxDrop" tabindex="0" role="button" aria-label="Drop or click to choose a DWG or DXF">
+              <strong>Drop a DWG or DXF here</strong>
+              <span>Click anywhere to browse, or drag a file in. Every block is exploded into plain lines, arcs, text &amp; hatches &mdash; no AutoCAD needed.</span>
+            </div>
+            <p class="calculator-status" id="cadxFileStatus"></p>
+
+            <div id="cadxSummary" class="pdfcad-summary hydreport-subhead"></div>
+
+            <button class="primary-button full-width-button" id="cadxConvertButton" type="button" disabled>Explode &amp; Save DXF...</button>
+            <p class="calculator-status" id="cadxStatus"></p>
+            <p class="hydreport-note" id="cadxOdaNote" hidden>DWG files are read with the free <strong>ODA File Converter</strong> (no AutoCAD, no Autodesk license). <a href="https://www.opendesign.com/guestfiles/oda_file_converter" target="_blank" rel="noopener">Download it here</a>, install it, then re-import. DXF files work without it.</p>
+          </section>
+          <section class="panel-section calculator-section pdfcad-summary-section">
+            <div class="section-heading">
+              <p class="eyebrow">Blocks in this drawing</p>
+              <span id="cadxBlockHint" class="pdfcad-sheet-hint">Import a DWG or DXF to see its blocks</span>
+            </div>
+            <div class="pdfcad-cards" id="cadxBlocks" style="display:block;">
+              <div class="pdfcad-cards-empty" id="cadxBlocksEmpty">Drop or import a drawing and the blocks it contains are listed here, most-used first. Then hit Explode &amp; Save to flatten them all into a plain DXF.</div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="cadviewer" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">CAD Prep</p>
+            <h2>DWG / DXF Viewer</h2>
+          </div>
+          <div class="seismic-hero-actions">
+            <button class="ghost-button" id="cadviewClearButton" type="button">Clear</button>
+          </div>
+        </div>
+        <section class="panel-section calculator-section">
+          <div class="cadview-toolbar">
+            <button class="primary-button" id="cadviewOpenButton" type="button" title="Open a DWG or DXF straight off disk">&#128194; Open DWG / DXF&hellip;</button>
+            <label class="cadview-zoom">Detail
+              <select id="cadviewZoomSelect">
+                <option value="1600" selected>Standard</option>
+                <option value="2600">High (2&times;)</option>
+                <option value="4000">Max</option>
+              </select>
+            </label>
+            <span id="cadviewMeta" class="cadview-meta"></span>
+          </div>
+          <p class="calculator-status" id="cadviewStatus"></p>
+          <div class="cadview-oda" id="cadviewOdaNote" hidden>
+            Reading DWG needs the <strong>free ODA File Converter</strong> (DXF views without it).
+            <button class="link-button" id="cadviewOdaLink" type="button">Download it here (free, opendesign.com)</button>
+            &mdash; install it, then open the drawing again.
+          </div>
+          <div class="cadview-pane" id="cadviewPane">
+            <p class="cadview-empty" id="cadviewEmpty">Open a DWG or DXF and it renders here like a plotted sheet &mdash; scroll to pan, and bump Detail to re-render sharper. Great for a quick look at what a customer sent without launching CAD.</p>
+          </div>
+        </section>
+      </section>
+
+      <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="pdf" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">Merge and compress PDFs</p>
+            <h2>PDF Workspace</h2>
+          </div>
+          <button class="ghost-button" id="pdfMergeClearButton" type="button">Clear Workspace</button>
+        </div>
+
+        <div class="pdf-mode-bar">
+          <div class="segmented-control pdf-mode-toggle" role="radiogroup" aria-label="PDF operation mode">
+            <label>
+              <input type="radio" name="pdfMode" value="merge" checked />
+              <span>Merge</span>
+            </label>
+            <label>
+              <input type="radio" name="pdfMode" value="compress" />
+              <span>Compress</span>
+            </label>
+            <label>
+              <input type="radio" name="pdfMode" value="mergeCompress" />
+              <span>Merge &amp; Compress</span>
+            </label>
+          </div>
+          <p class="pdf-mode-hint" id="pdfModeHint">Combine multiple PDFs into a single file (no recompression).</p>
+        </div>
+
+        <div class="pdf-merge-grid">
+          <section class="panel-section calculator-section pdf-merge-workspace-section" id="pdfMergeDrop" tabindex="0">
+            <div class="section-heading">
+              <p class="eyebrow">Workspace</p>
+              <span class="pdf-merge-count" id="pdfMergeCount">0 PDFs</span>
+            </div>
+            <div class="pdf-merge-list" id="pdfMergeList">
+              <div class="empty-state">Drop PDFs here or use Import PDF Files.</div>
+            </div>
+          </section>
+
+          <section class="panel-section calculator-section pdf-merge-input-section">
+            <div class="section-heading">
+              <p class="eyebrow">Add PDFs</p>
+            </div>
+            <input id="pdfMergeInput" class="hidden-input" type="file" accept=".pdf,application/pdf" multiple />
+            <div class="pdf-options-panel" id="pdfCompressionPanel">
+              <p class="eyebrow">Compression level</p>
+              <div class="pdf-compression-options" role="radiogroup" aria-label="PDF compression level">
+                <label class="pdf-compression-option">
+                  <input type="radio" name="pdfCompression" value="extreme" />
+                  <span>
+                    <strong>Extreme compression</strong>
+                    <small>Less quality, high compression</small>
+                  </span>
+                </label>
+                <label class="pdf-compression-option active">
+                  <input type="radio" name="pdfCompression" value="recommended" checked />
+                  <span>
+                    <strong>Recommended compression</strong>
+                    <small>Good quality, good compression</small>
+                  </span>
+                </label>
+                <label class="pdf-compression-option">
+                  <input type="radio" name="pdfCompression" value="low" />
+                  <span>
+                    <strong>Low compression</strong>
+                    <small>High quality, less compression</small>
+                  </span>
+                </label>
+              </div>
+              <p>Uses Ghostscript profiles tuned for large plan sheets. Recommended targets strong reduction while keeping drawings readable.</p>
+            </div>
+            <div class="project-actions">
+              <button class="secondary-button" id="pdfMergeImportButton" type="button">Import PDF Files</button>
+              <button class="primary-button" id="pdfMergeButton" type="button" disabled>Merge PDFs</button>
+              <button class="secondary-button" id="pdfCompressButton" type="button" disabled>Compress PDFs</button>
+              <button class="danger-button" id="pdfAbortCompressionButton" type="button" hidden>Abort Compression</button>
+            </div>
+            <div class="pdf-compression-progress" id="pdfCompressionProgress" hidden>
+              <div class="pdf-compression-progress-header">
+                <strong id="pdfCompressionProgressLabel">Preparing compression...</strong>
+                <span id="pdfCompressionProgressPercent">0%</span>
+              </div>
+              <div class="pdf-compression-progress-track">
+                <span id="pdfCompressionProgressBar"></span>
+              </div>
+              <p id="pdfCompressionProgressDetails">Waiting for Ghostscript.</p>
+            </div>
+            <p class="calculator-status" id="pdfMergeStatus"></p>
+          </section>
+        </div>
+
+        <section class="panel-section calculator-section pdf-recent-section" id="pdfRecentDrop">
+          <div class="section-heading">
+            <p class="eyebrow">Recently generated</p>
+            <button class="ghost-button compact-button" id="pdfRecentRefreshButton" type="button">Refresh</button>
+          </div>
+          <p class="pdf-recent-hint">Drag a recently generated package into the workspace above, or click Add.</p>
+          <div class="pdf-recent-list" id="pdfRecentList">
+            <div class="empty-state">No recent outputs yet. Generate a submittal, calc package, or flow test sheet first.</div>
+          </div>
+        </section>
+      </section>
+
+      <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="hydraulic" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">Hydraulic calculations</p>
+            <h2>Calc Package Builder</h2>
+          </div>
+          <button class="ghost-button" id="hydraulicClearButton" type="button">Clear Package</button>
+        </div>
+
+        <div class="hydraulic-package-grid">
+          <section class="panel-section calculator-section hydraulic-info-section">
+            <div class="section-heading">
+              <p class="eyebrow">Package Info</p>
+            </div>
+            <label>
+              Saved Project
+              <select id="hydraulicProjectSelect"><option value="">&mdash; pick from saved projects &mdash;</option></select>
+            </label>
+            <div class="compact-field-grid">
+              <label>
+                Project Name
+                <input id="hydraulicProjectNameInput" type="text" autocomplete="off" placeholder="Uses current project if blank" />
+              </label>
+              <label>
+                Project Address
+                <input id="hydraulicProjectAddressInput" type="text" autocomplete="off" placeholder="Uses current address if blank" />
+              </label>
+            </div>
+            <label>
+              Cover Subtitle
+              <input id="hydraulicSubtitleInput" type="text" autocomplete="off" value="Hydraulic Calculations" />
+            </label>
+            <label class="toggle-row hydraulic-contractor-toggle">
+              <input id="hydraulicHideContractorInput" type="checkbox" />
+              <span>Do not show Contractor</span>
+            </label>
+            <div class="section-heading compact-heading">
+              <p class="eyebrow">Cover Template</p>
+            </div>
+            <div class="cover-template-options compact-cover-template-options" id="hydraulicCoverTemplateOptions"></div>
+          </section>
+
+          <section class="panel-section calculator-section hydraulic-workspace-section" id="hydraulicDrop" tabindex="0">
+            <div class="section-heading">
+              <p class="eyebrow">Calc Workspace</p>
+              <span class="pdf-merge-count" id="hydraulicCount">0 PDFs</span>
+            </div>
+            <input id="hydraulicInput" class="hidden-input" type="file" accept=".pdf,application/pdf" multiple />
+            <div class="hydraulic-list" id="hydraulicList">
+              <div class="empty-state">Drop hydraulic calculation PDFs here or use Import Calc PDFs.</div>
+            </div>
+            <div class="project-actions">
+              <button class="secondary-button" id="hydraulicImportButton" type="button">Import Calc PDFs</button>
+              <button class="ghost-button" id="hydraulicSortRemoteButton" type="button" disabled>Sort by Area #</button>
+              <button class="primary-button" id="hydraulicGenerateButton" type="button" disabled>Generate Calc Package</button>
+              <button class="ghost-button" id="hydraulicEmailDraftButton" type="button" hidden>Add Calc Package to Email</button>
+            </div>
+            <p class="calculator-status" id="hydraulicStatus"></p>
+            <div class="output-actions" id="hydraulicOutputActions" hidden>
+              <span class="output-actions-label">Last generated calc package:</span>
+              <button class="ghost-button compact-button" id="hydraulicOpenFolderButton" type="button">Open Folder</button>
+              <button class="ghost-button compact-button" id="hydraulicCopyPathButton" type="button">Copy Path</button>
+            </div>
+          </section>
+          <section class="panel-section submittal-cart-section">
+            <div class="section-heading">
+              <p class="eyebrow">My submittal package</p>
+            </div>
+            <ul class="cart-items">
+              <li class="cart-item" data-cart-item="plans">
+                <span class="cart-check" aria-hidden="true"></span>
+                <div class="cart-item-body">
+                  <strong>Fire Sprinkler Plans</strong>
+                  <span>No plans added yet</span>
+                </div>
+              </li>
+              <li class="cart-item" data-cart-item="hydraulic">
+                <span class="cart-check" aria-hidden="true"></span>
+                <div class="cart-item-body">
+                  <strong>Hydraulic Calculation Package</strong>
+                  <span>Not generated yet</span>
+                </div>
+              </li>
+              <li class="cart-item" data-cart-item="material">
+                <span class="cart-check" aria-hidden="true"></span>
+                <div class="cart-item-body">
+                  <strong>Material Data Submittal</strong>
+                  <span>Not generated yet</span>
+                </div>
+              </li>
+            </ul>
+            <button class="primary-button full-width-button" type="button" data-package-export disabled>Export full package&hellip;</button>
+            <p class="cart-hint">Pick a folder &mdash; it opens automatically after saving.</p>
+            <p class="calculator-status" data-package-status></p>
+          </section>
+        </div>
+      </section>
+
+
+      <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="feet" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">Feet/Inch Calculator</p>
+            <h2>Dimension Expression Calculator</h2>
+          </div>
+          <button class="ghost-button" id="feetClearButton" type="button">Clear</button>
+        </div>
+
+        <div class="feet-calculator-grid">
+          <section class="panel-section calculator-section feet-input-section">
+            <div class="section-heading">
+              <p class="eyebrow">Expression</p>
+            </div>
+            <label>
+              Feet/Inch Math
+              <input id="feetExpressionInput" type="text" autocomplete="off" placeholder="ex: 5-3.5 * 6-2" />
+            </label>
+            <div class="project-actions">
+              <button class="primary-button" id="feetCalculateButton" type="button">Calculate</button>
+              <button class="secondary-button" id="feetExampleButton" type="button">Load Example</button>
+            </div>
+            <p class="calculator-status" id="feetStatus">Use dash format for feet-inches, like 5-3.5 for 5 ft 3.5 in.</p>
+          </section>
+
+          <section class="panel-section calculator-section feet-results-section">
+            <div class="section-heading">
+              <p class="eyebrow">Result</p>
+              <span class="pdf-merge-count" id="feetResultType">Waiting</span>
+            </div>
+            <div class="calculator-result-card feet-result-card">
+              <span id="feetResultLabel">Calculated Result</span>
+              <strong id="feetPrimaryResult">-</strong>
+              <small id="feetSecondaryResult"></small>
+            </div>
+            <div class="project-actions">
+              <button class="secondary-button" id="feetCopyFeetButton" type="button" disabled>Copy Feet-Inches</button>
+              <button class="secondary-button" id="feetCopyDecimalButton" type="button" disabled>Copy Decimal</button>
+            </div>
+          </section>
+
+          <section class="panel-section calculator-section feet-help-section">
+            <div class="section-heading">
+              <p class="eyebrow">Input Rules</p>
+            </div>
+            <div class="feet-help-list">
+              <div><strong>5-3.5</strong><span>means 5 ft 3.5 in.</span></div>
+              <div><strong>5'-3.5"</strong><span>also works.</span></div>
+              <div><strong>10 / 2</strong><span>plain numbers act as normal scalars.</span></div>
+              <div><strong>5-3 * 6-2</strong><span>multiplying lengths returns square feet.</span></div>
+              <div><strong>(10-0 / 2)</strong><span>parentheses are supported.</span></div>
+            </div>
+          </section>
+
+          <section class="panel-section calculator-section feet-scale-chart-section">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Drawing Scale Reference</p>
+                <h3>Model Space Dimensions & Text</h3>
+              </div>
+            </div>
+            <div class="scale-chart-wrap">
+              <table class="scale-chart-table">
+                <thead>
+                  <tr>
+                    <th>Plotted Scale</th>
+                    <th>Model Space Zoom Magnification</th>
+                    <th>Text Height: 3/32&quot;</th>
+                    <th>1/8&quot;</th>
+                    <th>1/4&quot;</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>1/64&quot; = 1'-0&quot;</td><td>1/768XP</td><td>72</td><td>96</td><td>192</td></tr>
+                  <tr><td>1/32&quot; = 1'-0&quot;</td><td>1/384XP</td><td>36</td><td>48</td><td>96</td></tr>
+                  <tr><td>1/16&quot; = 1'-0&quot;</td><td>1/192XP</td><td>18</td><td>24</td><td>48</td></tr>
+                  <tr><td>3/32&quot; = 1'-0&quot;</td><td>1/128XP</td><td>12</td><td>16</td><td>32</td></tr>
+                  <tr><td>1/8&quot; = 1'-0&quot;</td><td>1/96XP</td><td>8</td><td>12</td><td>24</td></tr>
+                  <tr><td>3/16&quot; = 1'-0&quot;</td><td>1/64XP</td><td>6</td><td>8</td><td>16</td></tr>
+                  <tr><td>1/4&quot; = 1'-0&quot;</td><td>1/48XP</td><td>4</td><td>6</td><td>12</td></tr>
+                  <tr><td>3/8&quot; = 1'-0&quot;</td><td>1/32XP</td><td>3</td><td>6</td><td>8</td></tr>
+                  <tr><td>1/2&quot; = 1'-0&quot;</td><td>1/24XP</td><td>2</td><td>3</td><td>6</td></tr>
+                  <tr><td>3/4&quot; = 1'-0&quot;</td><td>1/16XP</td><td>1.5</td><td>2</td><td>4</td></tr>
+                  <tr><td>1&quot; = 1'-0&quot;</td><td>1/12XP</td><td>1</td><td>1.5</td><td>3</td></tr>
+                  <tr><td>1 1/2&quot; = 1'-0&quot;</td><td>1/8XP</td><td>3/4</td><td>1</td><td>2</td></tr>
+                  <tr><td>3&quot; = 1'-0&quot;</td><td>1/4XP</td><td>3/8</td><td>0.5</td><td>1</td></tr>
+                  <tr><td>Half Size</td><td>1/2XP</td><td>3/16</td><td>1/4</td><td>0.5</td></tr>
+                  <tr><td>Full Size</td><td>1XP</td><td>3/32</td><td>1/8</td><td>1/4</td></tr>
+                  <tr><td>1&quot; = 1000'-0&quot;</td><td>1/12000XP</td><td>1125</td><td>1500</td><td>3000</td></tr>
+                  <tr><td>1&quot; = 500'-0&quot;</td><td>1/6000XP</td><td>562</td><td>750</td><td>1500</td></tr>
+                  <tr><td>1&quot; = 400'-0&quot;</td><td>1/4800XP</td><td>450</td><td>600</td><td>1200</td></tr>
+                  <tr><td>1&quot; = 200'-0&quot;</td><td>1/2400XP</td><td>225</td><td>300</td><td>600</td></tr>
+                  <tr><td>1&quot; = 100'-0&quot;</td><td>1/1200XP</td><td>112</td><td>150</td><td>300</td></tr>
+                  <tr><td>1&quot; = 80'-0&quot;</td><td>1/960XP</td><td>90</td><td>120</td><td>240</td></tr>
+                  <tr><td>1&quot; = 60'-0&quot;</td><td>1/720XP</td><td>67</td><td>90</td><td>180</td></tr>
+                  <tr><td>1&quot; = 50'-0&quot;</td><td>1/600XP</td><td>56</td><td>75</td><td>150</td></tr>
+                  <tr><td>1&quot; = 40'-0&quot;</td><td>1/480XP</td><td>45</td><td>60</td><td>120</td></tr>
+                  <tr><td>1&quot; = 30'-0&quot;</td><td>1/360XP</td><td>33</td><td>45</td><td>90</td></tr>
+                  <tr><td>1&quot; = 20'-0&quot;</td><td>1/240XP</td><td>22</td><td>30</td><td>60</td></tr>
+                  <tr><td>1&quot; = 10'-0&quot;</td><td>1/120XP</td><td>11</td><td>15</td><td>30</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="code" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">NFPA Code Assist</p>
+            <h2>2016 / 2019 Section Roadmap</h2>
+          </div>
+          <button class="ghost-button" id="codeConverterClearButton" type="button">Clear Lookup</button>
+        </div>
+
+        <div class="code-converter-grid">
+          <section class="panel-section calculator-section code-converter-input-section">
+            <div class="section-heading">
+              <p class="eyebrow">Lookup direction</p>
+            </div>
+            <div class="segmented-control wide-segmented-control" role="radiogroup" aria-label="NFPA code conversion direction">
+              <label>
+                <input type="radio" name="codeConvertDirection" value="2016-to-2019" checked />
+                <span>2016 to 2019</span>
+              </label>
+              <label>
+                <input type="radio" name="codeConvertDirection" value="2019-to-2016" />
+                <span>2019 to 2016</span>
+              </label>
+            </div>
+            <label>
+              Code Section
+              <input id="codeConverterInput" type="text" inputmode="decimal" placeholder="ex: 8.15.2.1" />
+            </label>
+            <button class="primary-button full-width-button" id="codeConverterButton" type="button">Convert Code</button>
+            <p class="calculator-status" id="codeConverterStatus">Loading NFPA 13 roadmap...</p>
+            <div class="nfpa-source-status" id="nfpaSourceStatus" aria-live="polite"></div>
+            <div class="common-code-reference-panel">
+              <div class="section-heading">
+                <p class="eyebrow">Common rule references</p>
+                <span class="dialog-field-action">
+                  <span class="pdf-merge-count" id="commonCodeReferenceCount">0 rules</span>
+                  <button class="ghost-button compact-button" id="addCommonCodeReferenceButton" type="button">Add Rule</button>
+                </span>
+              </div>
+              <label>
+                Search Rules
+                <input id="commonCodeReferenceSearch" type="search" autocomplete="off" placeholder="ex: small room, BLR, bathrooms" />
+              </label>
+              <div class="common-code-reference-list" id="commonCodeReferenceList">
+                <div class="empty-state compact-empty-state">Loading common references...</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel-section calculator-section code-converter-results-section">
+            <div class="section-heading">
+              <p class="eyebrow">Equivalent sections</p>
+              <span class="pdf-merge-count" id="codeConverterCount">0 matches</span>
+            </div>
+            <div class="code-result-list" id="codeConverterResults">
+              <div class="empty-state">Enter an NFPA 13 section number to find the matching roadmap entry.</div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="water" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">Water supply graph</p>
+            <h2>Hydrant Flow Curve Builder</h2>
+          </div>
+          <div class="water-hero-actions">
+            <div class="segmented-control water-unit-toggle" role="radiogroup" aria-label="Water supply units">
+              <label>
+                <input type="radio" name="waterMode" value="US" checked />
+                <span>US</span>
+              </label>
+              <label>
+                <input type="radio" name="waterMode" value="SI" />
+                <span>SI</span>
+              </label>
+            </div>
+            <button class="ghost-button" id="waterResetButton" type="button">Reset</button>
+          </div>
+        </div>
+
+        <div class="water-supply-grid">
+          <section class="panel-section calculator-section water-site-section">
+            <div class="section-heading">
+              <p class="eyebrow">Site</p>
+            </div>
+            <div class="field-grid two">
+              <label>
+                Project / Site
+                <input id="waterSiteNameInput" type="text" autocomplete="off" placeholder="Project name" />
+              </label>
+              <label>
+                Address
+                <input id="waterAddressInput" type="text" autocomplete="street-address" placeholder="Test address" />
+              </label>
+              <label>
+                Date
+                <input id="waterDateInput" type="date" />
+              </label>
+              <label>
+                Time
+                <input id="waterTimeInput" type="time" />
+              </label>
+              <label class="wide-field">
+                Performed By
+                <input id="waterByInput" type="text" autocomplete="off" />
+              </label>
+            </div>
+          </section>
+
+          <section class="panel-section calculator-section water-pressure-section">
+            <div class="section-heading">
+              <p class="eyebrow">Static / residual</p>
+            </div>
+            <div class="field-grid three">
+              <label>
+                Static Pressure <span class="water-unit-label" data-water-unit="pressure">psi</span>
+                <input id="waterStaticInput" type="number" min="0" step="0.1" inputmode="decimal" value="75" />
+              </label>
+              <label>
+                Residual Pressure <span class="water-unit-label" data-water-unit="pressure">psi</span>
+                <input id="waterResidualInput" type="number" min="0" step="0.1" inputmode="decimal" value="55" />
+              </label>
+              <label>
+                Fire Flow Pressure <span class="water-unit-label" data-water-unit="pressure">psi</span>
+                <input id="waterTargetPressureInput" type="number" min="0" step="0.1" inputmode="decimal" value="20" />
+              </label>
+              <label>
+                Pressure Hydrant Location
+                <input id="waterPressureHydrantLocationInput" type="text" autocomplete="off" />
+              </label>
+              <label>
+                Elevation <span class="water-unit-label" data-water-unit="elevation">ft</span>
+                <input id="waterElevationInput" type="number" step="0.1" inputmode="decimal" />
+              </label>
+            </div>
+          </section>
+
+          <section class="panel-section calculator-section water-flow-section">
+            <div class="section-heading">
+              <p class="eyebrow">Flow hydrants</p>
+            </div>
+            <div class="water-flow-hydrants">
+              <div class="water-flow-card" data-water-hydrant="1">
+                <div class="water-card-title">Flow Hydrant 1</div>
+                <label>
+                  Flow Override <span class="water-unit-label" data-water-unit="flow">gpm</span>
+                  <input id="waterFh1OverrideInput" type="number" min="0" step="1" inputmode="decimal" />
+                </label>
+                <div class="field-grid two">
+                  <label>
+                    Pitot Pressure <span class="water-unit-label" data-water-unit="pressure">psi</span>
+                    <input id="waterFh1PitotInput" type="number" min="0" step="0.1" inputmode="decimal" value="25" />
+                  </label>
+                  <label>
+                    Outlets
+                    <input id="waterFh1OutletsInput" type="number" min="0" step="1" inputmode="numeric" value="1" />
+                  </label>
+                  <label>
+                    Outlet Diameter <span class="water-unit-label" data-water-unit="diameter">in</span>
+                    <input id="waterFh1DiameterInput" type="number" min="0" step="0.01" inputmode="decimal" value="2.5" />
+                  </label>
+                  <label>
+                    Coefficient
+                    <input id="waterFh1CoeffInput" type="number" min="0" step="0.01" inputmode="decimal" value="0.9" />
+                  </label>
+                </div>
+                <label>
+                  Location
+                  <input id="waterFh1LocationInput" type="text" autocomplete="off" />
+                </label>
+              </div>
+
+              <div class="water-flow-card" data-water-hydrant="2">
+                <div class="water-card-title">Flow Hydrant 2</div>
+                <label>
+                  Flow Override <span class="water-unit-label" data-water-unit="flow">gpm</span>
+                  <input id="waterFh2OverrideInput" type="number" min="0" step="1" inputmode="decimal" />
+                </label>
+                <div class="field-grid two">
+                  <label>
+                    Pitot Pressure <span class="water-unit-label" data-water-unit="pressure">psi</span>
+                    <input id="waterFh2PitotInput" type="number" min="0" step="0.1" inputmode="decimal" />
+                  </label>
+                  <label>
+                    Outlets
+                    <input id="waterFh2OutletsInput" type="number" min="0" step="1" inputmode="numeric" />
+                  </label>
+                  <label>
+                    Outlet Diameter <span class="water-unit-label" data-water-unit="diameter">in</span>
+                    <input id="waterFh2DiameterInput" type="number" min="0" step="0.01" inputmode="decimal" value="2.5" />
+                  </label>
+                  <label>
+                    Coefficient
+                    <input id="waterFh2CoeffInput" type="number" min="0" step="0.01" inputmode="decimal" value="0.9" />
+                  </label>
+                </div>
+                <label>
+                  Location
+                  <input id="waterFh2LocationInput" type="text" autocomplete="off" />
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel-section calculator-section water-results-section">
+            <div class="section-heading">
+              <p class="eyebrow">Results</p>
+            </div>
+            <div class="layout-result-grid water-result-grid" id="waterResults">
+              <div class="calculator-result-card">
+                <span>Total Flow</span>
+                <strong id="waterTotalFlowResult">-</strong>
+              </div>
+              <div class="calculator-result-card">
+                <span>Flow at Target Pressure</span>
+                <strong id="waterExpectedFlowResult">-</strong>
+              </div>
+              <div class="calculator-result-card">
+                <span>Curve Limit</span>
+                <strong id="waterCurveLimitResult">-</strong>
+              </div>
+            </div>
+            <div class="water-demand-toolbar">
+              <p class="eyebrow">System demand</p>
+              <button class="ghost-button compact-button" id="waterAddDemandButton" type="button">Add Demand</button>
+            </div>
+            <div class="water-demand-list" id="waterDemandList"></div>
+            <p class="calculator-status" id="waterStatus"></p>
+          </section>
+
+          <section class="panel-section calculator-section water-chart-section">
+            <div class="section-heading">
+              <p class="eyebrow">Graph</p>
+              <div class="inline-actions">
+                <div class="segmented-control water-export-toggle" role="radiogroup" aria-label="Water graph output style">
+                  <label>
+                    <input type="radio" name="waterExportStyle" value="color" checked />
+                    <span>Color</span>
+                  </label>
+                  <label>
+                    <input type="radio" name="waterExportStyle" value="bw" />
+                    <span>B/W</span>
+                  </label>
+                </div>
+                <button class="ghost-button compact-button" id="waterPrintButton" type="button">Print</button>
+                <button class="ghost-button compact-button" id="waterPdfButton" type="button">PDF</button>
+                <button class="ghost-button compact-button" id="waterPngButton" type="button">PNG</button>
+                <button class="ghost-button compact-button" id="waterSvgButton" type="button">SVG</button>
+                <button class="ghost-button compact-button" id="waterDxfButton" type="button">DXF</button>
+              </div>
+            </div>
+            <div class="water-chart-shell">
+              <svg id="waterChart" viewBox="0 0 940 560" role="img" aria-label="Water supply graph"></svg>
+            </div>
+            <div class="layout-result-lines water-report" id="waterReport"></div>
+
+            <div class="water-sheet-block">
+              <div class="section-heading">
+                <p class="eyebrow">Flow test sheet</p>
+              </div>
+              <label class="water-sheet-toggle">
+                <input type="checkbox" id="waterSheetDisclaimerToggle" checked />
+                <span>Include disclaimer on the sheet</span>
+              </label>
+              <textarea id="waterSheetDisclaimer" class="water-sheet-disclaimer" rows="3" spellcheck="true">Flow test results reflect water supply conditions at the date, time, and location of the test only. Municipal water supplies are subject to seasonal and daily fluctuation; the available supply shown is not guaranteed and an appropriate safety margin should be applied for design. Test conducted in general accordance with NFPA 291.</textarea>
+              <button class="primary-button full-width-button" id="waterSheetButton" type="button">Generate Flow Test Sheet (8.5 &times; 11)</button>
+            </div>
+          </section>
+
+          <section class="panel-section calculator-section water-math-section">
+            <div class="section-heading">
+              <p class="eyebrow">Math</p>
+            </div>
+            <div class="water-math-panel" id="waterMathPanel"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="nfpa1142" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">NFPA 1142 calculator</p>
+            <h2>Rural Water Supply Calculator</h2>
+          </div>
+          <button class="ghost-button" id="nfpa1142ClearButton" type="button">Clear All Fields</button>
+        </div>
+
+        <div class="nfpa1142-grid">
+          <section class="panel-section calculator-section nfpa1142-input-section">
+            <div class="section-heading">
+              <p class="eyebrow">Structure information</p>
+            </div>
+            <label>
+              Building / Structure Title
+              <input id="nfpa1142TitleInput" type="text" autocomplete="off" placeholder="ex: Office Building, Barn, Warehouse" />
+            </label>
+            <div class="field-grid two">
+              <label>
+                Fire-Flow Calculation Area
+                <input id="nfpa1142AreaInput" type="number" min="1" step="1" inputmode="decimal" placeholder="sq ft" />
+              </label>
+              <label>
+                Height
+                <input id="nfpa1142HeightInput" type="number" min="1" step="0.1" inputmode="decimal" placeholder="ft" />
+              </label>
+            </div>
+            <div class="or-divider">OR enter dimensions below</div>
+            <div class="field-grid three">
+              <label>
+                Length
+                <input id="nfpa1142LengthInput" type="number" min="1" step="0.1" inputmode="decimal" placeholder="ft" />
+              </label>
+              <label>
+                Width
+                <input id="nfpa1142WidthInput" type="number" min="1" step="0.1" inputmode="decimal" placeholder="ft" />
+              </label>
+              <label>
+                Height
+                <input id="nfpa1142DimensionHeightInput" type="number" min="1" step="0.1" inputmode="decimal" placeholder="ft" />
+              </label>
+            </div>
+          </section>
+
+          <section class="panel-section calculator-section nfpa1142-criteria-section">
+            <div class="section-heading">
+              <p class="eyebrow">NFPA 1142 criteria</p>
+            </div>
+            <label>
+              Occupancy Hazard Classification Number (OHC)
+              <select id="nfpa1142OhcSelect">
+                <option value="3">3 - Severe Hazard Occupancies</option>
+                <option value="4">4 - High Hazard Occupancies</option>
+                <option value="5" selected>5 - Moderate Hazard Occupancies</option>
+                <option value="6">6 - Low Hazard Occupancies</option>
+                <option value="7">7 - Light Hazard Occupancies</option>
+              </select>
+            </label>
+            <label>
+              Construction Classification Number (CC)
+              <select id="nfpa1142CcSelect">
+                <option value="0.5">Type I - 0.5</option>
+                <option value="0.75">Type II - 0.75</option>
+                <option value="1.0" selected>Type III - 1.0</option>
+                <option value="0.75">Type IV - 0.75</option>
+                <option value="1.5">Type V - 1.5</option>
+              </select>
+            </label>
+            <div class="section-heading nfpa1142-exposure-heading">
+              <p class="eyebrow">Exposure hazards</p>
+            </div>
+            <div class="segmented-control wide-segmented-control" role="radiogroup" aria-label="Exposure hazards">
+              <label>
+                <input type="radio" name="nfpa1142Exposure" value="without" checked />
+                <span>Without</span>
+              </label>
+              <label>
+                <input type="radio" name="nfpa1142Exposure" value="with" />
+                <span>With</span>
+              </label>
+            </div>
+            <p class="calculator-status" id="nfpa1142Status"></p>
+          </section>
+
+          <section class="panel-section calculator-section nfpa1142-results-section">
+            <div class="section-heading">
+              <p class="eyebrow">Water supply result</p>
+            </div>
+            <div class="layout-result-grid" id="nfpa1142Results">
+              <div class="calculator-result-card">
+                <span>Minimum Water Supply</span>
+                <strong>-</strong>
+              </div>
+              <div class="calculator-result-card">
+                <span>Delivery Rate</span>
+                <strong>-</strong>
+              </div>
+            </div>
+            <div class="layout-result-lines nfpa1142-steps" id="nfpa1142Steps">
+              <div class="layout-result-line">
+                <span>Reference</span>
+                <strong>Based on NFPA 1142 Sections 4.2, 4.3 and Table 4.6.1</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel-section calculator-section nfpa1142-report-section">
+            <div class="section-heading export-heading">
+              <div>
+                <p class="eyebrow">Export report</p>
+                <h3>NFPA 1142 Water Supply Table</h3>
+              </div>
+              <div class="water-hero-actions">
+                <div class="segmented-control water-export-toggle" role="radiogroup" aria-label="NFPA 1142 report output style">
+                  <label>
+                    <input type="radio" name="nfpa1142ExportStyle" value="color" checked />
+                    <span>Color</span>
+                  </label>
+                  <label>
+                    <input type="radio" name="nfpa1142ExportStyle" value="bw" />
+                    <span>B/W</span>
+                  </label>
+                </div>
+                <button class="ghost-button compact-button" id="nfpa1142PrintButton" type="button">Print</button>
+                <button class="ghost-button compact-button" id="nfpa1142PngButton" type="button">PNG</button>
+                <button class="ghost-button compact-button" id="nfpa1142SvgButton" type="button">SVG</button>
+                <button class="ghost-button compact-button" id="nfpa1142DxfButton" type="button">DXF</button>
+              </div>
+            </div>
+            <div class="nfpa1142-report-shell">
+              <svg id="nfpa1142ReportSvg" viewBox="0 0 940 640" role="img" aria-label="NFPA 1142 water supply calculation table"></svg>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="storage" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">Storage Analysis Tool</p>
+            <h2>Storage Hazard Criteria Analyzer</h2>
+          </div>
+        </div>
+        <section class="panel-section calculator-section storage-analysis-frame-section">
+          <iframe
+            id="storageHazardFrame"
+            class="storage-analysis-frame"
+            src="./storage-hazard.html?embedded=1&theme=default"
+            title="SprinkFlow Storage Hazard Analysis"
+          ></iframe>
+        </section>
+      </section>
+
+      <section class="tool-panel sprinkler-calculator-panel estimator-panel" data-tool-panel="estimator" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">Bid Estimator</p>
+            <h2>Fire Sprinkler Bid &amp; Proposal Builder</h2>
+          </div>
+          <button class="ghost-button" id="estimatorResetButton" type="button">Reset Bid</button>
+        </div>
+
+        <div class="estimator-modebar">
+          <div class="estimator-segmented" role="group" aria-label="Estimate mode">
+            <button type="button" class="estimator-seg-btn" data-estimator-mode="quick" aria-pressed="false">Quick estimate</button>
+            <button type="button" class="estimator-seg-btn" data-estimator-mode="detailed" aria-pressed="true">Detailed bid</button>
+          </div>
+          <p class="estimator-hint estimator-modebar-hint">Quick = a fast ballpark from your $/sq ft (great on a job walk). Detailed = the full proposal with sections, markup &amp; terms.</p>
+        </div>
+
+        <div class="estimator-grid">
+          <div class="estimator-builder">
+            <section class="panel-section calculator-section estimator-intake">
+              <div class="section-heading"><p class="eyebrow">Plan Intake</p><span class="privacy-tip" tabindex="0" role="note" aria-label="How your plans are handled">Privacy<span class="privacy-pop">Your plans stay on this computer. SprinkFlow reads them locally to pull the project name, address, and sizes &mdash; they're not uploaded anywhere and are never used to train AI.</span></span></div>
+              <div class="estimator-dropzone" id="bidIntakeDrop" tabindex="0" role="button" aria-label="Drop bid plans to auto-fill project info">
+                <input id="bidIntakeInput" class="hidden-input" type="file" accept=".pdf,application/pdf" />
+                <div class="estimator-dropzone-icon">📄</div>
+                <strong>Drop your bid set here to auto-fill</strong>
+                <span>Pulls the project name &amp; address (plus a best-guess square footage, height &amp; occupancy). Click or drop a PDF.</span>
+              </div>
+              <p class="calculator-status" id="bidIntakeStatus"></p>
+              <div id="bidIntakeExtras" class="estimator-intake-extras"></div>
+            </section>
+
+            <section class="panel-section calculator-section estimator-headcount">
+              <div class="section-heading"><p class="eyebrow">Head Count Estimator</p></div>
+              <div class="estimator-field-grid">
+                <label>Building area (sq ft)<input id="hcSqftInput" type="number" min="0" step="1" inputmode="numeric" placeholder="e.g. 10000" /></label>
+                <label>Occupancy<select id="hcOccupancySelect">
+                  <option value="light">Light hazard</option>
+                  <option value="ordinary">Ordinary hazard</option>
+                  <option value="extra">Extra hazard</option>
+                  <option value="storage">Storage / ESFR</option>
+                  <option value="res13d">Residential (13D)</option>
+                  <option value="res13r">Residential (13R)</option>
+                </select></label>
+                <label class="estimator-span-2">Building layout<select id="hcComplexitySelect">
+                  <option value="0">Wide open — warehouse or one big room</option>
+                  <option value="1">Mostly open — a few offices or walls</option>
+                  <option value="2">Average — typical office / retail mix</option>
+                  <option value="3">Cut up — lots of separate rooms</option>
+                  <option value="4">Very cut up — tons of small rooms</option>
+                </select></label>
+              </div>
+              <div class="estimator-headcount-result">
+                <strong id="hcHeadsValue">— heads</strong>
+                <span id="hcHeadsDetail">Enter the building area to estimate heads.</span>
+              </div>
+              <button class="secondary-button" id="hcUseButton" type="button" disabled>Use this head count</button>
+              <p class="estimator-hint">A planning number: building area ÷ max coverage per head, bumped up for cut-up layouts and rounded up to an even count. Verify against a real layout before bidding.</p>
+            </section>
+
+            <section class="panel-section calculator-section">
+              <div class="section-heading"><p class="eyebrow">Bid Details</p></div>
+              <div class="estimator-field-grid">
+                <label>Customer / Bid To<input id="bidCustomerInput" type="text" autocomplete="off" placeholder="General contractor or owner" /></label>
+                <label>Project Name<input id="bidProjectNameInput" type="text" autocomplete="off" placeholder="Project name" /></label>
+                <label class="estimator-span-2">Project Address<input id="bidProjectAddressInput" type="text" autocomplete="off" placeholder="Project address" /></label>
+                <label>Bid Number<input id="bidNumberInput" type="text" autocomplete="off" placeholder="e.g. 2026-014" /></label>
+                <label>Bid Date<input id="bidDateInput" type="date" /></label>
+                <label>Valid (days)<input id="bidValidDaysInput" type="number" min="0" step="1" placeholder="30" /></label>
+              </div>
+              <p class="estimator-hint">Letterhead (logo, company name, license, phone) and the page color theme come from your active contractor profile and template on the <strong>Material Data Submittal</strong> tab.</p>
+            </section>
+
+            <details class="panel-section calculator-section estimator-saved">
+              <summary>Saved bids <span id="estimatorSavedCount" class="estimator-summary-hint"></span></summary>
+              <button class="secondary-button" id="estimatorSaveBidButton" type="button">&#128190; Save this bid</button>
+              <div id="estimatorSavedBids" class="estimator-saved-list"></div>
+            </details>
+
+            <section class="panel-section calculator-section estimator-quick-only estimator-quick-card">
+              <div class="section-heading"><p class="eyebrow">Quick Estimate</p></div>
+              <div class="estimator-segmented estimator-quick-basis" role="group" aria-label="Estimate basis">
+                <button type="button" class="estimator-seg-btn" data-quick-basis="sqft" aria-pressed="true">By square feet</button>
+                <button type="button" class="estimator-seg-btn" data-quick-basis="heads" aria-pressed="false">By head count</button>
+              </div>
+              <div class="estimator-field-grid">
+                <label class="estimator-quick-sqft-only">Square feet<input id="quickSqftInput" type="number" min="0" step="1" inputmode="numeric" placeholder="e.g. 12000" /></label>
+                <label class="estimator-quick-sqft-only">All-in $ / sq ft<input id="quickRateSqftInput" type="number" min="0" step="0.01" inputmode="decimal" placeholder="your gut number" /></label>
+                <label class="estimator-quick-heads-only">Head count<input id="quickHeadsInput" type="number" min="0" step="1" inputmode="numeric" placeholder="e.g. 120" /></label>
+                <label class="estimator-quick-heads-only">All-in $ / head<input id="quickRateHeadInput" type="number" min="0" step="1" inputmode="numeric" placeholder="your gut number" /></label>
+                <label>System type<select id="quickSystemTypeSelect">
+                  <option value="wet">Wet</option>
+                  <option value="dry">Dry</option>
+                  <option value="preaction">Preaction</option>
+                  <option value="esfr">ESFR</option>
+                  <option value="underground">Underground</option>
+                  <option value="antifreeze">Antifreeze</option>
+                  <option value="other">Other</option>
+                </select></label>
+              </div>
+              <p class="estimator-hint">Your all-in rate is what you'd bid per sq ft (or head) including labor, material, and margin. It's saved for next time. Switch to <strong>Detailed bid</strong> to build a full proposal.</p>
+            </section>
+
+            <details class="panel-section calculator-section estimator-rates estimator-detailed-only" id="estimatorRatesBlock">
+              <summary>Company Rate Defaults <span class="estimator-summary-hint">(entered once, reused on every bid)</span></summary>
+              <div class="estimator-field-grid">
+                <label>Labor rate ($/hr)<input id="rateLaborInput" type="number" min="0" step="1" /></label>
+                <label>Default $/sq ft<input id="rateSqftInput" type="number" min="0" step="0.01" /></label>
+                <label>Default $/head<input id="ratePerHeadInput" type="number" min="0" step="1" /></label>
+                <label class="estimator-simple-only">Margin / markup (%)<input id="rateSimpleMarginInput" type="number" min="0" step="1" /></label>
+              </div>
+              <div class="estimator-advanced-only">
+                <div class="section-heading"><p class="eyebrow">Markup Stack</p></div>
+                <div class="estimator-field-grid">
+                  <label>Material markup (%)<input id="rateMaterialMarkupInput" type="number" min="0" step="1" /></label>
+                  <label>Labor burden (%)<input id="rateLaborBurdenInput" type="number" min="0" step="1" /></label>
+                  <label>Overhead (%)<input id="rateOverheadInput" type="number" min="0" step="1" /></label>
+                  <label>Profit (%)<input id="rateProfitInput" type="number" min="0" step="1" /></label>
+                </div>
+                <div class="section-heading"><p class="eyebrow">System Type Cost Multipliers</p></div>
+                <div class="estimator-field-grid" id="systemMultiplierGrid"></div>
+              </div>
+            </details>
+
+            <section class="panel-section calculator-section estimator-detailed-only">
+              <div class="section-heading">
+                <p class="eyebrow">System Sections</p>
+                <button class="secondary-button" id="estimatorAddSectionButton" type="button">+ Add System</button>
+              </div>
+              <div id="estimatorSections" class="estimator-sections"></div>
+            </section>
+
+            <section class="panel-section calculator-section estimator-detailed-only">
+              <div class="section-heading"><p class="eyebrow">Scope &amp; Terms</p></div>
+              <label class="estimator-block-label">Scope of work / proposal narrative
+                <textarea id="bidScopeInput" rows="3" placeholder="Furnish and install a complete fire sprinkler system per the contract documents and applicable NFPA standards."></textarea>
+              </label>
+              <div class="estimator-list-grid">
+                <div>
+                  <div class="section-heading"><p class="eyebrow">Inclusions</p><button class="ghost-button" id="bidAddInclusionButton" type="button">+ Add</button></div>
+                  <div id="bidInclusions" class="estimator-line-list"></div>
+                </div>
+                <div>
+                  <div class="section-heading"><p class="eyebrow">Exclusions</p><button class="ghost-button" id="bidAddExclusionButton" type="button">+ Add</button></div>
+                  <div id="bidExclusions" class="estimator-line-list"></div>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel-section calculator-section estimator-advanced-only estimator-detailed-only">
+              <div class="section-heading"><p class="eyebrow">Fees &amp; Taxes</p></div>
+              <div class="estimator-field-grid">
+                <label>Permit fee ($)<input id="bidPermitInput" type="number" min="0" step="1" /></label>
+                <label>Bond (%)<input id="bidBondInput" type="number" min="0" step="0.1" /></label>
+                <label>Sales tax (%)<input id="bidTaxInput" type="number" min="0" step="0.1" /></label>
+              </div>
+            </section>
+          </div>
+
+          <aside class="estimator-summary">
+            <div class="estimator-summary-card">
+              <label class="estimator-switch estimator-detailed-only"><input id="estimatorAdvancedToggle" type="checkbox" /><span>Advanced markup</span></label>
+              <div id="estimatorBreakdown" class="estimator-breakdown estimator-detailed-only"></div>
+              <div class="estimator-total-bar">
+                <span>Total Bid Price</span>
+                <strong id="estimatorGrandTotal">$0.00</strong>
+              </div>
+              <div id="estimatorSanity" class="estimator-sanity"></div>
+              <label class="estimator-round-row">Round total to
+                <select id="estimatorRoundSelect">
+                  <option value="0">No rounding</option>
+                  <option value="50">Nearest $50</option>
+                  <option value="100">Nearest $100</option>
+                  <option value="500">Nearest $500</option>
+                  <option value="1000">Nearest $1,000</option>
+                </select>
+              </label>
+              <div id="estimatorWarnings" class="estimator-warnings"></div>
+              <label class="estimator-checkbox estimator-detailed-only"><input id="bidIncludeBreakdownInput" type="checkbox" checked /><span>Include internal cost breakdown page</span></label>
+              <button class="primary-button" id="estimatorGenerateButton" type="button">Generate Bid PDF</button>
+              <p class="calculator-status" id="estimatorStatus"></p>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="hanger" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">Detailing Tool</p>
+            <h2>Hanger Detail Generator</h2>
+          </div>
+        </div>
+        <section class="panel-section calculator-section hanger-detail-frame-section">
+          <iframe
+            id="hangerDetailFrame"
+            class="hanger-detail-frame"
+            src="./hanger.html"
+            title="SprinkFlow Hanger Detail Generator"
+          ></iframe>
+        </section>
+      </section>
+
+      <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="settings" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">SprinkFlow Settings</p>
+            <h2>Workflow Preferences</h2>
+          </div>
+          <button class="ghost-button" id="settingsResetButton" type="button">Reset Settings</button>
+        </div>
+        <div class="settings-grid">
+          <section class="panel-section calculator-section">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Interface</p>
+                <h3>Layout Mode</h3>
+              </div>
+            </div>
+            <label class="option-row">
+              <input id="settingsLegacyModeInput" type="checkbox" />
+              <span>Legacy Mode &mdash; show the classic all-in-one layout instead of the guided step-by-step builder.</span>
+            </label>
+            <p class="pdf-mode-hint">Most users should leave this off. Legacy Mode shows every field on one screen and the bottom generate bar.</p>
+          </section>
+          <section class="panel-section calculator-section">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Output</p>
+                <h3>Generated PDF Folder</h3>
+              </div>
+            </div>
+            <label>
+              Default Output Folder
+              <input id="settingsOutputFolderInput" type="text" readonly placeholder="SprinkFlow default generated submittals folder" />
+            </label>
+            <div class="inline-actions settings-actions">
+              <button class="secondary-button" id="settingsChooseOutputFolderButton" type="button">Choose Folder</button>
+              <button class="ghost-button" id="settingsClearOutputFolderButton" type="button">Use Default</button>
+            </div>
+            <label class="option-row">
+              <input id="settingsOpenGeneratedPdfInput" type="checkbox" checked />
+              <span>Open generated PDFs after creation</span>
+            </label>
+            <label>
+              Table of Contents
+              <select id="settingsTocStyleSelect">
+                <option value="standard">Standard</option>
+                <option value="web-links">Web Links Table</option>
+              </select>
+            </label>
+            <p class="settings-helper">Web Links Table adds model, supplier, manufacturer, page number, and a visible datasheet link for each item.</p>
+          </section>
+
+          <section class="panel-section calculator-section">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Email</p>
+                <h3>Submittal Package Email Template</h3>
+              </div>
+            </div>
+            <p class="settings-helper">Variables: PROJECT_NAME, PROJECT_ADDRESS, CONTRACTOR_NAME, CONTRACTOR_COMPANY, CLIENT_NAME, DATE, MATERIAL_SUBMITTAL, HYDRAULIC_CALCS.</p>
+            <label>
+              Subject
+              <input id="settingsEmailSubjectInput" type="text" autocomplete="off" />
+            </label>
+            <label>
+              Body
+              <textarea id="settingsEmailBodyInput" rows="10"></textarea>
+            </label>
+            <div class="inline-actions settings-actions">
+              <button class="primary-button" id="settingsSaveButton" type="button">Save Settings</button>
+            </div>
+            <p class="calculator-status" id="settingsStatus" aria-live="polite"></p>
+          </section>
+        </div>
+      </section>
+
+      <div class="generate-dock" data-submittal-generate-dock>
+        <button class="primary-button generate-dock-button" id="printButton" type="button">Generate Material Data Submittal</button>
+        <label class="generate-open-toggle"><input type="checkbox" id="generateOpenAfterInput" checked /> Open the file once it's generated</label>
+        <button class="secondary-button generate-dock-secondary" id="submittalEmailDraftButton" type="button">Generate + Email Full Submittal</button>
+        <button class="primary-button generate-dock-next" id="goToHydraulicButton" type="button" hidden>Next: build your Hydraulic Calc Package &rarr;</button>
+      </div>
+      </div>
+      </div>
+    </div>
+
+    <dialog class="review-dialog email-draft-dialog" id="emailDraftDialog">
+      <form method="dialog">
+        <div class="dialog-heading">
+          <p class="eyebrow">Submit package</p>
+          <h2>Add Submittal Package to Email</h2>
+        </div>
+        <p class="dialog-copy">Create a ready-to-review email with the generated SprinkFlow PDFs attached when Outlook is available. If Outlook is not available, SprinkFlow opens a prefilled draft and the attachment folder.</p>
+        <div class="field-grid two">
+          <label>
+            To
+            <input id="emailDraftToInput" type="email" autocomplete="email" placeholder="client@example.com" />
+          </label>
+          <label>
+            Client Name
+            <input id="emailDraftNameInput" type="text" autocomplete="off" placeholder="Name for Hi ___" />
+          </label>
+        </div>
+        <label>
+          Subject
+          <input id="emailDraftSubjectInput" type="text" autocomplete="off" />
+        </label>
+        <label>
+          Message
+          <textarea id="emailDraftBodyInput" rows="8"></textarea>
+        </label>
+        <div class="email-attachment-panel">
+          <strong>Attachments</strong>
+          <div id="emailDraftAttachmentList"></div>
+        </div>
+        <p class="calculator-status" id="emailDraftStatus" aria-live="polite"></p>
+        <div class="dialog-actions">
+          <button class="ghost-button" id="emailDraftCancelButton" type="button">Cancel</button>
+          <button class="primary-button" id="emailDraftCreateButton" type="button">Create Draft</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="review-dialog" id="datasheetReviewDialog">
+      <form method="dialog">
+        <div class="dialog-heading">
+          <p class="eyebrow">Review datasheet import</p>
+          <h2 id="reviewDialogTitle">Confirm Datasheet</h2>
+        </div>
+        <p class="dialog-copy" id="reviewDialogSummary"></p>
+        <div class="duplicate-warning" id="duplicateWarning"></div>
+        <label>
+          Table of Contents Name
+          <input id="reviewNameInput" type="text" />
+        </label>
+        <label>
+          Category
+          <span class="dialog-field-action">
+            <select id="reviewCategoryInput"></select>
+            <button class="ghost-button compact-button" id="reviewAddCategoryButton" type="button">Add Category</button>
+          </span>
+        </label>
+        <label id="reviewSubcategoryLabel" hidden>
+          Fitting Subcategory
+          <select id="reviewSubcategoryInput"></select>
+        </label>
+        <label>
+          Plan Scan Search Terms
+          <input id="reviewAliasesInput" type="text" placeholder="Optional: Fig. 78, beam clamp, cast iron threaded" />
+        </label>
+        <label class="checkbox-row dialog-checkbox-row">
+          <input id="reviewAddToSubmittalInput" type="checkbox" checked />
+          <span>Add this datasheet to the current submittal</span>
+        </label>
+        <div class="dialog-actions">
+          <button class="ghost-button" id="reviewCancelButton" type="button">Cancel</button>
+          <button class="secondary-button" id="reviewAddButton" type="button">Add</button>
+          <button class="primary-button" id="reviewReplaceButton" type="button">Replace Existing</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="review-dialog" id="projectInfoReviewDialog">
+      <form method="dialog">
+        <div class="dialog-heading">
+          <p class="eyebrow">Review project information</p>
+          <h2>Confirm Project Details</h2>
+        </div>
+        <p class="dialog-copy" id="projectInfoReviewSummary"></p>
+        <label>
+          Project Name
+          <input id="reviewProjectNameInput" type="text" />
+        </label>
+        <label>
+          Project Address
+          <input id="reviewProjectAddressInput" type="text" />
+        </label>
+        <div class="duplicate-warning" id="projectAddressWarning"></div>
+        <div class="dialog-actions">
+          <button class="ghost-button" id="projectInfoCancelButton" type="button">Cancel</button>
+          <button class="primary-button" id="projectInfoApplyButton" type="button">Use These Details</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="review-dialog wide-review-dialog" id="plansReviewDialog">
+      <form method="dialog">
+        <div class="dialog-heading">
+          <p class="eyebrow">Review plans scan</p>
+          <h2>Confirm Detected Project Data</h2>
+        </div>
+        <p class="dialog-copy" id="plansReviewSummary"></p>
+        <div class="plans-review-grid">
+          <label>
+            Project Name
+            <input id="plansReviewProjectNameInput" type="text" />
+          </label>
+          <label id="plansReviewProjectNameCandidatesLabel">
+            Name Options
+            <select id="plansReviewProjectNameCandidates"></select>
+          </label>
+          <label>
+            Project Address
+            <input id="plansReviewProjectAddressInput" type="text" />
+          </label>
+        </div>
+        <section class="plans-review-panel" id="plansReviewContractorPanel">
+          <label class="checkbox-row dialog-checkbox-row">
+            <input id="plansReviewApplyContractorInput" type="checkbox" />
+            <span>Use detected contractor information</span>
+          </label>
+          <div class="plans-review-grid">
+            <label>
+              Contractor Name
+              <input id="plansReviewContractorNameInput" type="text" />
+            </label>
+            <label>
+              Phone Number
+              <input id="plansReviewContractorPhoneInput" type="tel" />
+            </label>
+            <label>
+              License Number
+              <input id="plansReviewContractorLicenseInput" type="text" />
+            </label>
+            <label>
+              Contractor Address
+              <textarea id="plansReviewContractorAddressInput" rows="2"></textarea>
+            </label>
+          </div>
+        </section>
+        <section class="plans-review-panel">
+          <div class="dialog-heading compact-dialog-heading">
+            <p class="eyebrow">Catalog matches</p>
+            <h2>Approve Datasheets to Add</h2>
+          </div>
+          <div class="plans-suggestion-list" id="plansReviewSuggestions"></div>
+        </section>
+        <div class="dialog-actions">
+          <button class="ghost-button" id="plansReviewCancelButton" type="button">Cancel</button>
+          <button class="secondary-button" id="plansReviewSelectAllButton" type="button">Add All Matches</button>
+          <button class="secondary-button" id="plansReviewImportApplyButton" type="button">Import All Missing Datasheets</button>
+          <button class="primary-button" id="plansReviewApplyButton" type="button">Apply Selected</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="review-dialog" id="newProjectDialog">
+      <form method="dialog">
+        <div class="dialog-heading">
+          <p class="eyebrow">New project</p>
+          <h2>Save current project?</h2>
+        </div>
+        <p class="dialog-copy">You have project information or selected materials in progress. Save it before starting a new project?</p>
+        <div class="dialog-actions">
+          <button class="ghost-button" id="newProjectCancelButton" type="button">Cancel</button>
+          <button class="secondary-button" id="newProjectDiscardButton" type="button">New Without Saving</button>
+          <button class="primary-button" id="newProjectSaveButton" type="button">Save and Start New</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="review-dialog" id="startOverDialog">
+      <form method="dialog">
+        <div class="dialog-heading">
+          <p class="eyebrow">Start over</p>
+          <h2>Start a fresh submittal?</h2>
+        </div>
+        <p class="dialog-copy">Are you sure you want to start over? This clears the current submittal &mdash; added datasheets, dropped plans, and project details &mdash; and you'll lose any unsaved progress. (Your saved contractor is kept.)</p>
+        <div class="dialog-actions">
+          <button class="ghost-button" id="startOverCancelButton" type="button">Cancel</button>
+          <button class="primary-button" id="startOverConfirmButton" type="button">Yes, start over</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="review-dialog" id="debugDialog">
+      <form method="dialog">
+        <div class="dialog-heading">
+          <p class="eyebrow">Debug menu</p>
+          <h2>SprinkFlow Debug Tools</h2>
+        </div>
+        <p class="dialog-copy">Use this only for testing and support. Diagnostics are scrubbed and local; a full reset clears imported PDFs, saved contractors, saved projects, selected sheets, and current project data.</p>
+        <div class="debug-support-panel">
+          <strong>Support diagnostics</strong>
+          <span>Exports app/version info, catalog counts, license status, and scrubbed log tails. It does not include plans, datasheet PDFs, generated submittals, saved contractors, project fields, or private NFPA text.</span>
+          <button class="ghost-button" id="debugExportDiagnosticsButton" type="button">Export Diagnostics</button>
+        </div>
+        <div class="debug-danger-panel">
+          <strong>Full local reset</strong>
+          <span>Returns SprinkFlow to a clean first-run state on this computer. This permanently deletes imported cut sheets, saved contractors, and saved projects.</span>
+          <label class="debug-reset-confirm">
+            Type <strong>RESET</strong> to enable the button:
+            <input id="debugResetConfirmInput" type="text" autocomplete="off" spellcheck="false" placeholder="RESET" />
+          </label>
+          <button class="danger-button" id="debugResetDatabaseButton" type="button" disabled>Reset Database</button>
+        </div>
+        <p class="debug-status" id="debugStatus" aria-live="polite"></p>
+        <div class="dialog-actions">
+          <button class="ghost-button" id="debugCloseButton" type="button">Close</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="review-dialog startup-login-dialog" id="startupLoginDialog">
+      <form method="dialog" class="startup-login-shell">
+        <div class="startup-login-mark" aria-hidden="true">
+          <span class="app-icon mini-icon">
+            <img src="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" alt="" />
+          </span>
+        </div>
+        <div class="startup-login-copy">
+          <p class="eyebrow">SprinkFlow access</p>
+          <h2>Sign in to unlock the free tools</h2>
+          <p>Any SprinkFlow account unlocks the free design tools &mdash; calculators, the material catalog, and viewers. Subscribing adds exports and document generation. No account yet? Create one free at sprinkflow.studio.</p>
+        </div>
+        <div class="startup-login-fields">
+          <label>
+            Email
+            <input id="startupLoginEmailInput" type="email" autocomplete="email" placeholder="name@company.com" />
+          </label>
+          <label>
+            Password
+            <span class="password-field">
+              <input id="startupLoginPasswordInput" type="password" autocomplete="current-password" placeholder="SprinkFlow password" />
+              <button type="button" class="password-toggle" data-password-toggle="startupLoginPasswordInput" aria-label="Show password" title="Show password">&#128065;</button>
+            </span>
+          </label>
+        </div>
+        <p class="generate-status" id="startupLoginStatus" role="status" aria-live="polite"></p>
+        <div class="dialog-actions">
+          <button class="ghost-button" id="startupLoginSkipButton" type="button">Look Around</button>
+          <button class="primary-button" id="startupLoginButton" type="button">Sign In</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="review-dialog account-dialog" id="licenseDialog">
+      <div class="dialog-shell">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">SprinkFlow account</p>
+            <h2>Account</h2>
+          </div>
+          <button class="ghost-button" id="licenseDialogCloseButton" type="button">Close</button>
+        </div>
+        <div class="account-tabs" role="tablist" aria-label="Account sections">
+          <button class="account-tab active" type="button" data-account-tab="overview" aria-selected="true">Overview</button>
+          <button class="account-tab" type="button" data-account-tab="signin" aria-selected="false">Sign In &amp; Profile</button>
+          <button class="account-tab" type="button" data-account-tab="billing" aria-selected="false">Billing</button>
+          <button class="account-tab" type="button" data-account-tab="advanced" aria-selected="false">Advanced</button>
+        </div>
+
+        <div class="account-tab-panel" data-account-panel="overview">
+          <div class="license-overview-card" id="licenseOverviewCard">
+            <span class="license-status-dot large" id="licenseDialogStatusDot"></span>
+            <div>
+              <strong id="licenseDialogStatusLabel">Local Mode</strong>
+              <span id="licenseDialogMessage">Phase 1 licensing shell is active.</span>
+            </div>
+          </div>
+          <div class="license-detail-grid">
+            <div>
+              <span>Signed in as</span>
+              <strong id="licenseEmailValue">Not signed in</strong>
+            </div>
+            <div>
+              <span>Tool access</span>
+              <strong id="licenseOutputAccessValue">Not enforced</strong>
+            </div>
+            <div>
+              <span>Trial ends</span>
+              <strong id="licenseTrialValue">-</strong>
+            </div>
+            <div>
+              <span>Works offline until</span>
+              <strong id="licenseGraceValue">-</strong>
+            </div>
+          </div>
+          <button class="primary-button" id="accountOverviewSignInButton" type="button" hidden>Sign In to SprinkFlow</button>
+          <div class="account-updates-card">
+            <div>
+              <span>App version</span>
+              <strong id="licenseAppVersionValue">-</strong>
+            </div>
+            <div class="inline-actions">
+              <button class="ghost-button" id="licenseCheckUpdatesButton" type="button">Check for Updates</button>
+              <button class="secondary-button" id="licenseDownloadUpdateButton" type="button" disabled>Download Update</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="account-tab-panel" data-account-panel="signin" hidden>
+          <div class="license-form-card">
+            <p class="license-helper-text">Sign in with the email address from your SprinkFlow beta invite. Your name and company appear on the cover sheets you generate.</p>
+            <div class="field-grid two">
+              <label>
+                Email
+                <input id="licenseEmailInput" type="email" autocomplete="email" placeholder="name@company.com" />
+              </label>
+              <label>
+                Password
+                <span class="password-field">
+                  <input id="licensePasswordInput" type="password" autocomplete="current-password" placeholder="Beta account password" />
+                  <button type="button" class="password-toggle" data-password-toggle="licensePasswordInput" aria-label="Show password" title="Show password">&#128065;</button>
+                </span>
+              </label>
+              <label>
+                Name
+                <input id="licenseNameInput" type="text" autocomplete="name" placeholder="Your name" />
+              </label>
+              <label class="wide-field">
+                Company
+                <input id="licenseCompanyInput" type="text" autocomplete="organization" placeholder="Company name" />
+              </label>
+            </div>
+            <div class="inline-actions">
+              <button class="primary-button" id="licenseSignInButton" type="button">Sign In</button>
+              <button class="ghost-button" id="licenseSaveProfileButton" type="button">Save Profile</button>
+            </div>
+            <p class="generate-status sign-in-result" id="licenseSignInResult" role="status" aria-live="assertive"></p>
+          </div>
+        </div>
+
+        <div class="account-tab-panel" data-account-panel="billing" hidden>
+          <div class="license-form-card">
+            <p class="license-helper-text">Beta access is free. When SprinkFlow launches, a subscription keeps the design tools active - manage your plan and payment details here.</p>
+            <div class="inline-actions">
+              <button class="secondary-button" id="licenseCheckoutButton" type="button">Subscribe</button>
+              <button class="ghost-button" id="licenseBillingPortalButton" type="button">Manage Billing</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="account-tab-panel" data-account-panel="advanced" hidden>
+          <div class="license-detail-grid">
+            <div>
+              <span>Release channel</span>
+              <strong id="licenseChannelValue">-</strong>
+            </div>
+            <div>
+              <span>Device</span>
+              <strong id="licenseDeviceValue">This PC</strong>
+            </div>
+            <div class="wide-field">
+              <span>License service</span>
+              <strong id="licenseApiValue">Not configured</strong>
+            </div>
+          </div>
+          <div class="license-form-card">
+            <details class="advanced-license-token">
+              <summary>Token sign-in (support use)</summary>
+              <div class="advanced-license-grid">
+                <label>
+                  Cloud License Token
+                  <input id="licenseTokenInput" type="password" autocomplete="off" placeholder="Paste a short-lived beta token" />
+                </label>
+                <button class="ghost-button" id="licenseConnectCloudButton" type="button">Connect Token</button>
+              </div>
+            </details>
+            <div class="inline-actions">
+              <button class="ghost-button" id="licenseRefreshButton" type="button">Refresh License</button>
+              <button class="secondary-button" id="licenseMockLoginButton" type="button">Activate Mock License</button>
+            </div>
+          </div>
+          <div class="license-form-card beta-invite-panel" id="betaInvitePanel" hidden>
+          <p class="eyebrow">Owner beta invite</p>
+          <p class="license-helper-text">Enter tester emails to create Supabase sign-ins, grant beta API access, then copy or open a simple invite email.</p>
+          <label>
+            Tester Emails
+            <textarea id="betaInviteEmailsInput" rows="3" placeholder="name@company.com, another@company.com"></textarea>
+          </label>
+          <div class="field-grid two">
+            <label>
+              Download Link
+              <input id="betaInviteDownloadUrlInput" type="url" placeholder="https://..." />
+            </label>
+            <label>
+              Temporary Password
+              <input id="betaInvitePasswordInput" type="text" autocomplete="off" placeholder="Leave blank to auto-generate" />
+            </label>
+          </div>
+          <div class="field-grid two">
+            <label>
+              Max Devices
+              <input id="betaInviteMaxDevicesInput" type="number" min="1" max="25" value="2" />
+            </label>
+            <label>
+              Invite Subject
+              <input id="betaInviteSubjectInput" type="text" value="SprinkFlow beta access" />
+            </label>
+          </div>
+          <div class="inline-actions beta-invite-actions">
+            <button class="primary-button" id="betaInviteGrantButton" type="button">Grant Beta Access</button>
+            <button class="ghost-button" id="betaInviteCopyButton" type="button">Copy Invite Email</button>
+            <button class="ghost-button" id="betaInviteGmailButton" type="button">Open Gmail Compose</button>
+          </div>
+          <div class="beta-invite-results" id="betaInviteResults" aria-live="polite"></div>
+          </div>
+        </div>
+
+        <p class="generate-status account-status-line" id="licenseStatusMessage" role="status" aria-live="polite"></p>
+        <div class="dialog-actions split-actions">
+          <button class="ghost-button" id="licenseLogoutButton" type="button">Sign Out</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog class="review-dialog" id="commonCodeReferenceDialog">
+      <form method="dialog">
+        <div class="dialog-heading">
+          <p class="eyebrow">Common rule reference</p>
+          <h2>Add Custom Rule</h2>
+        </div>
+        <p class="dialog-copy">Create a quick reference that appears in the NFPA 13 common rule list. Separate multiple sections with commas.</p>
+        <label>
+          Rule Name
+          <input id="commonCodeRuleNameInput" type="text" placeholder="ex: Cloud Ceiling Spacing Rule" />
+        </label>
+        <label>
+          Category
+          <input id="commonCodeRuleCategoryInput" type="text" placeholder="ex: Obstructions" />
+        </label>
+        <div class="plans-review-grid">
+          <label>
+            2016 Section(s)
+            <input id="commonCodeRule2016Input" type="text" placeholder="ex: 8.6.5.1.2" />
+          </label>
+          <label>
+            2019 Section(s)
+            <input id="commonCodeRule2019Input" type="text" placeholder="ex: 10.2.7.1.2" />
+          </label>
+          <label>
+            2022 Section(s)
+            <input id="commonCodeRule2022Input" type="text" placeholder="ex: 10.2.7.2" />
+          </label>
+          <label>
+            2025 Section(s)
+            <input id="commonCodeRule2025Input" type="text" placeholder="ex: 10.2.8.2" />
+          </label>
+        </div>
+        <label>
+          Search Tags
+          <input id="commonCodeRuleTagsInput" type="text" placeholder="ex: cloud ceiling, obstruction, spacing" />
+        </label>
+        <p class="calculator-status" id="commonCodeRuleStatus"></p>
+        <div class="dialog-actions">
+          <button class="ghost-button" id="commonCodeRuleCancelButton" type="button">Cancel</button>
+          <button class="primary-button" id="commonCodeRuleSaveButton" type="button">Save Rule</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="preview-dialog" id="datasheetPreviewDialog">
+      <div class="preview-dialog-shell">
+        <div class="preview-dialog-heading">
+          <div>
+            <p class="eyebrow">Datasheet preview</p>
+            <h2 id="datasheetPreviewTitle">Preview</h2>
+          </div>
+          <button class="ghost-button compact-button" id="closeDatasheetPreviewButton" type="button">Close</button>
+        </div>
+        <iframe id="datasheetPreviewFrame" title="Datasheet PDF preview"></iframe>
+      </div>
+    </dialog>
+
+    <dialog class="pdf-annotation-dialog" id="pdfAnnotationDialog">
+      <div class="pdf-annotation-shell">
+        <div class="pdf-annotation-header">
+          <div>
+            <p class="eyebrow">PDF annotation workspace</p>
+            <h2 id="pdfAnnotationTitle">Annotate PDF</h2>
+            <span id="pdfAnnotationStatus">Choose a tool and mark up the selected datasheet.</span>
+          </div>
+          <button class="ghost-button compact-button" id="pdfAnnotationCloseButton" type="button">Close</button>
+        </div>
+        <div class="pdf-annotation-toolbar" role="toolbar" aria-label="PDF annotation tools">
+          <button class="annotation-tool-button active" type="button" data-annotation-tool="select">Select</button>
+          <button class="annotation-tool-button" type="button" data-annotation-tool="highlight">Highlight</button>
+          <label class="annotation-color-control" title="Highlight color">
+            <span>Color</span>
+            <input type="color" id="pdfAnnotationHighlightColorInput" value="#ffeb3b" aria-label="Highlight color" />
+          </label>
+          <button class="annotation-tool-button" type="button" data-annotation-tool="rectangle">Rectangle</button>
+          <button class="annotation-tool-button" type="button" data-annotation-tool="arrow">Arrow</button>
+          <button class="annotation-tool-button" type="button" data-annotation-tool="text">Text</button>
+          <button class="annotation-tool-button" type="button" data-annotation-tool="checkmark">Checkmark</button>
+          <button class="annotation-tool-button" type="button" data-annotation-tool="blackbox">Black Box</button>
+          <span class="toolbar-divider" aria-hidden="true"></span>
+          <button class="annotation-tool-button" type="button" id="pdfAnnotationUndoButton">Undo</button>
+          <button class="annotation-tool-button" type="button" id="pdfAnnotationDeleteButton">Delete Selected</button>
+          <span class="toolbar-divider" aria-hidden="true"></span>
+          <button class="annotation-tool-button" type="button" id="pdfAnnotationZoomOutButton">-</button>
+          <strong id="pdfAnnotationZoomLabel">100%</strong>
+          <button class="annotation-tool-button" type="button" id="pdfAnnotationZoomInButton">+</button>
+          <span class="toolbar-divider" aria-hidden="true"></span>
+          <button class="annotation-tool-button save-button" type="button" id="pdfAnnotationSaveButton">Use in Current Submittal</button>
+        </div>
+        <div class="pdf-annotation-workspace" id="pdfAnnotationWorkspace"></div>
+      </div>
+    </dialog>
+
+  <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
+    <script src="./web-backend.js?v=3"></script>
+    <script src="./app.js?v=319"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=10"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=1"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=3"></script>
+    <script src="./prelim-calc-desktop.js?v=14"></script>
+  </body>
+</html>

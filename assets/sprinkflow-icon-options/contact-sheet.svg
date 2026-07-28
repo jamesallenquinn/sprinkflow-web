@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1320 880">
+  <defs>
+    <linearGradient id="sheetBg" x1="0" y1="0" x2="1320" y2="880" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#111b22"/>
+      <stop offset="1" stop-color="#070c10"/>
+    </linearGradient>
+    <style>
+      .title{font:800 44px Arial, sans-serif;fill:#f5f7f8;letter-spacing:1px}
+      .sub{font:600 18px Arial, sans-serif;fill:#9fb0ba}
+      .label{font:800 22px Arial, sans-serif;fill:#f5f7f8}
+      .note{font:600 15px Arial, sans-serif;fill:#a8b6be}
+      .card{fill:#17242d;stroke:#2b3f4a;stroke-width:2}
+    </style>
+  </defs>
+  <rect width="1320" height="880" fill="url(#sheetBg)"/>
+  <text x="60" y="70" class="title">SprinkFlow Icon Concepts</text>
+  <text x="60" y="104" class="sub">Pick the strongest direction and I will convert it to a Windows icon for the desktop shortcut and program window.</text>
+
+  <g transform="translate(60,145)">
+    <rect class="card" width="360" height="300" rx="24"/>
+    <svg x="82" y="24" width="196" height="196" viewBox="0 0 512 512">
+      <defs>
+        <linearGradient id="c1bg" x1="74" y1="52" x2="438" y2="460" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#18252d"/><stop offset="1" stop-color="#0a1117"/></linearGradient>
+        <linearGradient id="c1w" x1="172" y1="128" x2="350" y2="354" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#46c7e8"/><stop offset="1" stop-color="#167ea1"/></linearGradient>
+        <linearGradient id="c1f" x1="250" y1="152" x2="326" y2="306" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffb234"/><stop offset="1" stop-color="#ff4b2f"/></linearGradient>
+      </defs>
+      <rect width="512" height="512" rx="96" fill="url(#c1bg)"/><path d="M256 54 410 112v124c0 103-61 182-154 222C163 418 102 339 102 236V112L256 54Z" fill="#142a34" stroke="#2e8ba7" stroke-width="18"/><path d="M256 116c-48 58-91 111-91 170 0 55 41 95 91 95s91-40 91-95c0-59-43-112-91-170Z" fill="url(#c1w)"/><path d="M282 169c14 42-17 62-3 94 8 19 30 26 30 52 0 35-25 58-56 58-33 0-58-26-58-59 0-29 16-48 40-78 14-18 31-39 47-67Z" fill="url(#c1f)"/><path d="M182 216h148" stroke="#eef6f8" stroke-width="22" stroke-linecap="round"/><path d="M204 216v35m52-35v43m52-43v35" stroke="#eef6f8" stroke-width="16" stroke-linecap="round"/><path d="M181 272c37 34 113 34 150 0" fill="none" stroke="#eef6f8" stroke-width="12" stroke-linecap="round"/>
+    </svg>
+    <text x="28" y="245" class="label">1. Shield Drop</text>
+    <text x="28" y="272" class="note">Trust badge, fire/water, sprinkler identity.</text>
+  </g>
+
+  <g transform="translate(480,145)">
+    <rect class="card" width="360" height="300" rx="24"/>
+    <svg x="82" y="24" width="196" height="196" viewBox="0 0 512 512">
+      <defs><linearGradient id="c2bg" x1="76" y1="50" x2="440" y2="458" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1d2d36"/><stop offset="1" stop-color="#0b1015"/></linearGradient><linearGradient id="c2p" x1="117" y1="114" x2="363" y2="339" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#f3a33a"/><stop offset="1" stop-color="#e5482e"/></linearGradient><linearGradient id="c2d" x1="245" y1="175" x2="395" y2="407" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#5ad8f4"/><stop offset="1" stop-color="#116f91"/></linearGradient></defs>
+      <rect width="512" height="512" rx="96" fill="url(#c2bg)"/><path d="M124 140h140c45 0 82 37 82 82v54" fill="none" stroke="url(#c2p)" stroke-width="54" stroke-linecap="round"/><path d="M95 113h86v86H95z" rx="24" fill="#202b32" stroke="#ffb23a" stroke-width="14"/><path d="M304 249h84v62h-84z" rx="14" fill="#202b32" stroke="#ffb23a" stroke-width="14"/><path d="M346 319c-39 49-72 91-72 133 0 39 32 62 72 62s72-23 72-62c0-42-33-84-72-133Z" transform="translate(0 -42)" fill="url(#c2d)"/><path d="M152 140h111c27 0 49 22 49 49v34" fill="none" stroke="#17232b" stroke-width="18" stroke-linecap="round"/><path d="M302 335c-20 22-36 43-36 66" stroke="#d9f5fb" stroke-width="14" stroke-linecap="round" opacity=".9"/>
+    </svg>
+    <text x="28" y="245" class="label">2. Nozzle Flow</text>
+    <text x="28" y="272" class="note">More literal sprinkler system / pipe feel.</text>
+  </g>
+
+  <g transform="translate(900,145)">
+    <rect class="card" width="360" height="300" rx="24"/>
+    <svg x="82" y="24" width="196" height="196" viewBox="0 0 512 512">
+      <defs><linearGradient id="c3bg" x1="70" y1="58" x2="440" y2="454" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#17313d"/><stop offset="1" stop-color="#0a1218"/></linearGradient><linearGradient id="c3s" x1="134" y1="101" x2="370" y2="415" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#54d2ef"/><stop offset=".55" stop-color="#248eac"/><stop offset="1" stop-color="#ff5a37"/></linearGradient></defs>
+      <rect width="512" height="512" rx="96" fill="url(#c3bg)"/><path d="M112 160h288M112 224h288M112 288h288M112 352h288M160 112v288M224 112v288M288 112v288M352 112v288" stroke="#2f5664" stroke-width="5" opacity=".55"/><path d="M351 139c-28-24-72-36-116-25-45 11-78 42-78 83 0 43 31 65 93 78 54 11 82 22 82 55 0 29-28 47-73 47-43 0-83-17-112-46" fill="none" stroke="#071018" stroke-width="82" stroke-linecap="round"/><path d="M351 139c-28-24-72-36-116-25-45 11-78 42-78 83 0 43 31 65 93 78 54 11 82 22 82 55 0 29-28 47-73 47-43 0-83-17-112-46" fill="none" stroke="url(#c3s)" stroke-width="54" stroke-linecap="round"/><circle cx="369" cy="122" r="24" fill="#ffad35"/><path d="M369 98v48M345 122h48" stroke="#111a20" stroke-width="9" stroke-linecap="round"/><path d="M140 392h232" stroke="#eef8fb" stroke-width="14" stroke-linecap="round" opacity=".9"/>
+    </svg>
+    <text x="28" y="245" class="label">3. Blueprint S</text>
+    <text x="28" y="272" class="note">Most app-like, strong SprinkFlow initial.</text>
+  </g>
+
+  <g transform="translate(60,505)">
+    <rect class="card" width="360" height="300" rx="24"/>
+    <svg x="82" y="24" width="196" height="196" viewBox="0 0 512 512">
+      <defs><linearGradient id="c4bg" x1="80" y1="52" x2="432" y2="460" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#21313a"/><stop offset="1" stop-color="#0b1116"/></linearGradient><linearGradient id="c4a" x1="136" y1="99" x2="252" y2="402" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#60d8f0"/><stop offset="1" stop-color="#117794"/></linearGradient><linearGradient id="c4b" x1="260" y1="114" x2="377" y2="402" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffc247"/><stop offset="1" stop-color="#ff4d32"/></linearGradient></defs>
+      <rect width="512" height="512" rx="96" fill="url(#c4bg)"/><circle cx="256" cy="256" r="176" fill="#101b22" stroke="#2b7389" stroke-width="14"/><path d="M255 86c-69 77-121 145-121 214 0 72 52 126 121 126V86Z" fill="url(#c4a)"/><path d="M257 86c69 77 121 145 121 214 0 72-52 126-121 126V86Z" fill="url(#c4b)"/><path d="M177 232h158" stroke="#f4fbfd" stroke-width="22" stroke-linecap="round"/><path d="M206 232v44m50-44v58m50-58v44" stroke="#f4fbfd" stroke-width="15" stroke-linecap="round"/><path d="M188 308c43 40 94 41 136 0" fill="none" stroke="#f4fbfd" stroke-width="13" stroke-linecap="round"/><path d="M292 167c10 37-24 58-11 91 7 17 27 26 27 50 0 29-22 50-51 50" fill="none" stroke="#18232a" stroke-width="18" stroke-linecap="round"/>
+    </svg>
+    <text x="28" y="245" class="label">4. Fire Water Mark</text>
+    <text x="28" y="272" class="note">Clean brand symbol with balanced theme.</text>
+  </g>
+
+  <g transform="translate(480,505)">
+    <rect class="card" width="360" height="300" rx="24"/>
+    <svg x="82" y="24" width="196" height="196" viewBox="0 0 512 512">
+      <defs><linearGradient id="c5bg" x1="69" y1="58" x2="441" y2="454" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1c2c35"/><stop offset="1" stop-color="#080f14"/></linearGradient><linearGradient id="c5h" x1="154" y1="112" x2="354" y2="263" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffbd42"/><stop offset="1" stop-color="#e85131"/></linearGradient></defs>
+      <rect width="512" height="512" rx="96" fill="url(#c5bg)"/><path d="M154 138h204v76H154z" rx="20" fill="url(#c5h)"/><path d="M190 214h132l-18 58h-96l-18-58Z" fill="#f7f8f6"/><path d="M217 271h78v41h-78z" rx="13" fill="#23313a" stroke="#59d0ea" stroke-width="10"/><path d="M256 317v96" stroke="#58d3ee" stroke-width="16" stroke-linecap="round"/><path d="M210 330 142 398M302 330l68 68M191 300l-94 30M321 300l94 30" stroke="#58d3ee" stroke-width="15" stroke-linecap="round"/><circle cx="256" cy="438" r="18" fill="#58d3ee"/><circle cx="126" cy="414" r="15" fill="#58d3ee"/><circle cx="386" cy="414" r="15" fill="#58d3ee"/><circle cx="80" cy="337" r="12" fill="#58d3ee"/><circle cx="432" cy="337" r="12" fill="#58d3ee"/><path d="M181 175h150" stroke="#111920" stroke-width="14" stroke-linecap="round"/>
+    </svg>
+    <text x="28" y="245" class="label">5. Sprinkler Burst</text>
+    <text x="28" y="272" class="note">Direct sprinkler-head icon, very readable.</text>
+  </g>
+
+  <g transform="translate(900,505)">
+    <rect class="card" width="360" height="300" rx="24"/>
+    <svg x="82" y="24" width="196" height="196" viewBox="0 0 512 512">
+      <defs><linearGradient id="c6bg" x1="76" y1="52" x2="438" y2="458" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1d2f38"/><stop offset="1" stop-color="#090f14"/></linearGradient><linearGradient id="c6doc" x1="139" y1="84" x2="372" y2="440" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#f6fbfc"/><stop offset="1" stop-color="#cedde2"/></linearGradient><linearGradient id="c6drop" x1="269" y1="189" x2="373" y2="360" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#53d6f1"/><stop offset="1" stop-color="#13708f"/></linearGradient></defs>
+      <rect width="512" height="512" rx="96" fill="url(#c6bg)"/><path d="M144 70h165l73 73v299H144V70Z" fill="url(#c6doc)"/><path d="M309 70v73h73" fill="#9fb4be"/><path d="M178 167h122M178 215h157M178 263h84M178 382h148" stroke="#21313a" stroke-width="17" stroke-linecap="round"/><path d="M309 233c-31 38-57 70-57 105 0 38 27 65 61 65s61-27 61-65c0-35-27-67-65-105Z" fill="url(#c6drop)"/><path d="M284 304h58" stroke="#fff" stroke-width="13" stroke-linecap="round"/><path d="M292 304v27m42-27v27" stroke="#fff" stroke-width="9" stroke-linecap="round"/><path d="M246 428h136" stroke="#ff613d" stroke-width="16" stroke-linecap="round"/>
+    </svg>
+    <text x="28" y="245" class="label">6. Submittal Flow</text>
+    <text x="28" y="272" class="note">Best if you want the app purpose shown.</text>
+  </g>
+</svg>

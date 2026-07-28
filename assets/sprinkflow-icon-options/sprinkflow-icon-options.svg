@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 880" role="img" aria-labelledby="title desc">
+  <title id="title">SprinkFlow Icon Options</title>
+  <desc id="desc">Six candidate icons for the SprinkFlow Windows desktop application.</desc>
+  <defs>
+    <linearGradient id="pageBg" x1="0" y1="0" x2="1240" y2="880" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#172430"/>
+      <stop offset="1" stop-color="#0b1118"/>
+    </linearGradient>
+    <linearGradient id="tile" x1="0" y1="0" x2="360" y2="360" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1d2d38"/>
+      <stop offset="1" stop-color="#111820"/>
+    </linearGradient>
+    <style>
+      .label{font-family:Arial, Helvetica, sans-serif;font-weight:800;fill:#f5fbfd;font-size:28px}
+      .note{font-family:Arial, Helvetica, sans-serif;font-weight:700;fill:#aebcc5;font-size:18px}
+      .num{font-family:Arial, Helvetica, sans-serif;font-weight:900;fill:#ffb13b;font-size:20px}
+      .tile{fill:url(#tile);stroke:#344957;stroke-width:2}
+    </style>
+  </defs>
+  <rect width="1240" height="880" rx="28" fill="url(#pageBg)"/>
+  <text x="56" y="62" class="label" font-size="34">SprinkFlow Icon Options</text>
+  <text x="56" y="94" class="note">Pick one concept and I’ll convert it into the desktop icon and program window icon.</text>
+
+  <g transform="translate(56 130)">
+    <rect class="tile" width="344" height="320" rx="24"/>
+    <image href="option-1-flow-shield.svg" x="44" y="28" width="256" height="256"/>
+    <text x="24" y="296" class="num">1</text><text x="58" y="296" class="note">Flow Shield</text>
+  </g>
+  <g transform="translate(448 130)">
+    <rect class="tile" width="344" height="320" rx="24"/>
+    <image href="option-2-pipe-flow.svg" x="44" y="28" width="256" height="256"/>
+    <text x="24" y="296" class="num">2</text><text x="58" y="296" class="note">Pipe Flow</text>
+  </g>
+  <g transform="translate(840 130)">
+    <rect class="tile" width="344" height="320" rx="24"/>
+    <image href="option-3-sprinkler-burst.svg" x="44" y="28" width="256" height="256"/>
+    <text x="24" y="296" class="num">3</text><text x="58" y="296" class="note">Sprinkler Burst</text>
+  </g>
+  <g transform="translate(56 500)">
+    <rect class="tile" width="344" height="320" rx="24"/>
+    <image href="option-4-submittal-drop.svg" x="44" y="28" width="256" height="256"/>
+    <text x="24" y="296" class="num">4</text><text x="58" y="296" class="note">Submittal Drop</text>
+  </g>
+  <g transform="translate(448 500)">
+    <rect class="tile" width="344" height="320" rx="24"/>
+    <image href="option-5-sf-monogram.svg" x="44" y="28" width="256" height="256"/>
+    <text x="24" y="296" class="num">5</text><text x="58" y="296" class="note">SF Monogram</text>
+  </g>
+  <g transform="translate(840 500)">
+    <rect class="tile" width="344" height="320" rx="24"/>
+    <image href="option-6-flow-gauge.svg" x="44" y="28" width="256" height="256"/>
+    <text x="24" y="296" class="num">6</text><text x="58" y="296" class="note">Flow Gauge</text>
+  </g>
+</svg>

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">SprinkFlow Icon Option 1 - Flow Shield</title>
+  <desc id="desc">A steel shield with blue water flow and orange fire accent.</desc>
+  <defs>
+    <linearGradient id="bg" x1="34" y1="26" x2="222" y2="230" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#23323d"/>
+      <stop offset="0.58" stop-color="#101820"/>
+      <stop offset="1" stop-color="#0a1118"/>
+    </linearGradient>
+    <linearGradient id="water" x1="68" y1="60" x2="178" y2="202" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#44d7ff"/>
+      <stop offset="1" stop-color="#147aa8"/>
+    </linearGradient>
+    <linearGradient id="fire" x1="151" y1="72" x2="202" y2="171" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffbe45"/>
+      <stop offset="1" stop-color="#ff4c2c"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="54" fill="url(#bg)"/>
+  <path d="M128 28 202 56v62c0 52-31 86-74 110-43-24-74-58-74-110V56l74-28Z" fill="#14212b" stroke="#587386" stroke-width="8"/>
+  <path d="M98 68c-18 24-41 51-41 82 0 39 31 62 71 62s71-23 71-62c0-31-23-58-41-82l-30-39-30 39Z" fill="url(#water)"/>
+  <path d="M139 79c20 18 37 42 37 69 0 28-21 43-48 43-13 0-25-3-34-10 51-9 63-45 45-102Z" fill="#b7f3ff" opacity="0.92"/>
+  <path d="M162 104c16 13 26 31 26 49 0 22-15 36-38 40 18-18 19-43 12-89Z" fill="url(#fire)"/>
+  <path d="M81 159c29 17 65 17 94 0" fill="none" stroke="#071018" stroke-width="9" stroke-linecap="round" opacity="0.55"/>
+</svg>

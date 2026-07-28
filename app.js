@@ -1,0 +1,18175 @@
+const DEFAULT_CATEGORIES = ["Sprinklers", "Pipe", "Fittings", "Hangers", "Bracing", "Flex Drops", "Valves", "Miscellaneous"];
+let CATEGORIES = [...DEFAULT_CATEGORIES];
+const SPRINKLER_TYPES = [
+  { value: "standard coverage", label: "Standard Coverage" },
+  { value: "extended coverage", label: "Extended Coverage" },
+  { value: "esfr", label: "ESFR" },
+  { value: "residential", label: "Residential" },
+  { value: "cmsa", label: "CMSA" },
+  { value: "special application", label: "Special Application" },
+];
+const SPRINKLER_RESPONSES = [
+  { value: "quick", label: "Quick" },
+  { value: "fast", label: "Fast" },
+  { value: "standard", label: "Standard" },
+  { value: "na", label: "N/A" },
+];
+const SPRINKLER_ORIENTATIONS = [
+  { value: "pendent", label: "Pendent" },
+  { value: "upright", label: "Upright" },
+  { value: "horizontal sidewall", label: "Horizontal Sidewall" },
+  { value: "vertical sidewall", label: "Vertical Sidewall" },
+  { value: "sidewall", label: "Sidewall" },
+  { value: "concealed", label: "Concealed" },
+  { value: "recessed", label: "Recessed" },
+  { value: "dry", label: "Dry" },
+  { value: "flush", label: "Flush" },
+  { value: "conventional", label: "Conventional" },
+];
+const CATALOG_SORT_OPTIONS = [
+  { value: "manufacturer", label: "Manufacturer A-Z" },
+  { value: "name", label: "Name A-Z" },
+  { value: "name-desc", label: "Name Z-A" },
+  { value: "category", label: "Category" },
+  { value: "status", label: "Import Status" },
+  { value: "kfactor", label: "K-Factor" },
+];
+const FITTING_SUBCATEGORY_OPTIONS = [
+  "Threaded Fittings",
+  "Grooved Fittings",
+  "Grooved Flexible Couplings",
+  "Grooved Rigid Couplings",
+  "Grooved Rigid Couplings - Push-On",
+  "Mechanical Tee",
+  "CPVC Fittings",
+  "Copper Fittings",
+  "Other Fittings",
+];
+const SPACING_HAZARDS = [
+  { name: "Light Hazard", density: 0.1 },
+  { name: "Ordinary Hazard 1", density: 0.15 },
+  { name: "Ordinary Hazard 2", density: 0.2 },
+  { name: "Extra Hazard 1", density: 0.3 },
+  { name: "Extra Hazard 2", density: 0.4 },
+];
+const COMMON_K_FACTORS = [
+  { label: "5.6", value: 5.6 },
+  { label: "8.0", value: 8.0 },
+  { label: "11.2", value: 11.2 },
+  { label: "14", value: 14.0 },
+  { label: "16.7", value: 16.7 },
+  { label: "22.4", value: 22.4 },
+  { label: "25.2", value: 25.2 },
+];
+const COVER_TEMPLATES = [
+  {
+    id: "technical-navy",
+    name: "Technical Navy",
+    description: "Classic top-banner engineering cover with a two-card layout.",
+    swatches: ["#17313a", "#28687a", "#eef4f5"],
+  },
+  {
+    id: "executive-graphite",
+    name: "Executive Graphite",
+    description: "Vertical sidebar layout with a wide contractor band.",
+    swatches: ["#20262b", "#b84632", "#f4f6f6"],
+  },
+  {
+    id: "earth-copper",
+    name: "Earth Copper",
+    description: "Centered title page with balanced project and contractor blocks.",
+    swatches: ["#1f3a34", "#b56a3c", "#f6f2ea"],
+  },
+  {
+    id: "blueprint-slate",
+    name: "Blueprint Slate",
+    description: "Light technical layout with blueprint-blue structure and a project band.",
+    swatches: ["#0f3f6e", "#2da6d7", "#eef7fb"],
+  },
+  {
+    id: "safety-minimal",
+    name: "Safety Minimal",
+    description: "Modern white report layout with graphite framing and safety-orange accents.",
+    swatches: ["#111820", "#e0522d", "#f7f8fa"],
+  },
+];
+const STORAGE_KEY = "submittalforge:v1";
+const PROJECTS_KEY = "submittalforge:projects:v1";
+const CONTRACTORS_KEY = "submittalforge:contractors:v1";
+
+const DEFAULT_DISCLAIMER =
+  "This material data submittal is provided for review of fire sprinkler installation materials only. Installation shall comply with approved plans, applicable NFPA standards, listing requirements, and authority having jurisdiction requirements.";
+const DEFAULT_COVER_SUBTITLE = "Fire Sprinkler Installation";
+const DEFAULT_EMAIL_SUBJECT_TEMPLATE = "PROJECT_NAME Fire Sprinkler Plans, Calcs, and Material Data Submittals";
+const DEFAULT_EMAIL_BODY_TEMPLATE =
+  "Hi CONTRACTOR_NAME,\n\nPlease see attached fire sprinkler plans, calculations, and material data submittals for PROJECT_NAME.\n\nThank you,";
+const DEFAULT_SETTINGS = {
+  outputFolder: "",
+  openGeneratedPdf: true,
+  tocStyle: "standard",
+  emailSubjectTemplate: DEFAULT_EMAIL_SUBJECT_TEMPLATE,
+  emailBodyTemplate: DEFAULT_EMAIL_BODY_TEMPLATE,
+};
+const BETA_INVITE_DEFAULT_DOWNLOAD_URL = "https://www.dropbox.com/t/XvHbWK53rblUgmv1";
+const COVER_ADDITIONAL_INFO_FIELDS = [
+  ["ahj", "AHJ"],
+  ["generalContractor", "General Contractor"],
+  ["engineer", "Engineer"],
+  ["owner", "Owner"],
+];
+const COVER_ADDITIONAL_INFO_DETAIL_FIELDS = [
+  ["name", "Name"],
+  ["address", "Address"],
+  ["phone", "Phone Number"],
+  ["license", "License Number"],
+];
+let activeCoverAdditionalInfoType = "ahj";
+
+const state = {
+  project: {
+    name: "",
+    address: "",
+    subtitle: DEFAULT_COVER_SUBTITLE,
+    coverAdditionalInfoEnabled: false,
+    additionalInfo: normalizeCoverAdditionalInfo({}),
+  },
+  contractors: [],
+  activeContractorId: "",
+  catalog: [],
+  selectedIds: [],
+  tocTitles: {},
+  activeSavedProjectId: "",
+  catalogSearch: "",
+  catalogSort: "manufacturer",
+  catalogSelectedOnly: false,
+  activeCategory: "Sprinklers",
+  catalogFilters: {},
+  customCategories: [],
+  customCommonReferences: [],
+  loadouts: [],
+  coverTemplate: "technical-navy",
+  theme: "plain-light",
+  viewMode: "simple",
+  simpleStep: "intake",
+  previewView: "both",
+  specRequirements: null,
+  betaInviteResults: [],
+  settings: { ...DEFAULT_SETTINGS },
+  estimator: defaultEstimator(),
+};
+
+const runtime = {
+  app: null,
+  license: null,
+  update: null,
+  generatedOutputs: {
+    material: null,
+    hydraulic: null,
+  },
+};
+
+const uploadedFiles = new Map();
+let savedProjects = [];
+let appStateReady = false;
+let stateSaveTimer = null;
+let previewScaleFrame = null;
+let previewScaleRetryTimer = null;
+let pdfMergeFiles = [];
+let hydraulicCalcFiles = [];
+let projectPlanFiles = [];
+let pdfCompressionJobId = "";
+let pdfCompressionPollTimer = null;
+let currentPdfMode = "merge";
+let pdfRecentOutputs = [];
+let nfpaRoadmapRows = [];
+const NFPA_COMMON_REFERENCE_EDITIONS = ["2016", "2019", "2022", "2025"];
+let nfpaCommonReferences = [];
+const PDF_ANNOTATION_TOOLS = ["select", "highlight", "rectangle", "arrow", "text", "checkmark", "blackbox"];
+const pdfAnnotationState = {
+  item: null,
+  pdf: null,
+  annotationsByItem: {},
+  annotations: [],
+  undoStack: [],
+  selectedId: "",
+  tool: "select",
+  zoom: 1,
+  highlightColor: "#ffeb3b",
+  pageCanvases: new Map(),
+  pointer: null,
+};
+const annotatedPdfOverrides = new Map();
+if (window.pdfjsLib) {
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = "./assets/vendor/pdfjs/pdf.worker.min.js?v=1";
+}
+const SIMPLE_STEPS = ["intake", "contractor", "materials", "review"];
+const SIMPLE_STEP_LABELS = {
+  intake: { eyebrow: "Step 1 of 4", title: "Drop Your Plans" },
+  contractor: { eyebrow: "Step 2 of 4", title: "Contractor Information" },
+  materials: { eyebrow: "Step 3 of 4", title: "Datasheets & Catalog" },
+  review: { eyebrow: "Step 4 of 4", title: "Review & Export" },
+};
+
+const dom = {
+  appRefreshButton: document.querySelector("#appRefreshButton"),
+  licensePill: document.querySelector("#licensePill"),
+  licenseStatusDot: document.querySelector("#licenseStatusDot"),
+  licenseStatusLabel: document.querySelector("#licenseStatusLabel"),
+  appVersionLabel: document.querySelector("#appVersionLabel"),
+  startupLoginDialog: document.querySelector("#startupLoginDialog"),
+  startupLoginEmailInput: document.querySelector("#startupLoginEmailInput"),
+  startupLoginPasswordInput: document.querySelector("#startupLoginPasswordInput"),
+  startupLoginButton: document.querySelector("#startupLoginButton"),
+  startupLoginSkipButton: document.querySelector("#startupLoginSkipButton"),
+  startupLoginStatus: document.querySelector("#startupLoginStatus"),
+  licenseAccountButton: document.querySelector("#licenseAccountButton"),
+  licenseToolGateBanner: document.querySelector("#licenseToolGateBanner"),
+  licenseToolGateMessage: document.querySelector("#licenseToolGateMessage"),
+  licenseToolGateAccountButton: document.querySelector("#licenseToolGateAccountButton"),
+  licenseDialog: document.querySelector("#licenseDialog"),
+  licenseDialogCloseButton: document.querySelector("#licenseDialogCloseButton"),
+  licenseOverviewCard: document.querySelector("#licenseOverviewCard"),
+  licenseDialogStatusDot: document.querySelector("#licenseDialogStatusDot"),
+  licenseDialogStatusLabel: document.querySelector("#licenseDialogStatusLabel"),
+  licenseDialogMessage: document.querySelector("#licenseDialogMessage"),
+  licenseAppVersionValue: document.querySelector("#licenseAppVersionValue"),
+  licenseChannelValue: document.querySelector("#licenseChannelValue"),
+  licenseEmailValue: document.querySelector("#licenseEmailValue"),
+  licenseDeviceValue: document.querySelector("#licenseDeviceValue"),
+  licenseTrialValue: document.querySelector("#licenseTrialValue"),
+  licenseGraceValue: document.querySelector("#licenseGraceValue"),
+  licenseOutputAccessValue: document.querySelector("#licenseOutputAccessValue"),
+  licenseApiValue: document.querySelector("#licenseApiValue"),
+  licenseEmailInput: document.querySelector("#licenseEmailInput"),
+  licenseNameInput: document.querySelector("#licenseNameInput"),
+  licenseCompanyInput: document.querySelector("#licenseCompanyInput"),
+  licensePasswordInput: document.querySelector("#licensePasswordInput"),
+  licenseTokenInput: document.querySelector("#licenseTokenInput"),
+  licenseStatusMessage: document.querySelector("#licenseStatusMessage"),
+  licenseSignInResult: document.querySelector("#licenseSignInResult"),
+  licenseMockLoginButton: document.querySelector("#licenseMockLoginButton"),
+  licenseSignInButton: document.querySelector("#licenseSignInButton"),
+  licenseConnectCloudButton: document.querySelector("#licenseConnectCloudButton"),
+  licenseRefreshButton: document.querySelector("#licenseRefreshButton"),
+  licenseLogoutButton: document.querySelector("#licenseLogoutButton"),
+  licenseCheckUpdatesButton: document.querySelector("#licenseCheckUpdatesButton"),
+  licenseSaveProfileButton: document.querySelector("#licenseSaveProfileButton"),
+  licenseCheckoutButton: document.querySelector("#licenseCheckoutButton"),
+  licenseBillingPortalButton: document.querySelector("#licenseBillingPortalButton"),
+  licenseDownloadUpdateButton: document.querySelector("#licenseDownloadUpdateButton"),
+  betaInvitePanel: document.querySelector("#betaInvitePanel"),
+  betaInviteEmailsInput: document.querySelector("#betaInviteEmailsInput"),
+  betaInviteDownloadUrlInput: document.querySelector("#betaInviteDownloadUrlInput"),
+  betaInvitePasswordInput: document.querySelector("#betaInvitePasswordInput"),
+  betaInviteMaxDevicesInput: document.querySelector("#betaInviteMaxDevicesInput"),
+  betaInviteSubjectInput: document.querySelector("#betaInviteSubjectInput"),
+  betaInviteGrantButton: document.querySelector("#betaInviteGrantButton"),
+  betaInviteCopyButton: document.querySelector("#betaInviteCopyButton"),
+  betaInviteGmailButton: document.querySelector("#betaInviteGmailButton"),
+  betaInviteResults: document.querySelector("#betaInviteResults"),
+  resetProjectButton: document.querySelector("#resetProjectButton"),
+  themeSelect: document.querySelector("#themeSelect"),
+  storageHazardFrame: document.querySelector("#storageHazardFrame"),
+  hangerDetailFrame: document.querySelector("#hangerDetailFrame"),
+  viewModeButtons: [...document.querySelectorAll("[data-view-mode]")],
+  simpleToolChooser: document.querySelector("#simpleToolChooser"),
+  simpleToolCards: [...document.querySelectorAll("[data-simple-tool-choice]")],
+  simpleStepNav: document.querySelector("#simpleStepNav"),
+  simpleBackButton: document.querySelector("#simpleBackButton"),
+  simpleStartOverButton: document.querySelector("#simpleStartOverButton"),
+  simpleSaveProjectButton: document.querySelector("#simpleSaveProjectButton"),
+  simpleContinueButton: document.querySelector("#simpleContinueButton"),
+  simpleStepEyebrow: document.querySelector("#simpleStepEyebrow"),
+  simpleStepTitle: document.querySelector("#simpleStepTitle"),
+  projectSelect: document.querySelector("#projectSelect"),
+  saveProjectButton: document.querySelector("#saveProjectButton"),
+  legacySaveProjectButton: document.querySelector("#legacySaveProjectButton"),
+  unsavedIndicator: document.querySelector("#unsavedIndicator"),
+  materialOutputActions: document.querySelector("#materialOutputActions"),
+  materialOpenFolderButton: document.querySelector("#materialOpenFolderButton"),
+  materialCopyPathButton: document.querySelector("#materialCopyPathButton"),
+  hydraulicOutputActions: document.querySelector("#hydraulicOutputActions"),
+  hydraulicOpenFolderButton: document.querySelector("#hydraulicOpenFolderButton"),
+  hydraulicCopyPathButton: document.querySelector("#hydraulicCopyPathButton"),
+  updateAvailablePill: document.querySelector("#updateAvailablePill"),
+  accountOverviewSignInButton: document.querySelector("#accountOverviewSignInButton"),
+  loadProjectButton: document.querySelector("#loadProjectButton"),
+  deleteProjectButton: document.querySelector("#deleteProjectButton"),
+  printButton: document.querySelector("#printButton"),
+  generateOpenAfterInput: document.querySelector("#generateOpenAfterInput"),
+  goToHydraulicButton: document.querySelector("#goToHydraulicButton"),
+  quickTocSummaryBody: document.querySelector("#quickTocSummaryBody"),
+  plansPdfInput: document.querySelector("#plansPdfInput"),
+  imageIntake: document.querySelector("#imageIntake"),
+  pastedImagePreview: document.querySelector("#pastedImagePreview"),
+  ocrStatus: document.querySelector("#ocrStatus"),
+  planScanProgress: document.querySelector("#planScanProgress"),
+  planScanProgressBar: document.querySelector("#planScanProgressBar"),
+  planScanProgressLabel: document.querySelector("#planScanProgressLabel"),
+  planScanProgressDetails: document.querySelector("#planScanProgressDetails"),
+  projectNameInput: document.querySelector("#projectNameInput"),
+  projectAddressInput: document.querySelector("#projectAddressInput"),
+  projectSubtitleInput: document.querySelector("#projectSubtitleInput"),
+  coverAdditionalInfoToggle: document.querySelector("#coverAdditionalInfoToggle"),
+  coverDisclaimerToggle: document.querySelector("#coverDisclaimerToggle"),
+  coverAdditionalInfoFields: document.querySelector("#coverAdditionalInfoFields"),
+  coverAdditionalInfoTypeSelect: document.querySelector("#coverAdditionalInfoTypeSelect"),
+  coverAdditionalInfoEditor: document.querySelector("#coverAdditionalInfoEditor"),
+  coverAdditionalInfoNameInput: document.querySelector("#coverAdditionalInfoNameInput"),
+  coverAdditionalInfoAddressInput: document.querySelector("#coverAdditionalInfoAddressInput"),
+  coverAdditionalInfoPhoneInput: document.querySelector("#coverAdditionalInfoPhoneInput"),
+  coverAdditionalInfoLicenseInput: document.querySelector("#coverAdditionalInfoLicenseInput"),
+  coverAdditionalInfoSummary: document.querySelector("#coverAdditionalInfoSummary"),
+  contractorSelect: document.querySelector("#contractorSelect"),
+  saveContractorButton: document.querySelector("#saveContractorButton"),
+  deleteContractorButton: document.querySelector("#deleteContractorButton"),
+  contractorNameInput: document.querySelector("#contractorNameInput"),
+  contractorPhoneInput: document.querySelector("#contractorPhoneInput"),
+  contractorLicenseInput: document.querySelector("#contractorLicenseInput"),
+  contractorLogoInput: document.querySelector("#contractorLogoInput"),
+  contractorLogoDrop: document.querySelector("#contractorLogoDrop"),
+  contractorLogoPreview: document.querySelector("#contractorLogoPreview"),
+  clearContractorLogoButton: document.querySelector("#clearContractorLogoButton"),
+  pasteContractorLogoButton: document.querySelector("#pasteContractorLogoButton"),
+  contractorAddressInput: document.querySelector("#contractorAddressInput"),
+  disclaimerInput: document.querySelector("#disclaimerInput"),
+  coverTemplateOptions: document.querySelector("#coverTemplateOptions"),
+  importButton: document.querySelector("#importButton"),
+  addCategoryButton: document.querySelector("#addCategoryButton"),
+  datasheetInput: document.querySelector("#datasheetInput"),
+  datasheetDrop: document.querySelector("#datasheetDrop"),
+  datasheetImportStatus: document.querySelector("#datasheetImportStatus"),
+  manualCategoryInput: document.querySelector("#manualCategoryInput"),
+  manualManufacturerInput: document.querySelector("#manualManufacturerInput"),
+  manualModelInput: document.querySelector("#manualModelInput"),
+  manualProductInput: document.querySelector("#manualProductInput"),
+  manualDetailsInput: document.querySelector("#manualDetailsInput"),
+  addManualItemButton: document.querySelector("#addManualItemButton"),
+  catalogList: document.querySelector("#catalogList"),
+  catalogSearchInput: document.querySelector("#catalogSearchInput"),
+  catalogSortSelect: document.querySelector("#catalogSortSelect"),
+  catalogSelectedOnlyInput: document.querySelector("#catalogSelectedOnlyInput"),
+  loadoutSelect: document.querySelector("#loadoutSelect"),
+  applyLoadoutButton: document.querySelector("#applyLoadoutButton"),
+  saveLoadoutButton: document.querySelector("#saveLoadoutButton"),
+  editLoadoutButton: document.querySelector("#editLoadoutButton"),
+  exportLoadoutButton: document.querySelector("#exportLoadoutButton"),
+  importLoadoutButton: document.querySelector("#importLoadoutButton"),
+  deleteLoadoutButton: document.querySelector("#deleteLoadoutButton"),
+  loadoutImportInput: document.querySelector("#loadoutImportInput"),
+  refreshCatalogButton: document.querySelector("#refreshCatalogButton"),
+  clearSelectionsButton: document.querySelector("#clearSelectionsButton"),
+  deleteSelectedDatasheetsButton: document.querySelector("#deleteSelectedDatasheetsButton"),
+  selectedCount: document.querySelector("#selectedCount"),
+  documentPreview: document.querySelector("#documentPreview"),
+  documentTitle: document.querySelector("#documentTitle"),
+  pageCount: document.querySelector("#pageCount"),
+  generateStatus: document.querySelector("#generateStatus"),
+  datasheetReviewDialog: document.querySelector("#datasheetReviewDialog"),
+  projectInfoReviewDialog: document.querySelector("#projectInfoReviewDialog"),
+  newProjectDialog: document.querySelector("#newProjectDialog"),
+  startOverDialog: document.querySelector("#startOverDialog"),
+  startOverCancelButton: document.querySelector("#startOverCancelButton"),
+  startOverConfirmButton: document.querySelector("#startOverConfirmButton"),
+  sessionContinueButton: document.querySelector("#sessionContinueButton"),
+  sessionStartFreshButton: document.querySelector("#sessionStartFreshButton"),
+  emailDraftDialog: document.querySelector("#emailDraftDialog"),
+  emailDraftToInput: document.querySelector("#emailDraftToInput"),
+  emailDraftNameInput: document.querySelector("#emailDraftNameInput"),
+  emailDraftSubjectInput: document.querySelector("#emailDraftSubjectInput"),
+  emailDraftBodyInput: document.querySelector("#emailDraftBodyInput"),
+  emailDraftAttachmentList: document.querySelector("#emailDraftAttachmentList"),
+  emailDraftStatus: document.querySelector("#emailDraftStatus"),
+  emailDraftCancelButton: document.querySelector("#emailDraftCancelButton"),
+  emailDraftCreateButton: document.querySelector("#emailDraftCreateButton"),
+  datasheetPreviewDialog: document.querySelector("#datasheetPreviewDialog"),
+  datasheetPreviewTitle: document.querySelector("#datasheetPreviewTitle"),
+  datasheetPreviewFrame: document.querySelector("#datasheetPreviewFrame"),
+  closeDatasheetPreviewButton: document.querySelector("#closeDatasheetPreviewButton"),
+  pdfAnnotationDialog: document.querySelector("#pdfAnnotationDialog"),
+  pdfAnnotationTitle: document.querySelector("#pdfAnnotationTitle"),
+  pdfAnnotationStatus: document.querySelector("#pdfAnnotationStatus"),
+  pdfAnnotationCloseButton: document.querySelector("#pdfAnnotationCloseButton"),
+  pdfAnnotationWorkspace: document.querySelector("#pdfAnnotationWorkspace"),
+  pdfAnnotationToolButtons: [...document.querySelectorAll("[data-annotation-tool]")],
+  pdfAnnotationUndoButton: document.querySelector("#pdfAnnotationUndoButton"),
+  pdfAnnotationDeleteButton: document.querySelector("#pdfAnnotationDeleteButton"),
+  pdfAnnotationZoomOutButton: document.querySelector("#pdfAnnotationZoomOutButton"),
+  pdfAnnotationZoomInButton: document.querySelector("#pdfAnnotationZoomInButton"),
+  pdfAnnotationZoomLabel: document.querySelector("#pdfAnnotationZoomLabel"),
+  pdfAnnotationHighlightColorInput: document.querySelector("#pdfAnnotationHighlightColorInput"),
+  pdfAnnotationSaveButton: document.querySelector("#pdfAnnotationSaveButton"),
+  debugDialog: document.querySelector("#debugDialog"),
+  debugCloseButton: document.querySelector("#debugCloseButton"),
+  debugExportDiagnosticsButton: document.querySelector("#debugExportDiagnosticsButton"),
+  debugResetDatabaseButton: document.querySelector("#debugResetDatabaseButton"),
+  debugResetConfirmInput: document.querySelector("#debugResetConfirmInput"),
+  debugStatus: document.querySelector("#debugStatus"),
+  projectInfoReviewSummary: document.querySelector("#projectInfoReviewSummary"),
+  reviewProjectNameInput: document.querySelector("#reviewProjectNameInput"),
+  reviewProjectAddressInput: document.querySelector("#reviewProjectAddressInput"),
+  projectAddressWarning: document.querySelector("#projectAddressWarning"),
+  projectInfoCancelButton: document.querySelector("#projectInfoCancelButton"),
+  projectInfoApplyButton: document.querySelector("#projectInfoApplyButton"),
+  plansReviewDialog: document.querySelector("#plansReviewDialog"),
+  plansReviewSummary: document.querySelector("#plansReviewSummary"),
+  plansReviewProjectNameInput: document.querySelector("#plansReviewProjectNameInput"),
+  plansReviewProjectNameCandidatesLabel: document.querySelector("#plansReviewProjectNameCandidatesLabel"),
+  plansReviewProjectNameCandidates: document.querySelector("#plansReviewProjectNameCandidates"),
+  plansReviewProjectAddressInput: document.querySelector("#plansReviewProjectAddressInput"),
+  plansReviewContractorPanel: document.querySelector("#plansReviewContractorPanel"),
+  plansReviewContractorNameInput: document.querySelector("#plansReviewContractorNameInput"),
+  plansReviewContractorAddressInput: document.querySelector("#plansReviewContractorAddressInput"),
+  plansReviewContractorLicenseInput: document.querySelector("#plansReviewContractorLicenseInput"),
+  plansReviewContractorPhoneInput: document.querySelector("#plansReviewContractorPhoneInput"),
+  plansReviewApplyContractorInput: document.querySelector("#plansReviewApplyContractorInput"),
+  plansReviewSuggestions: document.querySelector("#plansReviewSuggestions"),
+  plansReviewCancelButton: document.querySelector("#plansReviewCancelButton"),
+  plansReviewSelectAllButton: document.querySelector("#plansReviewSelectAllButton"),
+  plansReviewImportApplyButton: document.querySelector("#plansReviewImportApplyButton"),
+  plansReviewApplyButton: document.querySelector("#plansReviewApplyButton"),
+  reviewDialogTitle: document.querySelector("#reviewDialogTitle"),
+  reviewDialogSummary: document.querySelector("#reviewDialogSummary"),
+  duplicateWarning: document.querySelector("#duplicateWarning"),
+  reviewNameInput: document.querySelector("#reviewNameInput"),
+  reviewCategoryInput: document.querySelector("#reviewCategoryInput"),
+  reviewSubcategoryLabel: document.querySelector("#reviewSubcategoryLabel"),
+  reviewSubcategoryInput: document.querySelector("#reviewSubcategoryInput"),
+  reviewAliasesInput: document.querySelector("#reviewAliasesInput"),
+  reviewAddCategoryButton: document.querySelector("#reviewAddCategoryButton"),
+  reviewAddToSubmittalInput: document.querySelector("#reviewAddToSubmittalInput"),
+  reviewCancelButton: document.querySelector("#reviewCancelButton"),
+  reviewAddButton: document.querySelector("#reviewAddButton"),
+  reviewReplaceButton: document.querySelector("#reviewReplaceButton"),
+  newProjectCancelButton: document.querySelector("#newProjectCancelButton"),
+  newProjectDiscardButton: document.querySelector("#newProjectDiscardButton"),
+  newProjectSaveButton: document.querySelector("#newProjectSaveButton"),
+  toolTabs: [...document.querySelectorAll("[data-tool-tab]")],
+  toolPanels: [...document.querySelectorAll("[data-tool-panel]")],
+  generateDock: document.querySelector("[data-submittal-generate-dock]"),
+  submittalEmailDraftButton: document.querySelector("#submittalEmailDraftButton"),
+  settingsOutputFolderInput: document.querySelector("#settingsOutputFolderInput"),
+  settingsChooseOutputFolderButton: document.querySelector("#settingsChooseOutputFolderButton"),
+  settingsClearOutputFolderButton: document.querySelector("#settingsClearOutputFolderButton"),
+  settingsOpenGeneratedPdfInput: document.querySelector("#settingsOpenGeneratedPdfInput"),
+  settingsTocStyleSelect: document.querySelector("#settingsTocStyleSelect"),
+  settingsEmailSubjectInput: document.querySelector("#settingsEmailSubjectInput"),
+  settingsEmailBodyInput: document.querySelector("#settingsEmailBodyInput"),
+  settingsSaveButton: document.querySelector("#settingsSaveButton"),
+  settingsResetButton: document.querySelector("#settingsResetButton"),
+  settingsLegacyModeInput: document.querySelector("#settingsLegacyModeInput"),
+  settingsStatus: document.querySelector("#settingsStatus"),
+  spacingXWallInput: document.querySelector("#spacingXWallInput"),
+  spacingXBetweenInput: document.querySelector("#spacingXBetweenInput"),
+  spacingYWallInput: document.querySelector("#spacingYWallInput"),
+  spacingYBetweenInput: document.querySelector("#spacingYBetweenInput"),
+  spacingCustomDensityInput: document.querySelector("#spacingCustomDensityInput"),
+  spacingAreaResult: document.querySelector("#spacingAreaResult"),
+  spacingHazardTableBody: document.querySelector("#spacingHazardTableBody"),
+  spacingCopyStatus: document.querySelector("#spacingCopyStatus"),
+  spacingPressureSection: document.querySelector("#spacingPressureSection"),
+  spacingPressureHazardSelect: document.querySelector("#spacingPressureHazardSelect"),
+  spacingPressureFlow: document.querySelector("#spacingPressureFlow"),
+  spacingPressureTableBody: document.querySelector("#spacingPressureTableBody"),
+  spacingPressureStatus: document.querySelector("#spacingPressureStatus"),
+  spacingKFactorInput: document.querySelector("#spacingKFactorInput"),
+  spacingFlowInput: document.querySelector("#spacingFlowInput"),
+  spacingPressureInput: document.querySelector("#spacingPressureInput"),
+  spacingFlowResult: document.querySelector("#spacingFlowResult"),
+  spacingFlowResultLabel: document.querySelector("#spacingFlowResultLabel"),
+  spacingFlowStatus: document.querySelector("#spacingFlowStatus"),
+  spacingClearButton: document.querySelector("#spacingClearButton"),
+  layoutLengthInput: document.querySelector("#layoutLengthInput"),
+  layoutWidthInput: document.querySelector("#layoutWidthInput"),
+  layoutCoverageSelect: document.querySelector("#layoutCoverageSelect"),
+  layoutCustomCoverageInput: document.querySelector("#layoutCustomCoverageInput"),
+  layoutMaxSpacingInput: document.querySelector("#layoutMaxSpacingInput"),
+  layoutClearButton: document.querySelector("#layoutClearButton"),
+  layoutStatus: document.querySelector("#layoutStatus"),
+  layoutResults: document.querySelector("#layoutResults"),
+  layoutDiagram: document.querySelector("#layoutDiagram"),
+  vicinityAddressInput: document.querySelector("#vicinityAddressInput"),
+  vicinitySuggest: document.querySelector("#vicinitySuggest"),
+  vicinityCoverageSelect: document.querySelector("#vicinityCoverageSelect"),
+  vicinityWorkSizeSelect: document.querySelector("#vicinityWorkSizeSelect"),
+  vicinityWorkRotationInput: document.querySelector("#vicinityWorkRotationInput"),
+  vicinityLabelsToggle: document.querySelector("#vicinityLabelsToggle"),
+  vicinityGenerateButton: document.querySelector("#vicinityGenerateButton"),
+  vicinityStatus: document.querySelector("#vicinityStatus"),
+  vicinitySvg: document.querySelector("#vicinitySvg"),
+  vicinityMapShell: document.querySelector("#vicinityMapShell"),
+  vicinityMapEmpty: document.querySelector("#vicinityMapEmpty"),
+  vicinityCopyButton: document.querySelector("#vicinityCopyButton"),
+  vicinityPngButton: document.querySelector("#vicinityPngButton"),
+  vicinityDxfButton: document.querySelector("#vicinityDxfButton"),
+  vicinityClearButton: document.querySelector("#vicinityClearButton"),
+  layoutExportDxfButton: document.querySelector("#layoutExportDxfButton"),
+  layoutDxfStatus: document.querySelector("#layoutDxfStatus"),
+  bracingLengthInput: document.querySelector("#bracingLengthInput"),
+  bracingSpacingInput: document.querySelector("#bracingSpacingInput"),
+  bracingEndTuner: document.querySelector("#bracingEndTuner"),
+  bracingEndSlider: document.querySelector("#bracingEndSlider"),
+  bracingEndValue: document.querySelector("#bracingEndValue"),
+  bracingEndLive: document.querySelector("#bracingEndLive"),
+  bracingClearButton: document.querySelector("#bracingClearButton"),
+  bracingStatus: document.querySelector("#bracingStatus"),
+  bracingResults: document.querySelector("#bracingResults"),
+  bracingDiagram: document.querySelector("#bracingDiagram"),
+  blrSizeSelect: document.querySelector("#blrSizeSelect"),
+  blrLengthInput: document.querySelector("#blrLengthInput"),
+  blrSpacingInput: document.querySelector("#blrSpacingInput"),
+  blrStatus: document.querySelector("#blrStatus"),
+  hangerTypeSelect: document.querySelector("#hangerTypeSelect"),
+  hangerSizeSelect: document.querySelector("#hangerSizeSelect"),
+  hangerLengthInput: document.querySelector("#hangerLengthInput"),
+  hangerMaxSpacingInput: document.querySelector("#hangerMaxSpacingInput"),
+  hangerStatus: document.querySelector("#hangerStatus"),
+  hangerResults: document.querySelector("#hangerResults"),
+  hangerDiagram: document.querySelector("#hangerDiagram"),
+  hangerTable: document.querySelector("#hangerTable"),
+  hangerTableEditButton: document.querySelector("#hangerTableEditButton"),
+  hangerTableResetButton: document.querySelector("#hangerTableResetButton"),
+  pdfMergeInput: document.querySelector("#pdfMergeInput"),
+  pdfMergeDrop: document.querySelector("#pdfMergeDrop"),
+  pdfMergeImportButton: document.querySelector("#pdfMergeImportButton"),
+  pdfMergeButton: document.querySelector("#pdfMergeButton"),
+  pdfCompressButton: document.querySelector("#pdfCompressButton"),
+  pdfAbortCompressionButton: document.querySelector("#pdfAbortCompressionButton"),
+  pdfCompressionProgress: document.querySelector("#pdfCompressionProgress"),
+  pdfCompressionProgressLabel: document.querySelector("#pdfCompressionProgressLabel"),
+  pdfCompressionProgressPercent: document.querySelector("#pdfCompressionProgressPercent"),
+  pdfCompressionProgressBar: document.querySelector("#pdfCompressionProgressBar"),
+  pdfCompressionProgressDetails: document.querySelector("#pdfCompressionProgressDetails"),
+  pdfCompressionOptions: [...document.querySelectorAll("input[name='pdfCompression']")],
+  pdfModeInputs: [...document.querySelectorAll("input[name='pdfMode']")],
+  pdfModeHint: document.querySelector("#pdfModeHint"),
+  pdfCompressionPanel: document.querySelector("#pdfCompressionPanel"),
+  pdfRecentList: document.querySelector("#pdfRecentList"),
+  pdfRecentRefreshButton: document.querySelector("#pdfRecentRefreshButton"),
+  pdfRecentDrop: document.querySelector("#pdfRecentDrop"),
+  pdfMergeClearButton: document.querySelector("#pdfMergeClearButton"),
+  pdfMergeStatus: document.querySelector("#pdfMergeStatus"),
+  pdfMergeList: document.querySelector("#pdfMergeList"),
+  pdfMergeCount: document.querySelector("#pdfMergeCount"),
+  hydraulicInput: document.querySelector("#hydraulicInput"),
+  hydraulicDrop: document.querySelector("#hydraulicDrop"),
+  hydraulicImportButton: document.querySelector("#hydraulicImportButton"),
+  hydraulicSortRemoteButton: document.querySelector("#hydraulicSortRemoteButton"),
+  hydraulicGenerateButton: document.querySelector("#hydraulicGenerateButton"),
+  hydraulicClearButton: document.querySelector("#hydraulicClearButton"),
+  hydraulicStatus: document.querySelector("#hydraulicStatus"),
+  hydraulicList: document.querySelector("#hydraulicList"),
+  hydraulicCount: document.querySelector("#hydraulicCount"),
+  hydraulicProjectNameInput: document.querySelector("#hydraulicProjectNameInput"),
+  hydraulicProjectAddressInput: document.querySelector("#hydraulicProjectAddressInput"),
+  hydraulicSubtitleInput: document.querySelector("#hydraulicSubtitleInput"),
+  hydraulicHideContractorInput: document.querySelector("#hydraulicHideContractorInput"),
+  hydraulicCoverTemplateOptions: document.querySelector("#hydraulicCoverTemplateOptions"),
+  hydraulicEmailDraftButton: document.querySelector("#hydraulicEmailDraftButton"),
+  feetExpressionInput: document.querySelector("#feetExpressionInput"),
+  feetCalculateButton: document.querySelector("#feetCalculateButton"),
+  feetExampleButton: document.querySelector("#feetExampleButton"),
+  feetClearButton: document.querySelector("#feetClearButton"),
+  feetStatus: document.querySelector("#feetStatus"),
+  feetResultType: document.querySelector("#feetResultType"),
+  feetResultLabel: document.querySelector("#feetResultLabel"),
+  feetPrimaryResult: document.querySelector("#feetPrimaryResult"),
+  feetSecondaryResult: document.querySelector("#feetSecondaryResult"),
+  feetCopyFeetButton: document.querySelector("#feetCopyFeetButton"),
+  feetCopyDecimalButton: document.querySelector("#feetCopyDecimalButton"),
+  codeConverterInput: document.querySelector("#codeConverterInput"),
+  codeConverterButton: document.querySelector("#codeConverterButton"),
+  codeConverterClearButton: document.querySelector("#codeConverterClearButton"),
+  codeConverterStatus: document.querySelector("#codeConverterStatus"),
+  nfpaSourceStatus: document.querySelector("#nfpaSourceStatus"),
+  codeConverterResults: document.querySelector("#codeConverterResults"),
+  codeConverterCount: document.querySelector("#codeConverterCount"),
+  addCommonCodeReferenceButton: document.querySelector("#addCommonCodeReferenceButton"),
+  commonCodeReferenceSearch: document.querySelector("#commonCodeReferenceSearch"),
+  commonCodeReferenceList: document.querySelector("#commonCodeReferenceList"),
+  commonCodeReferenceCount: document.querySelector("#commonCodeReferenceCount"),
+  commonCodeReferenceDialog: document.querySelector("#commonCodeReferenceDialog"),
+  commonCodeRuleNameInput: document.querySelector("#commonCodeRuleNameInput"),
+  commonCodeRuleCategoryInput: document.querySelector("#commonCodeRuleCategoryInput"),
+  commonCodeRule2016Input: document.querySelector("#commonCodeRule2016Input"),
+  commonCodeRule2019Input: document.querySelector("#commonCodeRule2019Input"),
+  commonCodeRule2022Input: document.querySelector("#commonCodeRule2022Input"),
+  commonCodeRule2025Input: document.querySelector("#commonCodeRule2025Input"),
+  commonCodeRuleTagsInput: document.querySelector("#commonCodeRuleTagsInput"),
+  commonCodeRuleStatus: document.querySelector("#commonCodeRuleStatus"),
+  commonCodeRuleCancelButton: document.querySelector("#commonCodeRuleCancelButton"),
+  commonCodeRuleSaveButton: document.querySelector("#commonCodeRuleSaveButton"),
+  waterModeInputs: [...document.querySelectorAll("input[name='waterMode']")],
+  waterResetButton: document.querySelector("#waterResetButton"),
+  waterSiteNameInput: document.querySelector("#waterSiteNameInput"),
+  waterAddressInput: document.querySelector("#waterAddressInput"),
+  waterDateInput: document.querySelector("#waterDateInput"),
+  waterTimeInput: document.querySelector("#waterTimeInput"),
+  waterByInput: document.querySelector("#waterByInput"),
+  waterStaticInput: document.querySelector("#waterStaticInput"),
+  waterResidualInput: document.querySelector("#waterResidualInput"),
+  waterTargetPressureInput: document.querySelector("#waterTargetPressureInput"),
+  waterPressureHydrantLocationInput: document.querySelector("#waterPressureHydrantLocationInput"),
+  waterElevationInput: document.querySelector("#waterElevationInput"),
+  waterFh1OverrideInput: document.querySelector("#waterFh1OverrideInput"),
+  waterFh1PitotInput: document.querySelector("#waterFh1PitotInput"),
+  waterFh1OutletsInput: document.querySelector("#waterFh1OutletsInput"),
+  waterFh1DiameterInput: document.querySelector("#waterFh1DiameterInput"),
+  waterFh1CoeffInput: document.querySelector("#waterFh1CoeffInput"),
+  waterFh1LocationInput: document.querySelector("#waterFh1LocationInput"),
+  waterFh2OverrideInput: document.querySelector("#waterFh2OverrideInput"),
+  waterFh2PitotInput: document.querySelector("#waterFh2PitotInput"),
+  waterFh2OutletsInput: document.querySelector("#waterFh2OutletsInput"),
+  waterFh2DiameterInput: document.querySelector("#waterFh2DiameterInput"),
+  waterFh2CoeffInput: document.querySelector("#waterFh2CoeffInput"),
+  waterFh2LocationInput: document.querySelector("#waterFh2LocationInput"),
+  waterTotalFlowResult: document.querySelector("#waterTotalFlowResult"),
+  waterExpectedFlowResult: document.querySelector("#waterExpectedFlowResult"),
+  waterCurveLimitResult: document.querySelector("#waterCurveLimitResult"),
+  waterAddDemandButton: document.querySelector("#waterAddDemandButton"),
+  waterDemandList: document.querySelector("#waterDemandList"),
+  waterStatus: document.querySelector("#waterStatus"),
+  waterChart: document.querySelector("#waterChart"),
+  waterReport: document.querySelector("#waterReport"),
+  waterMathPanel: document.querySelector("#waterMathPanel"),
+  waterExportStyleInputs: [...document.querySelectorAll("input[name='waterExportStyle']")],
+  waterPrintButton: document.querySelector("#waterPrintButton"),
+  waterPngButton: document.querySelector("#waterPngButton"),
+  waterSvgButton: document.querySelector("#waterSvgButton"),
+  waterDxfButton: document.querySelector("#waterDxfButton"),
+  waterPdfButton: document.querySelector("#waterPdfButton"),
+  waterSheetButton: document.querySelector("#waterSheetButton"),
+  waterSheetDisclaimerToggle: document.querySelector("#waterSheetDisclaimerToggle"),
+  waterSheetDisclaimer: document.querySelector("#waterSheetDisclaimer"),
+  nfpa1142TitleInput: document.querySelector("#nfpa1142TitleInput"),
+  nfpa1142AreaInput: document.querySelector("#nfpa1142AreaInput"),
+  nfpa1142HeightInput: document.querySelector("#nfpa1142HeightInput"),
+  nfpa1142LengthInput: document.querySelector("#nfpa1142LengthInput"),
+  nfpa1142WidthInput: document.querySelector("#nfpa1142WidthInput"),
+  nfpa1142DimensionHeightInput: document.querySelector("#nfpa1142DimensionHeightInput"),
+  nfpa1142OhcSelect: document.querySelector("#nfpa1142OhcSelect"),
+  nfpa1142CcSelect: document.querySelector("#nfpa1142CcSelect"),
+  nfpa1142ClearButton: document.querySelector("#nfpa1142ClearButton"),
+  nfpa1142Status: document.querySelector("#nfpa1142Status"),
+  nfpa1142Results: document.querySelector("#nfpa1142Results"),
+  nfpa1142Steps: document.querySelector("#nfpa1142Steps"),
+  nfpa1142ReportSvg: document.querySelector("#nfpa1142ReportSvg"),
+  nfpa1142ExportStyleInputs: [...document.querySelectorAll("input[name='nfpa1142ExportStyle']")],
+  nfpa1142PrintButton: document.querySelector("#nfpa1142PrintButton"),
+  nfpa1142PngButton: document.querySelector("#nfpa1142PngButton"),
+  nfpa1142SvgButton: document.querySelector("#nfpa1142SvgButton"),
+  nfpa1142DxfButton: document.querySelector("#nfpa1142DxfButton"),
+};
+
+async function loadState() {
+  let loadedState = null;
+  try {
+    const payload = await readApiJson(`./api/app-data?ts=${Date.now()}`);
+    if (payload?.ok) {
+      loadedState = payload.state && typeof payload.state === "object" ? payload.state : null;
+      savedProjects = Array.isArray(payload.projects) ? payload.projects : [];
+    }
+  } catch {
+    loadedState = null;
+  }
+
+  if (!loadedState || !Object.keys(loadedState).length) {
+    loadedState = loadBrowserStateForMigration();
+    savedProjects = loadBrowserProjectsForMigration();
+  }
+
+  applySavedState(loadedState || {});
+  clearMigratedBrowserStorage();
+  appStateReady = true;
+  saveState();
+  saveProjects(savedProjects);
+}
+
+function applySavedState(parsed) {
+  state.project = { ...state.project, ...(parsed.project || {}) };
+  if (!state.project.subtitle) state.project.subtitle = DEFAULT_COVER_SUBTITLE;
+  state.project.additionalInfo = normalizeCoverAdditionalInfo(state.project.additionalInfo);
+  state.project.coverAdditionalInfoEnabled = Boolean(
+    state.project.coverAdditionalInfoEnabled
+      || coverAdditionalInfoEntries({ ...state.project, coverAdditionalInfoEnabled: true }).length,
+  );
+  state.contractors = Array.isArray(parsed.contractors) ? parsed.contractors : [];
+  state.activeContractorId = parsed.activeContractorId || "";
+  state.catalog = Array.isArray(parsed.catalog) ? parsed.catalog : [];
+  state.selectedIds = Array.isArray(parsed.selectedIds) ? parsed.selectedIds : [];
+  state.tocTitles = parsed.tocTitles && typeof parsed.tocTitles === "object" ? parsed.tocTitles : {};
+  state.activeSavedProjectId = parsed.activeSavedProjectId || "";
+  state.catalogSort = CATALOG_SORT_OPTIONS.some((option) => option.value === parsed.catalogSort) ? parsed.catalogSort : "manufacturer";
+  state.catalogSelectedOnly = Boolean(parsed.catalogSelectedOnly);
+  if (parsed.hangerSpacing && typeof parsed.hangerSpacing === "object") state.hangerSpacing = parsed.hangerSpacing;
+  state.customCategories = normalizeCustomCategories(parsed.customCategories);
+  state.customCommonReferences = normalizeCustomCommonReferences(parsed.customCommonReferences);
+  state.loadouts = normalizeLoadouts(parsed.loadouts);
+  syncCategoriesFromCatalog();
+  state.activeCategory = (parsed.activeCategory === "All" || CATEGORIES.includes(parsed.activeCategory)) ? parsed.activeCategory : "Sprinklers";
+  state.previewView = ["both", "cover", "toc"].includes(parsed.previewView) ? parsed.previewView : "both";
+  state.specRequirements = (parsed.specRequirements && typeof parsed.specRequirements === "object") ? parsed.specRequirements : null;
+  resetCatalogFilters();
+  state.coverTemplate = coverTemplateById(parsed.coverTemplate)?.id || "technical-navy";
+  state.theme = parsed.theme === "default" ? "default" : "plain-light";
+  state.viewMode = parsed.viewMode === "standard" ? "standard" : "simple";
+  state.simpleStep = SIMPLE_STEPS.includes(parsed.simpleStep) ? parsed.simpleStep : "intake";
+  state.settings = normalizeSettings(parsed.settings);
+  state.estimator = normalizeEstimator(parsed.estimator);
+}
+
+function normalizeSettings(settings) {
+  const parsed = settings && typeof settings === "object" ? settings : {};
+  const tocStyle = parsed.tocStyle === "web-links" ? "web-links" : "standard";
+  return {
+    outputFolder: String(parsed.outputFolder || "").trim(),
+    openGeneratedPdf: parsed.openGeneratedPdf !== false,
+    tocStyle,
+    emailSubjectTemplate: String(parsed.emailSubjectTemplate || DEFAULT_EMAIL_SUBJECT_TEMPLATE),
+    emailBodyTemplate: String(parsed.emailBodyTemplate || DEFAULT_EMAIL_BODY_TEMPLATE),
+  };
+}
+
+function normalizeCoverAdditionalInfo(value) {
+  const raw = value && typeof value === "object" ? value : {};
+  return Object.fromEntries(COVER_ADDITIONAL_INFO_FIELDS.map(([key]) => [key, normalizeCoverAdditionalInfoDetail(raw[key])]));
+}
+
+function normalizeCoverAdditionalInfoDetail(value) {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return Object.fromEntries(COVER_ADDITIONAL_INFO_DETAIL_FIELDS.map(([key]) => [key, String(value[key] || "").trim()]));
+  }
+  return {
+    ...blankCoverAdditionalInfoDetail(),
+    name: String(value || "").trim(),
+  };
+}
+
+function blankCoverAdditionalInfoDetail() {
+  return Object.fromEntries(COVER_ADDITIONAL_INFO_DETAIL_FIELDS.map(([key]) => [key, ""]));
+}
+
+function coverAdditionalInfoEntries(project = state.project) {
+  if (!project?.coverAdditionalInfoEnabled) return [];
+  const info = normalizeCoverAdditionalInfo(project.additionalInfo);
+  return COVER_ADDITIONAL_INFO_FIELDS
+    .map(([key, label]) => {
+      const detail = normalizeCoverAdditionalInfoDetail(info[key]);
+      const fields = COVER_ADDITIONAL_INFO_DETAIL_FIELDS
+        .map(([fieldKey, fieldLabel]) => ({ key: fieldKey, label: fieldLabel, value: detail[fieldKey] }))
+        .filter((field) => field.value);
+      return { key, label, detail, fields };
+    })
+    .filter((entry) => entry.fields.length);
+}
+
+function normalizeCustomCategories(categories) {
+  const seen = new Set(DEFAULT_CATEGORIES.map((category) => normalize(category)));
+  const normalized = [];
+  for (const rawCategory of Array.isArray(categories) ? categories : []) {
+    const category = cleanCategoryName(rawCategory);
+    const key = normalize(category);
+    if (!category || seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(category);
+  }
+  return normalized;
+}
+
+function cleanCategoryName(value) {
+  return String(value || "").replace(/\s+/g, " ").trim().slice(0, 48);
+}
+
+function localId(prefix) {
+  const uuid = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `${prefix}-${uuid}`;
+}
+
+function normalizeSectionList(value) {
+  return String(value || "")
+    .split(/[,\n;]+/)
+    .map((code) => normalizeCodeLookup(code))
+    .filter(Boolean)
+    .filter((code, index, codes) => codes.indexOf(code) === index);
+}
+
+function normalizeTags(value) {
+  const rawTags = Array.isArray(value) ? value : String(value || "").split(/[,\n;]+/);
+  return rawTags
+    .map((tag) => String(tag || "").replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .filter((tag, index, tags) => tags.findIndex((entry) => normalize(entry) === normalize(tag)) === index)
+    .slice(0, 16);
+}
+
+function normalizeCustomCommonReferences(references) {
+  const normalized = [];
+  const seen = new Set();
+  for (const raw of Array.isArray(references) ? references : []) {
+    const name = String(raw?.name || "").replace(/\s+/g, " ").trim().slice(0, 96);
+    const category = String(raw?.category || "Custom").replace(/\s+/g, " ").trim().slice(0, 48) || "Custom";
+    const sections = Object.fromEntries(NFPA_COMMON_REFERENCE_EDITIONS.map((edition) => {
+      const sectionValue = Array.isArray(raw?.sections?.[edition])
+        ? raw.sections[edition].join(",")
+        : raw?.[`sections${edition}`] || "";
+      return [edition, normalizeSectionList(sectionValue)];
+    }));
+    if (!name || !NFPA_COMMON_REFERENCE_EDITIONS.some((edition) => sections[edition].length)) continue;
+    const key = `${normalize(name)}|${NFPA_COMMON_REFERENCE_EDITIONS.map((edition) => sections[edition].join(",")).join("|")}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalized.push({
+      id: raw?.id || localId("custom-rule"),
+      name,
+      category,
+      custom: true,
+      sections,
+      tags: normalizeTags(raw?.tags),
+    });
+  }
+  return normalized;
+}
+
+function normalizeLoadouts(loadouts) {
+  const normalized = [];
+  const seen = new Set();
+  for (const raw of Array.isArray(loadouts) ? loadouts : []) {
+    const name = String(raw?.name || "").replace(/\s+/g, " ").trim().slice(0, 80);
+    const items = normalizeLoadoutItems(raw?.items || raw?.catalogItems || []);
+    const itemIds = uniqueSortedStrings(raw?.itemIds || []).slice(0, 200);
+    if (!name || (!items.length && !itemIds.length)) continue;
+    const id = String(raw?.id || localId("loadout"));
+    if (seen.has(id)) continue;
+    seen.add(id);
+    normalized.push({
+      id,
+      name,
+      itemIds,
+      items,
+      createdAt: raw?.createdAt || new Date().toISOString(),
+      updatedAt: raw?.updatedAt || raw?.createdAt || new Date().toISOString(),
+    });
+  }
+  return normalized.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function normalizeLoadoutItems(items) {
+  return (Array.isArray(items) ? items : [])
+    .map((item) => ({
+      id: String(item?.id || ""),
+      category: String(item?.category || ""),
+      title: String(item?.title || item?.displayTitle || item?.name || ""),
+      sourceUrl: String(item?.sourceUrl || item?.datasheetUrl || ""),
+      relativePath: String(item?.relativePath || ""),
+      manufacturer: String(item?.manufacturer || ""),
+      model: String(item?.model || ""),
+    }))
+    .filter((item) => item.id || item.title || item.sourceUrl || item.relativePath)
+    .slice(0, 200);
+}
+
+function rebuildCategories() {
+  CATEGORIES = [...DEFAULT_CATEGORIES, ...normalizeCustomCategories(state.customCategories)];
+}
+
+function ensureCustomCategory(value) {
+  const category = cleanCategoryName(value);
+  if (!category) return "";
+  const existing = CATEGORIES.find((entry) => normalize(entry) === normalize(category));
+  if (existing) return existing;
+  state.customCategories = normalizeCustomCategories([...state.customCategories, category]);
+  rebuildCategories();
+  if (!state.catalogFilters[category]) state.catalogFilters[category] = { manufacturer: "", kFactor: "", orientation: "", type: "", response: "" };
+  return category;
+}
+
+function syncCategoriesFromCatalog() {
+  const catalogCategories = state.catalog.map((item) => item.category).filter(Boolean);
+  state.customCategories = normalizeCustomCategories([...state.customCategories, ...catalogCategories]);
+  rebuildCategories();
+}
+
+function loadBrowserStateForMigration() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    if (parsed && typeof parsed === "object") {
+      const contractors = loadStoredContractors();
+      if (contractors.length) {
+        parsed.contractors = mergeContractorRecords(parsed.contractors || [], contractors);
+      }
+      return parsed;
+    }
+  } catch {
+    return {};
+  }
+  return {};
+}
+
+function loadStoredContractors() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(CONTRACTORS_KEY) || "[]");
+    return Array.isArray(stored) ? stored : [];
+  } catch {
+    localStorage.removeItem(CONTRACTORS_KEY);
+    return [];
+  }
+}
+
+function saveStoredContractors() {
+  saveState();
+}
+
+function mergeContractorRecords(existing, incoming) {
+  const byId = new Map((Array.isArray(existing) ? existing : []).map((contractor) => [contractor.id, contractor]));
+  for (const contractor of Array.isArray(incoming) ? incoming : []) {
+    if (contractor?.id) byId.set(contractor.id, { ...byId.get(contractor.id), ...contractor });
+  }
+  return [...byId.values()];
+}
+
+function mergeContractors(contractors) {
+  if (!Array.isArray(contractors) || !contractors.length) return;
+  state.contractors = mergeContractorRecords(state.contractors, contractors);
+  if (!state.activeContractorId && state.contractors.length) {
+    state.activeContractorId = state.contractors[0].id;
+  }
+}
+
+function loadBrowserProjectsForMigration() {
+  try {
+    const projects = JSON.parse(localStorage.getItem(PROJECTS_KEY) || "[]");
+    return Array.isArray(projects) ? projects : [];
+  } catch {
+    return [];
+  }
+}
+
+function clearMigratedBrowserStorage() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(PROJECTS_KEY);
+    localStorage.removeItem(CONTRACTORS_KEY);
+  } catch {
+    // Local database persistence is already active; browser cleanup is best-effort.
+  }
+}
+
+async function readApiJson(url, options = {}) {
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+    },
+  });
+  let payload;
+  try {
+    payload = await response.json();
+  } catch (parseError) {
+    // Non-JSON body (e.g. an HTML error page from a route this build doesn't serve).
+    throw new Error(
+      response.ok
+        ? "The app server returned an unexpected response."
+        : `This feature isn't available in your installed version yet (update SprinkFlow to enable it).`
+    );
+  }
+  if (response.status === 402 && payload?.license) {
+    runtime.license = payload.license;
+    renderLicenseUi();
+  }
+  if (!response.ok || payload?.ok === false) {
+    throw new Error(payload?.error || `Request failed with status ${response.status}`);
+  }
+  return payload;
+}
+
+function formatLicenseDate(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+function licenseStatusTone(license = runtime.license) {
+  const status = String(license?.status || "signed_out").toLowerCase();
+  if (["active", "beta", "trial"].includes(status)) return "ok";
+  if (["grace", "past_due"].includes(status)) return "warn";
+  if (["expired", "revoked", "canceled"].includes(status)) return "bad";
+  return "idle";
+}
+
+function setLicenseStatusMessage(message = "", tone = "") {
+  if (!dom.licenseStatusMessage) return;
+  dom.licenseStatusMessage.textContent = message;
+  dom.licenseStatusMessage.dataset.tone = tone || "";
+}
+
+function setStartupLoginStatus(message = "", tone = "") {
+  if (!dom.startupLoginStatus) return;
+  dom.startupLoginStatus.textContent = message;
+  dom.startupLoginStatus.dataset.tone = tone || "";
+}
+
+function renderLicenseUi() {
+  const app = runtime.app || {};
+  const license = runtime.license || {};
+  const tone = licenseStatusTone(license);
+  const statusLabel = license.statusLabel || (license.authenticated ? "Licensed" : "Local Mode");
+  const versionLabel = app.version ? `${app.version} (${app.channel || "local"})` : "Version unavailable";
+  const signedIn = license.email || "Not signed in";
+  const message = license.message || "Phase 1 licensing shell is active.";
+
+  if (dom.licensePill) dom.licensePill.dataset.tone = tone;
+  if (dom.licenseStatusDot) dom.licenseStatusDot.dataset.tone = tone;
+  if (dom.licenseStatusLabel) dom.licenseStatusLabel.textContent = statusLabel;
+  if (dom.appVersionLabel) dom.appVersionLabel.textContent = versionLabel;
+  if (dom.licenseDialogStatusDot) dom.licenseDialogStatusDot.dataset.tone = tone;
+  if (dom.licenseDialogStatusLabel) dom.licenseDialogStatusLabel.textContent = statusLabel;
+  if (dom.licenseDialogMessage) dom.licenseDialogMessage.textContent = message;
+  if (dom.licenseAppVersionValue) dom.licenseAppVersionValue.textContent = app.version || "-";
+  if (dom.licenseChannelValue) dom.licenseChannelValue.textContent = app.channel || "-";
+  if (dom.licenseEmailValue) dom.licenseEmailValue.textContent = signedIn;
+  if (dom.licenseDeviceValue) dom.licenseDeviceValue.textContent = license.deviceLabel || "This PC";
+  if (dom.licenseTrialValue) dom.licenseTrialValue.textContent = formatLicenseDate(license.trialEndsAt);
+  if (dom.licenseGraceValue) dom.licenseGraceValue.textContent = formatLicenseDate(license.graceUntil);
+  if (dom.licenseOutputAccessValue) {
+    dom.licenseOutputAccessValue.textContent =
+      license.outputAccessLabel || (license.enforcementRequired ? "License required" : "Not enforced");
+  }
+  if (dom.licenseApiValue) {
+    dom.licenseApiValue.textContent = license.apiConfigured
+      ? `${license.cloudConnected ? "Connected" : "Configured"}${license.apiBaseUrl ? ` - ${license.apiBaseUrl}` : ""}`
+      : "Not configured";
+  }
+  if (dom.licenseEmailInput && license.email) dom.licenseEmailInput.value = license.email;
+  if (dom.licenseNameInput && license.name) dom.licenseNameInput.value = license.name;
+  if (dom.licenseCompanyInput && license.company) dom.licenseCompanyInput.value = license.company;
+  if (dom.licenseLogoutButton) dom.licenseLogoutButton.disabled = !license.authenticated;
+  if (dom.licenseSignInButton) {
+    dom.licenseSignInButton.disabled = !license.apiConfigured || !license.supabaseAuthConfigured;
+    dom.licenseSignInButton.title = !license.apiConfigured
+      ? "No SprinkFlow License API is configured for this build."
+      : !license.supabaseAuthConfigured
+        ? "No beta account sign-in service is configured for this build."
+        : "Sign in with your SprinkFlow beta account.";
+  }
+  if (dom.licenseConnectCloudButton) dom.licenseConnectCloudButton.disabled = !license.apiConfigured;
+  if (dom.licenseRefreshButton) dom.licenseRefreshButton.disabled = !license.apiConfigured;
+  if (dom.licenseSaveProfileButton) dom.licenseSaveProfileButton.disabled = !license.apiConfigured || !license.authenticated;
+  if (dom.licenseCheckoutButton) dom.licenseCheckoutButton.disabled = !license.apiConfigured || !license.authenticated || !license.billingConfigured;
+  if (dom.licenseBillingPortalButton) dom.licenseBillingPortalButton.disabled = !license.apiConfigured || !license.authenticated;
+  if (dom.licenseMockLoginButton) {
+    const mockAvailable = license.mockLicenseAvailable !== false && !license.enforcementRequired;
+    dom.licenseMockLoginButton.disabled = !mockAvailable;
+    dom.licenseMockLoginButton.title = mockAvailable
+      ? "Activate a local alpha/testing license."
+      : "Mock licenses are disabled in commercial-output-enforced builds.";
+  }
+  if (dom.licenseDownloadUpdateButton) {
+    const update = runtime.update || {};
+    dom.licenseDownloadUpdateButton.disabled = !update.available || !update.canDownload;
+    dom.licenseDownloadUpdateButton.title = update.available && !update.canDownload
+      ? (update.metadataErrors || []).join(" ") || "Update metadata needs to be fixed before download."
+      : "";
+  }
+  if (dom.accountOverviewSignInButton) {
+    dom.accountOverviewSignInButton.hidden = Boolean(license.authenticated) || !license.apiConfigured || !license.supabaseAuthConfigured;
+  }
+  renderBetaInvitePanel();
+  applyLicenseToolAccess();
+}
+
+function isBetaInviteAdmin(license = runtime.license) {
+  return Boolean(license?.betaInviteAdmin);
+}
+
+function renderBetaInvitePanel() {
+  if (!dom.betaInvitePanel) return;
+  const visible = isBetaInviteAdmin();
+  dom.betaInvitePanel.hidden = !visible;
+  if (!visible) return;
+  if (dom.betaInviteDownloadUrlInput && !dom.betaInviteDownloadUrlInput.value) {
+    dom.betaInviteDownloadUrlInput.value = BETA_INVITE_DEFAULT_DOWNLOAD_URL;
+  }
+  if (dom.betaInviteMaxDevicesInput && !dom.betaInviteMaxDevicesInput.value) {
+    dom.betaInviteMaxDevicesInput.value = "2";
+  }
+}
+
+function parseBetaInviteEmails() {
+  const raw = dom.betaInviteEmailsInput?.value || "";
+  const emails = raw
+    .split(/[\s,;]+/)
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+  return [...new Set(emails)];
+}
+
+function setBetaInviteResults(message = "", tone = "", results = []) {
+  if (!dom.betaInviteResults) return;
+  state.betaInviteResults = Array.isArray(results) ? results : [];
+  const rows = Array.isArray(results) && results.length
+    ? `<ul>${results.map((result) => `
+        <li data-ok="${result.ok ? "true" : "false"}">
+          <strong>${escapeHtml(result.email || "")}</strong>
+          <span>${escapeHtml(betaInviteResultMessage(result))}</span>
+        </li>
+      `).join("")}</ul>`
+    : "";
+  dom.betaInviteResults.dataset.tone = tone || "";
+  dom.betaInviteResults.innerHTML = `${message ? `<p>${escapeHtml(message)}</p>` : ""}${rows}`;
+}
+
+function betaInviteResultMessage(result = {}) {
+  const parts = [];
+  if (result.message || result.error) parts.push(result.message || result.error);
+  if (result.authUserCreated) parts.push("Supabase login created");
+  if (result.authUserExists) parts.push("Supabase login already existed");
+  if (result.temporaryPassword) parts.push(`Temp password: ${result.temporaryPassword}`);
+  return parts.join(" | ");
+}
+
+function betaInviteSubject() {
+  return (dom.betaInviteSubjectInput?.value || "SprinkFlow beta access").trim();
+}
+
+function betaInviteBody(emails = parseBetaInviteEmails()) {
+  const downloadUrl = (dom.betaInviteDownloadUrlInput?.value || BETA_INVITE_DEFAULT_DOWNLOAD_URL).trim();
+  const typedPassword = (dom.betaInvitePasswordInput?.value || "").trim();
+  const matchingResult = emails.length === 1
+    ? state.betaInviteResults.find((result) => String(result.email || "").toLowerCase() === emails[0])
+    : null;
+  const password = typedPassword || matchingResult?.temporaryPassword || "";
+  const emailLine = emails.length === 1 ? `Email: ${emails[0]}\n` : "Email: the address this message was sent to\n";
+  const passwordLine = password
+    ? `Password: ${password}\n`
+    : emails.length > 1
+      ? "Password: use the temporary password shown for your email\n"
+      : "Password: the temporary password I sent you\n";
+  return [
+    "Hey,",
+    "",
+    "I made this program called SprinkFlow that can instantly generate material submittals, plus it has a bunch of other tools and calculators specifically for fire sprinkler designers.",
+    "",
+    "I’m opening up the private beta and wanted to get it in front of a few designers. No pressure to test every corner of it. I mostly want your honest feedback and suggestions after you try it on a real workflow.",
+    "",
+    "Download SprinkFlow:",
+    downloadUrl || "[download link]",
+    "",
+    "Sign in with:",
+    `${emailLine}${passwordLine}`.trimEnd(),
+    "",
+    "If you run into anything weird, or if something would make your workflow faster, just reply to this email.",
+    "",
+    "Quick beta note: this is early beta software, so keep using your normal design review, code review, and AHJ process for real projects.",
+    "",
+    "Thanks!",
+    "",
+    "James",
+  ].join("\n");
+}
+
+async function grantBetaInvites() {
+  if (!dom.betaInviteGrantButton) return;
+  const emails = parseBetaInviteEmails();
+  if (!emails.length) {
+    setBetaInviteResults("Enter at least one tester email.", "error");
+    return;
+  }
+  dom.betaInviteGrantButton.disabled = true;
+  setBetaInviteResults("Granting beta access...", "");
+  try {
+    const payload = await readApiJson("./api/admin/beta-invites", {
+      method: "POST",
+      body: JSON.stringify({
+        emails,
+        status: "beta",
+        maxDevices: Number(dom.betaInviteMaxDevicesInput?.value || 2),
+        reason: "Private beta tester invite",
+        temporaryPassword: (dom.betaInvitePasswordInput?.value || "").trim(),
+      }),
+    });
+    setBetaInviteResults(payload.message || "Beta access processed.", "success", payload.results || []);
+  } catch (error) {
+    setBetaInviteResults(error.message || "Could not grant beta access.", "error");
+  } finally {
+    dom.betaInviteGrantButton.disabled = false;
+  }
+}
+
+async function copyBetaInviteEmail() {
+  const emails = parseBetaInviteEmails();
+  const body = [`Subject: ${betaInviteSubject()}`, "", betaInviteBody(emails)].join("\n");
+  try {
+    await copyTextToClipboard(body);
+    setBetaInviteResults("Invite email copied to clipboard.", "success");
+  } catch (error) {
+    setBetaInviteResults(error.message || "Could not copy invite email.", "error");
+  }
+}
+
+function openBetaInviteGmailCompose() {
+  const emails = parseBetaInviteEmails();
+  if (!emails.length) {
+    setBetaInviteResults("Enter at least one tester email before opening Gmail compose.", "error");
+    return;
+  }
+  const params = new URLSearchParams({
+    view: "cm",
+    fs: "1",
+    to: emails.join(","),
+    su: betaInviteSubject(),
+    body: betaInviteBody(emails),
+  });
+  window.open(`https://mail.google.com/mail/?${params.toString()}`, "_blank", "noopener");
+  setBetaInviteResults("Gmail compose opened. Review the message before sending.", "success");
+}
+
+async function loadAppInfo() {
+  try {
+    const payload = await readApiJson(`./api/app-info?ts=${Date.now()}`, { cache: "no-store" });
+    runtime.app = payload.app || null;
+    runtime.license = payload.license || null;
+  } catch (error) {
+    runtime.app = { version: "unknown", channel: "local" };
+    runtime.license = {
+      authenticated: false,
+      status: "signed_out",
+      statusLabel: "Local Mode",
+      message: error.message || "Could not load license state.",
+    };
+  }
+  renderLicenseUi();
+}
+
+function switchAccountTab(name) {
+  if (!dom.licenseDialog) return;
+  dom.licenseDialog.querySelectorAll("[data-account-tab]").forEach((tab) => {
+    const active = tab.dataset.accountTab === name;
+    tab.classList.toggle("active", active);
+    tab.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  dom.licenseDialog.querySelectorAll("[data-account-panel]").forEach((panel) => {
+    panel.hidden = panel.dataset.accountPanel !== name;
+  });
+}
+
+function openLicenseDialog() {
+  setLicenseStatusMessage("");
+  renderLicenseUi();
+  switchAccountTab("overview");
+  openDialogSafely(dom.licenseDialog);
+}
+
+function commercialOutputBlockMessage() {
+  const license = runtime.license || {};
+  if (!license.enforcementRequired || license.commercialOutputsAllowed) return "";
+  return license.outputAccessLabel || "Commercial outputs require an active SprinkFlow license.";
+}
+
+// Signed-in accounts whose subscription/beta lapsed keep the FREE tier: the
+// calculators and design tools stay usable; only exports/generation (gated
+// separately by commercialOutputBlockMessage) require subscribing.
+const LICENSE_FREE_TOOL_STATUSES = ["expired", "past_due"];
+
+function licenseToolsAllowed(license = runtime.license) {
+  if (!license || !license.enforcementRequired) return true;
+  if (license.commercialOutputsAllowed) return true;
+  return Boolean(license.authenticated)
+    && LICENSE_FREE_TOOL_STATUSES.includes(String(license.status || "").toLowerCase());
+}
+
+function licenseToolBlockMessage() {
+  const license = runtime.license || {};
+  if (licenseToolsAllowed(license)) return "";
+  return license.outputAccessLabel || "Connect an active trial, beta grant, subscription, or offline lease to use SprinkFlow tools.";
+}
+
+function applyLicenseToolAccess() {
+  const blocked = !licenseToolsAllowed();
+  const message = licenseToolBlockMessage();
+  document.body.classList.toggle("license-locked", blocked);
+  document.body.dataset.licenseLocked = blocked ? "true" : "false";
+
+  if (dom.licenseToolGateBanner) {
+    dom.licenseToolGateBanner.hidden = !blocked;
+  }
+  if (dom.licenseToolGateMessage) {
+    dom.licenseToolGateMessage.textContent = message || "Connect an active SprinkFlow license to continue.";
+  }
+
+  dom.toolTabs?.forEach((button) => {
+    button.disabled = blocked;
+    button.title = blocked ? "Connect a SprinkFlow license from Account to unlock tools." : "";
+  });
+
+  document.querySelectorAll(".tool-panel input, .tool-panel select, .tool-panel textarea, .tool-panel button").forEach((control) => {
+    if (blocked) {
+      if (!control.dataset.licenseWasDisabled) {
+        control.dataset.licenseWasDisabled = control.disabled ? "true" : "false";
+      }
+      control.disabled = true;
+      return;
+    }
+    if (control.dataset.licenseWasDisabled === "false") {
+      control.disabled = false;
+    }
+    delete control.dataset.licenseWasDisabled;
+  });
+}
+
+function ensureLicensedToolAccess(statusSetter = null) {
+  const message = licenseToolBlockMessage();
+  if (!message) return true;
+  if (typeof statusSetter === "function") {
+    statusSetter(message, "error");
+  } else {
+    setLicenseStatusMessage(message, "error");
+  }
+  openLicenseDialog();
+  return false;
+}
+
+function closeLicenseDialog() {
+  dom.licenseDialog?.close();
+}
+
+async function activateMockLicense() {
+  if (!dom.licenseMockLoginButton) return;
+  if (runtime.license?.enforcementRequired || runtime.license?.mockLicenseAvailable === false) {
+    setLicenseStatusMessage("Mock licenses are disabled in commercial-output-enforced builds. Connect a cloud license instead.", "error");
+    return;
+  }
+  dom.licenseMockLoginButton.disabled = true;
+  setLicenseStatusMessage("Activating local mock license...", "");
+  try {
+    const payload = await readApiJson("./api/license/mock-login", {
+      method: "POST",
+      body: JSON.stringify({
+        email: dom.licenseEmailInput?.value || "",
+        name: dom.licenseNameInput?.value || "",
+        company: dom.licenseCompanyInput?.value || "",
+      }),
+    });
+    runtime.license = payload.license || runtime.license;
+    renderLicenseUi();
+    setLicenseStatusMessage("Mock beta license activated on this computer.", "success");
+  } catch (error) {
+    setLicenseStatusMessage(error.message || "Could not activate mock license.", "error");
+  } finally {
+    dom.licenseMockLoginButton.disabled = false;
+  }
+}
+
+async function connectCloudLicense() {
+  if (!dom.licenseConnectCloudButton) return;
+  dom.licenseConnectCloudButton.disabled = true;
+  setLicenseStatusMessage("Connecting to SprinkFlow License API...", "");
+  try {
+    const payload = await readApiJson("./api/license/connect-cloud", {
+      method: "POST",
+      body: JSON.stringify({
+        token: dom.licenseTokenInput?.value || "",
+      }),
+    });
+    runtime.license = payload.license || runtime.license;
+    if (dom.licenseTokenInput) dom.licenseTokenInput.value = "";
+    renderLicenseUi();
+    setLicenseStatusMessage("Cloud license connected on this computer.", "success");
+  } catch (error) {
+    setLicenseStatusMessage(error.message || "Could not connect cloud license.", "error");
+  } finally {
+    dom.licenseConnectCloudButton.disabled = false;
+    renderLicenseUi();
+  }
+}
+
+function setSignInResult(message = "", tone = "") {
+  // Result shown right next to the Sign In button so it's never missed.
+  if (dom.licenseSignInResult) {
+    dom.licenseSignInResult.textContent = message;
+    dom.licenseSignInResult.dataset.tone = tone || "";
+  }
+  setLicenseStatusMessage(message, tone);
+}
+
+async function signInCloudLicense() {
+  if (!dom.licenseSignInButton) return;
+  const email = dom.licenseEmailInput?.value || "";
+  dom.licenseSignInButton.disabled = true;
+  setSignInResult("Signing in… The first attempt of the day can take up to a minute while the service wakes up.", "info");
+  try {
+    await performCloudLicenseSignIn({
+      email,
+      password: dom.licensePasswordInput?.value || "",
+      name: dom.licenseNameInput?.value || "",
+      company: dom.licenseCompanyInput?.value || "",
+    });
+    renderLicenseUi();
+    const who = email ? ` as ${email}` : "";
+    if (licenseToolsAllowed()) {
+      setSignInResult(`✓ Signed in${who}. SprinkFlow tools are unlocked.`, "success");
+    } else {
+      const reason = licenseToolBlockMessage() || "this account doesn't have active beta, trial, or subscription access yet.";
+      setSignInResult(`Signed in${who}, but tools stay locked — ${reason}`, "error");
+    }
+    return true;
+  } catch (error) {
+    setSignInResult(`✗ Sign-in failed: ${error.message || "check your email and password and try again."}`, "error");
+    return false;
+  } finally {
+    if (dom.licensePasswordInput) dom.licensePasswordInput.value = "";
+    dom.licenseSignInButton.disabled = false;
+    renderLicenseUi();
+  }
+}
+
+async function performCloudLicenseSignIn({ email = "", password = "", name = "", company = "" } = {}) {
+  const payload = await readApiJson("./api/license/sign-in", {
+    method: "POST",
+    body: JSON.stringify({ email, password, name, company }),
+  });
+  runtime.license = payload.license || runtime.license;
+  return payload;
+}
+
+async function signInFromStartupPrompt() {
+  if (!dom.startupLoginButton) return;
+  dom.startupLoginButton.disabled = true;
+  setStartupLoginStatus("Signing in... The first attempt of the day can take up to a minute while the service wakes up.", "");
+  try {
+    const email = dom.startupLoginEmailInput?.value || "";
+    const password = dom.startupLoginPasswordInput?.value || "";
+    await performCloudLicenseSignIn({ email, password });
+    if (dom.licenseEmailInput) dom.licenseEmailInput.value = email;
+    if (dom.licensePasswordInput) dom.licensePasswordInput.value = "";
+    if (dom.startupLoginPasswordInput) dom.startupLoginPasswordInput.value = "";
+    renderLicenseUi();
+    if (licenseToolsAllowed()) {
+      setStartupLoginStatus("✓ Signed in. SprinkFlow is unlocked.", "success");
+      closeDialogSafely(dom.startupLoginDialog);
+    } else {
+      const reason = licenseToolBlockMessage() || "this account doesn't have active beta access yet.";
+      setStartupLoginStatus(`Signed in, but tools stay locked — ${reason}`, "error");
+    }
+  } catch (error) {
+    if (dom.startupLoginPasswordInput) dom.startupLoginPasswordInput.value = "";
+    setStartupLoginStatus(`✗ Sign-in failed: ${error.message || "check your email and password and try again."}`, "error");
+  } finally {
+    dom.startupLoginButton.disabled = false;
+    renderLicenseUi();
+  }
+}
+
+function startupLoginPromptDismissed() {
+  try {
+    return sessionStorage.getItem("sprinkflow-startup-login-dismissed") === "true";
+  } catch {
+    return false;
+  }
+}
+
+function dismissStartupLoginPrompt() {
+  try {
+    sessionStorage.setItem("sprinkflow-startup-login-dismissed", "true");
+  } catch {
+    // Session persistence is best-effort only.
+  }
+  closeDialogSafely(dom.startupLoginDialog);
+}
+
+function maybeOpenStartupLoginPrompt() {
+  const license = runtime.license || {};
+  if (!dom.startupLoginDialog || startupLoginPromptDismissed()) return;
+  if (!license.apiConfigured || !license.supabaseAuthConfigured) return;
+  if (license.authenticated && licenseToolsAllowed(license)) return;
+  if (dom.startupLoginEmailInput && license.email) dom.startupLoginEmailInput.value = license.email;
+  setStartupLoginStatus("");
+  openDialogSafely(dom.startupLoginDialog);
+  setTimeout(() => {
+    (dom.startupLoginEmailInput?.value ? dom.startupLoginPasswordInput : dom.startupLoginEmailInput)?.focus?.();
+  }, 80);
+}
+
+async function refreshLicenseStatus() {
+  if (!dom.licenseRefreshButton) return;
+  dom.licenseRefreshButton.disabled = true;
+  setLicenseStatusMessage("Refreshing license status...", "");
+  try {
+    const payload = await readApiJson("./api/license/refresh", { method: "POST", body: JSON.stringify({}) });
+    runtime.license = payload.license || runtime.license;
+    renderLicenseUi();
+    setLicenseStatusMessage(runtime.license?.message || "License status refreshed.", runtime.license?.cloudConnected ? "success" : "");
+  } catch (error) {
+    setLicenseStatusMessage(error.message || "Could not refresh license status.", "error");
+  } finally {
+    dom.licenseRefreshButton.disabled = false;
+    renderLicenseUi();
+  }
+}
+
+async function logoutLicense() {
+  if (!confirm("Sign out of SprinkFlow on this computer? You'll need to sign in again to use the design tools.")) return;
+  setLicenseStatusMessage("Signing out...", "");
+  try {
+    const payload = await readApiJson("./api/license/logout", { method: "POST", body: JSON.stringify({}) });
+    runtime.license = payload.license || runtime.license;
+    renderLicenseUi();
+    setLicenseStatusMessage("Signed out locally.", "success");
+  } catch (error) {
+    setLicenseStatusMessage(error.message || "Could not sign out.", "error");
+  }
+}
+
+function renderUpdateAvailablePill() {
+  if (!dom.updateAvailablePill) return;
+  const update = runtime.update || {};
+  const show = Boolean(update.available);
+  dom.updateAvailablePill.hidden = !show;
+  if (show && update.latestVersion) {
+    dom.updateAvailablePill.textContent = `↑ Update available: ${update.latestVersion}`;
+  }
+}
+
+async function checkUpdatesInBackground() {
+  try {
+    const payload = await readApiJson(`./api/updates/check?ts=${Date.now()}`, { cache: "no-store" });
+    runtime.app = payload.app || runtime.app;
+    runtime.update = payload.update || null;
+    renderUpdateAvailablePill();
+  } catch (_) {
+    // Background update checks are best-effort; the Account dialog still has a manual check.
+  }
+}
+
+async function checkLicenseUpdates() {
+  setLicenseStatusMessage("Checking update service...", "");
+  try {
+    const payload = await readApiJson(`./api/updates/check?ts=${Date.now()}`, { cache: "no-store" });
+    runtime.app = payload.app || runtime.app;
+    runtime.update = payload.update || null;
+    renderLicenseUi();
+    renderUpdateAvailablePill();
+    const update = runtime.update || {};
+    if (update.available) {
+      if (update.canDownload) {
+        setLicenseStatusMessage(`Update available: ${update.latestVersion || "new version"}. Ready to download and verify.`, "success");
+      } else {
+        setLicenseStatusMessage(`Update available, but metadata needs attention: ${(update.metadataErrors || []).join(" ")}`, "error");
+      }
+    } else {
+      setLicenseStatusMessage(update.message || "No update is available.", "");
+    }
+  } catch (error) {
+    setLicenseStatusMessage(error.message || "Could not check for updates.", "error");
+  }
+}
+
+async function downloadVerifiedUpdate() {
+  if (!dom.licenseDownloadUpdateButton) return;
+  dom.licenseDownloadUpdateButton.disabled = true;
+  setLicenseStatusMessage("Opening the update download in your browser...", "");
+  try {
+    const payload = await readApiJson("./api/updates/download", { method: "POST", body: JSON.stringify({}) });
+    runtime.update = payload.update || runtime.update;
+    renderLicenseUi();
+    if (payload.openedInBrowser) {
+      setLicenseStatusMessage(
+        "Your browser is downloading the latest installer. When it finishes, run it to update SprinkFlow — your projects and imported data are kept.",
+        "success"
+      );
+    } else if (payload.installerUrl) {
+      setLicenseStatusMessage(`Open this link to download the update: ${payload.installerUrl}`, "success");
+    } else {
+      setLicenseStatusMessage(`Downloaded verified installer: ${payload.fileName || payload.path}`, "success");
+    }
+  } catch (error) {
+    setLicenseStatusMessage(error.message || "Could not download update.", "error");
+  } finally {
+    renderLicenseUi();
+  }
+}
+
+async function saveCloudProfile() {
+  if (!dom.licenseSaveProfileButton) return;
+  dom.licenseSaveProfileButton.disabled = true;
+  setLicenseStatusMessage("Saving account profile...", "");
+  try {
+    const payload = await readApiJson("./api/license/update-profile", {
+      method: "POST",
+      body: JSON.stringify({
+        name: dom.licenseNameInput?.value || "",
+        company: dom.licenseCompanyInput?.value || "",
+      }),
+    });
+    runtime.license = payload.license || runtime.license;
+    renderLicenseUi();
+    setLicenseStatusMessage("Account profile saved.", "success");
+  } catch (error) {
+    setLicenseStatusMessage(error.message || "Could not save account profile.", "error");
+  } finally {
+    dom.licenseSaveProfileButton.disabled = false;
+    renderLicenseUi();
+  }
+}
+
+async function openBillingCheckout() {
+  if (!dom.licenseCheckoutButton) return;
+  dom.licenseCheckoutButton.disabled = true;
+  setLicenseStatusMessage("Opening secure Stripe Checkout...", "");
+  try {
+    await readApiJson("./api/billing/checkout", { method: "POST", body: JSON.stringify({}) });
+    setLicenseStatusMessage("Stripe Checkout opened in your browser.", "success");
+  } catch (error) {
+    setLicenseStatusMessage(error.message || "Could not open checkout.", "error");
+  } finally {
+    dom.licenseCheckoutButton.disabled = false;
+    renderLicenseUi();
+  }
+}
+
+async function openBillingPortal() {
+  if (!dom.licenseBillingPortalButton) return;
+  dom.licenseBillingPortalButton.disabled = true;
+  setLicenseStatusMessage("Opening secure Stripe billing portal...", "");
+  try {
+    await readApiJson("./api/billing/portal", { method: "POST", body: JSON.stringify({}) });
+    setLicenseStatusMessage("Stripe billing portal opened in your browser.", "success");
+  } catch (error) {
+    setLicenseStatusMessage(error.message || "Could not open billing portal.", "error");
+  } finally {
+    dom.licenseBillingPortalButton.disabled = false;
+    renderLicenseUi();
+  }
+}
+
+async function refreshLicenseHeartbeat() {
+  try {
+    const payload = await readApiJson("./api/license/heartbeat", { method: "POST", body: JSON.stringify({}) });
+    runtime.license = payload.license || runtime.license;
+    renderLicenseUi();
+  } catch {
+    // Heartbeat is non-blocking in Phase 1.
+  }
+}
+
+async function loadExternalCatalog() {
+  try {
+    let response = await fetch(`./api/catalog?ts=${Date.now()}`, { cache: "no-store" });
+    let payload = null;
+    if (response.ok) {
+      payload = await response.json();
+    }
+    if (!response.ok || !payload?.ok) {
+      response = await fetch(`./data/datasheet_catalog.json?ts=${Date.now()}`, { cache: "no-store" });
+      payload = response.ok ? await response.json() : null;
+    }
+    if (!response.ok) return;
+    const externalItems = Array.isArray(payload) ? payload : payload?.items;
+    if (!Array.isArray(externalItems)) return;
+
+    const localItems = state.catalog.filter((item) => item.source !== "database");
+    const databaseItems = externalItems.map((item) => ({
+      ...item,
+      source: "database",
+      customTitle: item.customTitle || "",
+      fileName: item.fileName || item.relativePath || "Datasheet",
+      rawName: item.originalFileName || item.fileName || "",
+    }));
+    state.catalog = [...databaseItems, ...localItems];
+    syncCategoriesFromCatalog();
+    const availableIds = new Set(state.catalog.filter((item) => !isRemoteCatalogItem(item)).map((item) => item.id));
+    state.selectedIds = state.selectedIds.filter((id) => availableIds.has(id));
+    syncAutoTocTitles();
+  } catch {
+    // The app still works with manual/imported items if the generated catalog is absent.
+  }
+}
+
+function syncAutoTocTitles() {
+  for (const id of state.selectedIds) {
+    const item = state.catalog.find((entry) => entry.id === id);
+    if (!item) continue;
+    const visibleName = displayName(item);
+    const legacyAutoName = defaultDisplayName(item);
+    const currentName = state.tocTitles[id] || "";
+    const currentKey = normalize(currentName);
+    const legacyKeys = [
+      legacyAutoName,
+      item.datasheetTitle,
+      manufacturerTitle(item.manufacturer, item.datasheetTitle || ""),
+    ].map(normalize).filter(Boolean);
+    if (!state.tocTitles[id]) {
+      state.tocTitles[id] = visibleName;
+    } else if (
+      legacyAutoName !== visibleName && legacyKeys.includes(currentKey)
+      || isLikelyStaleAutoTocTitle(item, currentName, visibleName)
+    ) {
+      state.tocTitles[id] = visibleName;
+    }
+  }
+}
+
+function isLikelyStaleAutoTocTitle(item, currentName, visibleName) {
+  if (!currentName || !visibleName || currentName === visibleName) return false;
+  const modelKey = normalize(item.model || "");
+  if (!modelKey || !normalize(currentName).includes(modelKey) || !normalize(visibleName).includes(modelKey)) return false;
+  return uppercaseLetterRatio(currentName) > 0.55 || /\b(freedom|model|series)\b/i.test(currentName);
+}
+
+function uppercaseLetterRatio(value) {
+  const letters = String(value || "").replace(/[^A-Za-z]/g, "");
+  if (!letters.length) return 0;
+  const uppercase = letters.replace(/[^A-Z]/g, "");
+  return uppercase.length / letters.length;
+}
+
+async function refreshCatalog({ preserveScroll = false } = {}) {
+  if (dom.refreshCatalogButton) {
+    dom.refreshCatalogButton.disabled = true;
+    dom.refreshCatalogButton.textContent = "Refreshing...";
+  }
+  await loadExternalCatalog();
+  if (preserveScroll) renderAllPreservingCatalogScroll();
+  else renderAll();
+  if (document.getElementById("materialCatalogList")) renderMaterialCatalog();
+  saveState();
+  if (dom.refreshCatalogButton) {
+    dom.refreshCatalogButton.disabled = false;
+    dom.refreshCatalogButton.textContent = "Refresh Database";
+  }
+}
+
+async function loadNfpaRoadmap() {
+  if (!dom.codeConverterStatus) return;
+  try {
+    const timestamp = Date.now();
+    const [response, referencesResponse] = await Promise.all([
+      fetch(`./data/nfpa13_2016_2019_roadmap.json?ts=${timestamp}`, { cache: "no-store" }),
+      fetch(`./data/nfpa13_common_references.json?ts=${timestamp}`, { cache: "no-store" }),
+    ]);
+    const payload = response.ok ? await response.json() : null;
+    const referencesPayload = referencesResponse.ok ? await referencesResponse.json() : null;
+    nfpaRoadmapRows = Array.isArray(payload?.rows) ? payload.rows : [];
+    nfpaCommonReferences = Array.isArray(referencesPayload?.references) ? referencesPayload.references : [];
+    dom.codeConverterStatus.textContent = nfpaRoadmapRows.length
+      ? nfpaLoadedStatusText()
+      : "NFPA 13 roadmap data is empty.";
+    dom.codeConverterStatus.dataset.status = nfpaRoadmapRows.length ? "success" : "error";
+    renderNfpaSourceStatus();
+    renderCommonCodeReferences();
+  } catch (error) {
+    nfpaRoadmapRows = [];
+    nfpaCommonReferences = [];
+    renderNfpaSourceStatus();
+    renderCommonCodeReferences();
+    dom.codeConverterStatus.textContent = `Could not load NFPA 13 roadmap data: ${error.message || "Load failed."}`;
+    dom.codeConverterStatus.dataset.status = "error";
+  }
+}
+
+function loadProjects() {
+  return savedProjects;
+}
+
+function saveProjects(projects) {
+  savedProjects = Array.isArray(projects) ? projects : [];
+  if (!appStateReady) return;
+  readApiJson("./api/projects", {
+    method: "POST",
+    body: JSON.stringify({ projects: savedProjects }),
+  }).catch((error) => {
+    setGenerateStatus(`Could not save projects to the local database: ${error.message}`, "error");
+  });
+}
+
+function renderProjectSelect() {
+  const projects = loadProjects();
+  if (dom.projectSelect) {
+    dom.projectSelect.innerHTML = [
+      '<option value="">Saved projects</option>',
+      ...projects.map((project) => `<option value="${escapeHtml(project.id)}">${escapeHtml(project.name || "Untitled Project")}</option>`),
+    ].join("");
+    if (state.activeSavedProjectId && projects.some((project) => project.id === state.activeSavedProjectId)) {
+      dom.projectSelect.value = state.activeSavedProjectId;
+    }
+  }
+  // the hydraulic package tool carries its own copy of the picker so a saved
+  // job's name/address can be pulled without a trip through the submittal tab
+  const hydSelect = document.getElementById("hydraulicProjectSelect");
+  if (hydSelect) {
+    const current = hydSelect.value;
+    hydSelect.innerHTML = [
+      '<option value="">&mdash; pick from saved projects &mdash;</option>',
+      ...projects.map((project) => `<option value="${escapeHtml(project.id)}">${escapeHtml(project.name || "Untitled Project")}</option>`),
+    ].join("");
+    if (current && projects.some((project) => project.id === current)) hydSelect.value = current;
+  }
+}
+
+function saveCurrentProject() {
+  syncStateFromInputs();
+  const contractor = formContractor();
+  if (!contractor.id && [contractor.name, contractor.address, contractor.license, contractor.phone, contractor.logo].some(Boolean)) {
+    contractor.id = crypto.randomUUID();
+  }
+  if (contractor.id) {
+    const contractorIndex = state.contractors.findIndex((entry) => entry.id === contractor.id);
+    if (contractorIndex >= 0) state.contractors[contractorIndex] = contractor;
+    else state.contractors.push(contractor);
+    state.activeContractorId = contractor.id;
+  }
+  const projects = loadProjects();
+  const selectedId = dom.projectSelect?.value || "";
+  const id = selectedId || crypto.randomUUID();
+  const name = state.project.name || "Untitled Project";
+  const entry = {
+    id,
+    name,
+    savedAt: new Date().toISOString(),
+    project: { ...state.project },
+    activeContractorId: state.activeContractorId,
+    activeContractor: contractor.id ? { ...contractor } : null,
+    selectedIds: [...state.selectedIds],
+    tocTitles: { ...state.tocTitles },
+    customCategories: [...state.customCategories],
+    coverTemplate: state.coverTemplate,
+  };
+  const next = projects.filter((project) => project.id !== id);
+  next.push(entry);
+  saveProjects(next.sort((a, b) => a.name.localeCompare(b.name)));
+  state.activeSavedProjectId = id;
+  renderProjectSelect();
+  dom.projectSelect.value = id;
+  setGenerateStatus(`Saved project: ${name}`, "success");
+  saveState();
+  updateUnsavedIndicator();
+  if (dom.saveProjectButton) {
+    const original = "Save Project";
+    dom.saveProjectButton.textContent = "Saved ✓";
+    window.setTimeout(() => {
+      if (dom.saveProjectButton) dom.saveProjectButton.textContent = original;
+    }, 2000);
+  }
+}
+
+function loadSelectedProject() {
+  const id = dom.projectSelect?.value;
+  if (!id) {
+    setGenerateStatus("Select a saved project first.", "error");
+    return;
+  }
+  const project = loadProjects().find((entry) => entry.id === id);
+  if (!project) return;
+  state.activeSavedProjectId = id;
+  state.project = { ...state.project, ...(project.project || {}) };
+  if (project.activeContractor?.id) {
+    const contractorIndex = state.contractors.findIndex((entry) => entry.id === project.activeContractor.id);
+    if (contractorIndex >= 0) state.contractors[contractorIndex] = project.activeContractor;
+    else state.contractors.push(project.activeContractor);
+    state.activeContractorId = project.activeContractor.id;
+  } else {
+    state.activeContractorId = project.activeContractorId || "";
+  }
+  state.selectedIds = Array.isArray(project.selectedIds) ? project.selectedIds : [];
+  state.tocTitles = project.tocTitles && typeof project.tocTitles === "object" ? project.tocTitles : {};
+  state.customCategories = normalizeCustomCategories([...state.customCategories, ...(project.customCategories || [])]);
+  syncCategoriesFromCatalog();
+  state.coverTemplate = coverTemplateById(project.coverTemplate)?.id || "technical-navy";
+  state.catalogSearch = "";
+  resetCatalogFilters();
+  if (dom.catalogSearchInput) dom.catalogSearchInput.value = "";
+  if (dom.catalogSortSelect) dom.catalogSortSelect.value = state.catalogSort || "manufacturer";
+  syncInputsFromState();
+  refreshCatalog().then(() => {
+    renderAll();
+    setGenerateStatus(`Loaded project: ${project.name}`, "success");
+  });
+}
+
+function deleteSelectedProject() {
+  const id = dom.projectSelect?.value;
+  if (!id) {
+    setGenerateStatus("Select a saved project first.", "error");
+    return;
+  }
+  const projects = loadProjects();
+  const project = projects.find((entry) => entry.id === id);
+  saveProjects(projects.filter((entry) => entry.id !== id));
+  if (state.activeSavedProjectId === id) state.activeSavedProjectId = "";
+  renderProjectSelect();
+  setGenerateStatus(`Deleted saved project: ${project?.name || "Project"}`, "success");
+  saveState();
+}
+
+function projectSaveSnapshotFromCurrent() {
+  syncStateFromInputs();
+  const contractor = formContractor();
+  const hasContractor = [contractor.name, contractor.address, contractor.license, contractor.phone, contractor.logo, contractor.disclaimer]
+    .some((value) => String(value || "").trim());
+  return normalizeProjectSaveSnapshot({
+    project: state.project,
+    activeContractorId: hasContractor ? contractor.id || state.activeContractorId || "" : "",
+    activeContractor: hasContractor ? contractor : null,
+    selectedIds: state.selectedIds,
+    tocTitles: state.tocTitles,
+    customCategories: state.customCategories,
+    customCommonReferences: state.customCommonReferences,
+    loadouts: state.loadouts,
+    coverTemplate: state.coverTemplate,
+  });
+}
+
+function projectSaveSnapshotFromSavedProject(project) {
+  if (!project) return "";
+  return normalizeProjectSaveSnapshot({
+    project: project.project || {},
+    activeContractorId: project.activeContractor?.id || project.activeContractorId || "",
+    activeContractor: project.activeContractor || null,
+    selectedIds: project.selectedIds,
+    tocTitles: project.tocTitles,
+    customCategories: project.customCategories,
+    coverTemplate: project.coverTemplate,
+  });
+}
+
+function normalizeProjectSaveSnapshot(raw) {
+  const normalizedContractor = raw.activeContractor ? normalizeContractorForSnapshot(raw.activeContractor) : null;
+  return stableStringify({
+    project: normalizeProjectForSnapshot(raw.project),
+    activeContractorId: raw.activeContractorId || normalizedContractor?.id || "",
+    activeContractor: normalizedContractor,
+    selectedIds: uniqueSortedStrings(raw.selectedIds),
+    tocTitles: stablePlainObject(raw.tocTitles || {}),
+    customCategories: uniqueSortedStrings(normalizeCustomCategories(raw.customCategories || [])),
+    coverTemplate: coverTemplateById(raw.coverTemplate)?.id || "technical-navy",
+  });
+}
+
+function normalizeProjectForSnapshot(project) {
+  const additionalInfo = normalizeCoverAdditionalInfo(project?.additionalInfo);
+  return {
+    name: String(project?.name || "").trim(),
+    address: String(project?.address || "").trim(),
+    subtitle: String(project?.subtitle || DEFAULT_COVER_SUBTITLE).trim() || DEFAULT_COVER_SUBTITLE,
+    coverAdditionalInfoEnabled: Boolean(project?.coverAdditionalInfoEnabled),
+    additionalInfo: stableDeepPlainObject(additionalInfo),
+  };
+}
+
+function normalizeContractorForSnapshot(contractor) {
+  return {
+    id: contractor.id || "",
+    name: String(contractor.name || "").trim(),
+    address: String(contractor.address || "").trim(),
+    license: String(contractor.license || "").trim(),
+    phone: String(contractor.phone || "").trim(),
+    logo: contractor.logo || "",
+    disclaimer: String(contractor.disclaimer || DEFAULT_DISCLAIMER).trim() || DEFAULT_DISCLAIMER,
+  };
+}
+
+function uniqueSortedStrings(values) {
+  return [...new Set((Array.isArray(values) ? values : []).map((value) => String(value || "").trim()).filter(Boolean))].sort();
+}
+
+function stablePlainObject(value) {
+  const output = {};
+  for (const key of Object.keys(value || {}).sort()) {
+    const normalizedKey = String(key || "").trim();
+    const normalizedValue = String(value[key] || "").trim();
+    if (normalizedKey && normalizedValue) output[normalizedKey] = normalizedValue;
+  }
+  return output;
+}
+
+function stableDeepPlainObject(value) {
+  const output = {};
+  for (const key of Object.keys(value || {}).sort()) {
+    const normalizedKey = String(key || "").trim();
+    const nested = value[key];
+    if (!normalizedKey) continue;
+    if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+      const normalizedNested = stablePlainObject(nested);
+      if (Object.keys(normalizedNested).length) output[normalizedKey] = normalizedNested;
+    } else {
+      const normalizedValue = String(nested || "").trim();
+      if (normalizedValue) output[normalizedKey] = normalizedValue;
+    }
+  }
+  return output;
+}
+
+function stableStringify(value) {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function hasUnsavedProjectChanges() {
+  if (!hasProjectWork()) return false;
+  const activeId = state.activeSavedProjectId || dom.projectSelect?.value || "";
+  if (!activeId) return true;
+  const savedProject = loadProjects().find((project) => project.id === activeId);
+  if (!savedProject) return true;
+  return projectSaveSnapshotFromCurrent() !== projectSaveSnapshotFromSavedProject(savedProject);
+}
+
+function handleBeforeUnload(event) {
+  if (!hasUnsavedProjectChanges()) return;
+  event.preventDefault();
+  event.returnValue = "You have unsaved project changes. Save this project before closing SprinkFlow?";
+  return event.returnValue;
+}
+
+function updateUnsavedIndicator() {
+  if (!dom.unsavedIndicator) return;
+  let unsaved = false;
+  try {
+    unsaved = hasUnsavedProjectChanges();
+  } catch (_) {}
+  dom.unsavedIndicator.hidden = !unsaved;
+}
+
+function saveState() {
+  if (!appStateReady) return;
+  clearTimeout(stateSaveTimer);
+  stateSaveTimer = setTimeout(() => {
+    updateUnsavedIndicator();
+    readApiJson("./api/app-state", {
+      method: "POST",
+      body: JSON.stringify({ state: persistentStateSnapshot() }),
+    }).catch((error) => {
+      setGenerateStatus(`Could not save app data to the local database: ${error.message}`, "error");
+    });
+  }, 250);
+}
+
+function persistentStateSnapshot() {
+  return {
+    project: state.project,
+    contractors: state.contractors,
+    activeContractorId: state.activeContractorId,
+    catalog: state.catalog.filter((item) => item.source !== "database"),
+    selectedIds: state.selectedIds,
+    tocTitles: state.tocTitles,
+    activeSavedProjectId: state.activeSavedProjectId,
+    catalogSort: state.catalogSort,
+    catalogSelectedOnly: state.catalogSelectedOnly,
+    activeCategory: state.activeCategory,
+    previewView: state.previewView,
+    specRequirements: state.specRequirements,
+    catalogFilters: defaultCatalogFilters(),
+    customCategories: state.customCategories,
+    customCommonReferences: state.customCommonReferences,
+    coverTemplate: state.coverTemplate,
+    theme: state.theme,
+    viewMode: state.viewMode,
+    simpleStep: state.simpleStep,
+    settings: normalizeSettings(state.settings),
+    estimator: state.estimator,
+    hangerSpacing: state.hangerSpacing,
+  };
+}
+
+function currentContractor() {
+  return state.contractors.find((contractor) => contractor.id === state.activeContractorId) || blankContractor();
+}
+
+function formContractor() {
+  return {
+    ...currentContractor(),
+    name: dom.contractorNameInput.value.trim(),
+    address: dom.contractorAddressInput.value.trim(),
+    license: dom.contractorLicenseInput.value.trim(),
+    phone: dom.contractorPhoneInput.value.trim(),
+    disclaimer: dom.disclaimerInput.value.trim() || DEFAULT_DISCLAIMER,
+  };
+}
+
+function blankContractor() {
+  return {
+    id: "",
+    name: "",
+    address: "",
+    license: "",
+    phone: "",
+    logo: "",
+    disclaimer: DEFAULT_DISCLAIMER,
+  };
+}
+
+function syncInputsFromState() {
+  dom.projectNameInput.value = state.project.name || "";
+  dom.projectAddressInput.value = state.project.address || "";
+  if (dom.projectSubtitleInput) dom.projectSubtitleInput.value = state.project.subtitle || DEFAULT_COVER_SUBTITLE;
+  if (dom.coverAdditionalInfoToggle) dom.coverAdditionalInfoToggle.checked = Boolean(state.project.coverAdditionalInfoEnabled);
+  if (dom.coverDisclaimerToggle) dom.coverDisclaimerToggle.checked = state.project.coverDisclaimerEnabled !== false;
+  renderCoverAdditionalInfoControls();
+
+  const contractor = currentContractor();
+  dom.contractorNameInput.value = contractor.name || "";
+  dom.contractorAddressInput.value = contractor.address || "";
+  dom.contractorLicenseInput.value = contractor.license || "";
+  dom.contractorPhoneInput.value = contractor.phone || "";
+  dom.disclaimerInput.value = contractor.disclaimer || DEFAULT_DISCLAIMER;
+  if (dom.catalogSelectedOnlyInput) dom.catalogSelectedOnlyInput.checked = Boolean(state.catalogSelectedOnly);
+}
+
+function syncStateFromInputs() {
+  state.project.name = dom.projectNameInput.value.trim();
+  state.project.address = dom.projectAddressInput.value.trim();
+  state.project.subtitle = dom.projectSubtitleInput?.value.trim() || DEFAULT_COVER_SUBTITLE;
+  state.project.coverAdditionalInfoEnabled = Boolean(dom.coverAdditionalInfoToggle?.checked);
+  if (dom.coverDisclaimerToggle) state.project.coverDisclaimerEnabled = dom.coverDisclaimerToggle.checked;
+  syncCoverAdditionalInfoEditorToState(activeCoverAdditionalInfoType);
+  if (dom.coverAdditionalInfoFields) dom.coverAdditionalInfoFields.hidden = !state.project.coverAdditionalInfoEnabled;
+
+  const contractor = currentContractor();
+  if (contractor.id) {
+    contractor.name = dom.contractorNameInput.value.trim();
+    contractor.address = dom.contractorAddressInput.value.trim();
+    contractor.license = dom.contractorLicenseInput.value.trim();
+    contractor.phone = dom.contractorPhoneInput.value.trim();
+    contractor.disclaimer = dom.disclaimerInput.value.trim() || DEFAULT_DISCLAIMER;
+  }
+}
+
+function coverAdditionalInfoTypeExists(value) {
+  return COVER_ADDITIONAL_INFO_FIELDS.some(([key]) => key === value);
+}
+
+function syncCoverAdditionalInfoEditorToState(type = activeCoverAdditionalInfoType) {
+  const key = coverAdditionalInfoTypeExists(type) ? type : "ahj";
+  const info = normalizeCoverAdditionalInfo(state.project.additionalInfo);
+  info[key] = normalizeCoverAdditionalInfoDetail({
+    name: dom.coverAdditionalInfoNameInput?.value,
+    address: dom.coverAdditionalInfoAddressInput?.value,
+    phone: dom.coverAdditionalInfoPhoneInput?.value,
+    license: dom.coverAdditionalInfoLicenseInput?.value,
+  });
+  state.project.additionalInfo = info;
+}
+
+function renderCoverAdditionalInfoControls() {
+  state.project.additionalInfo = normalizeCoverAdditionalInfo(state.project.additionalInfo);
+  const enabled = Boolean(state.project.coverAdditionalInfoEnabled);
+  if (dom.coverAdditionalInfoFields) dom.coverAdditionalInfoFields.hidden = !enabled;
+  if (!enabled) return;
+  const selected = coverAdditionalInfoTypeExists(activeCoverAdditionalInfoType) ? activeCoverAdditionalInfoType : "ahj";
+  activeCoverAdditionalInfoType = selected;
+  if (dom.coverAdditionalInfoTypeSelect) dom.coverAdditionalInfoTypeSelect.value = selected;
+  const detail = normalizeCoverAdditionalInfoDetail(state.project.additionalInfo[selected]);
+  if (dom.coverAdditionalInfoNameInput) dom.coverAdditionalInfoNameInput.value = detail.name || "";
+  if (dom.coverAdditionalInfoAddressInput) dom.coverAdditionalInfoAddressInput.value = detail.address || "";
+  if (dom.coverAdditionalInfoPhoneInput) dom.coverAdditionalInfoPhoneInput.value = detail.phone || "";
+  if (dom.coverAdditionalInfoLicenseInput) dom.coverAdditionalInfoLicenseInput.value = detail.license || "";
+  renderCoverAdditionalInfoSummary();
+}
+
+function renderCoverAdditionalInfoSummary() {
+  if (!dom.coverAdditionalInfoSummary) return;
+  const entries = coverAdditionalInfoEntries({ ...state.project, coverAdditionalInfoEnabled: true });
+  dom.coverAdditionalInfoSummary.innerHTML = entries.length
+    ? entries.map((entry) => `<span>${escapeHtml(entry.label)}: ${entry.fields.map((field) => escapeHtml(field.value)).join(", ")}</span>`).join("")
+    : "<span>No additional information will appear until a field is filled.</span>";
+}
+
+function syncSettingsFromInputs() {
+  state.settings = normalizeSettings({
+    outputFolder: dom.settingsOutputFolderInput?.value || state.settings.outputFolder,
+    openGeneratedPdf: dom.settingsOpenGeneratedPdfInput ? dom.settingsOpenGeneratedPdfInput.checked : state.settings.openGeneratedPdf,
+    tocStyle: dom.settingsTocStyleSelect?.value || state.settings.tocStyle,
+    emailSubjectTemplate: dom.settingsEmailSubjectInput?.value || DEFAULT_EMAIL_SUBJECT_TEMPLATE,
+    emailBodyTemplate: dom.settingsEmailBodyInput?.value || DEFAULT_EMAIL_BODY_TEMPLATE,
+  });
+}
+
+function renderSettings() {
+  const settings = normalizeSettings(state.settings);
+  state.settings = settings;
+  if (dom.settingsOutputFolderInput) dom.settingsOutputFolderInput.value = settings.outputFolder;
+  if (dom.settingsLegacyModeInput) dom.settingsLegacyModeInput.checked = state.viewMode === "standard";
+  if (dom.settingsOpenGeneratedPdfInput) dom.settingsOpenGeneratedPdfInput.checked = settings.openGeneratedPdf;
+  if (dom.settingsTocStyleSelect) dom.settingsTocStyleSelect.value = settings.tocStyle;
+  if (dom.settingsEmailSubjectInput) dom.settingsEmailSubjectInput.value = settings.emailSubjectTemplate;
+  if (dom.settingsEmailBodyInput) dom.settingsEmailBodyInput.value = settings.emailBodyTemplate;
+}
+
+function setSettingsStatus(message, type = "info") {
+  if (!dom.settingsStatus) return;
+  dom.settingsStatus.textContent = message || "";
+  dom.settingsStatus.dataset.status = message ? type : "";
+  scheduleStatusAutoClear(dom.settingsStatus, message, type, () => setSettingsStatus(""));
+}
+
+function saveSettingsFromInputs() {
+  syncSettingsFromInputs();
+  renderSettings();
+  renderPreview();
+  saveState();
+  setSettingsStatus("Settings saved.", "success");
+}
+
+function resetSettings() {
+  state.settings = { ...DEFAULT_SETTINGS };
+  renderSettings();
+  renderPreview();
+  saveState();
+  setSettingsStatus("Settings reset to SprinkFlow defaults.", "success");
+}
+
+async function chooseOutputFolder() {
+  setSettingsStatus("Opening folder picker...", "info");
+  try {
+    const payload = await readApiJson("./api/select-output-folder", {
+      method: "POST",
+      body: JSON.stringify({ current: state.settings.outputFolder || "" }),
+    });
+    if (!payload.path) {
+      setSettingsStatus("Folder selection cancelled.", "info");
+      return;
+    }
+    state.settings.outputFolder = payload.path;
+    renderSettings();
+    saveState();
+    setSettingsStatus(`Output folder set: ${payload.path}`, "success");
+  } catch (error) {
+    setSettingsStatus(`Could not choose output folder: ${error.message || "folder picker failed."}`, "error");
+  }
+}
+
+function clearOutputFolder() {
+  state.settings.outputFolder = "";
+  renderSettings();
+  saveState();
+  setSettingsStatus("Output folder set to SprinkFlow default.", "success");
+}
+
+function emailTemplateVariables(clientName = "") {
+  syncStateFromInputs();
+  const contractor = formContractor();
+  const projectName = state.project.name || "Untitled Project";
+  return {
+    PROJECT_NAME: projectName,
+    PROJECT_ADDRESS: state.project.address || "",
+    CONTRACTOR_NAME: clientName || contractor.name || "there",
+    CONTRACTOR_COMPANY: contractor.name || "",
+    CLIENT_NAME: clientName || "",
+    DATE: new Date().toLocaleDateString(),
+    MATERIAL_SUBMITTAL: runtime.generatedOutputs.material?.path || "",
+    HYDRAULIC_CALCS: runtime.generatedOutputs.hydraulic?.path || "",
+  };
+}
+
+function applyEmailTemplate(template, variables) {
+  let output = String(template || "");
+  Object.entries(variables).forEach(([key, value]) => {
+    const safeValue = String(value ?? "");
+    output = output
+      .replaceAll(`{${key}}`, safeValue)
+      .replaceAll(key, safeValue);
+  });
+  return output;
+}
+
+function generatedAttachments(preferredType = "") {
+  const outputs = [];
+  if (runtime.generatedOutputs.material?.path) outputs.push({ type: "material", label: "Material Data Submittal", ...runtime.generatedOutputs.material });
+  if (runtime.generatedOutputs.hydraulic?.path) outputs.push({ type: "hydraulic", label: "Hydraulic Calc Package", ...runtime.generatedOutputs.hydraulic });
+  if (preferredType) {
+    outputs.sort((a, b) => (a.type === preferredType ? -1 : 0) - (b.type === preferredType ? -1 : 0));
+  }
+  return outputs;
+}
+
+function renderGeneratedPackageActions() {
+  const materialReady = Boolean(runtime.generatedOutputs.material?.path);
+  const hydraulicReady = Boolean(runtime.generatedOutputs.hydraulic?.path);
+  if (dom.submittalEmailDraftButton) dom.submittalEmailDraftButton.hidden = false;
+  if (dom.hydraulicEmailDraftButton) dom.hydraulicEmailDraftButton.hidden = !hydraulicReady;
+  if (dom.materialOutputActions) dom.materialOutputActions.hidden = !materialReady;
+  if (dom.hydraulicOutputActions) dom.hydraulicOutputActions.hidden = !hydraulicReady;
+  renderSubmittalCart();
+  syncGenerateDockState();
+}
+
+function renderSubmittalCart() {
+  const plansCount = projectPlanFiles.filter((file) => file?.dataUrl && /\.pdf$/i.test(file.name || "")).length;
+  const materialReady = Boolean(runtime.generatedOutputs.material?.path);
+  const hydraulicReady = Boolean(runtime.generatedOutputs.hydraulic?.path);
+  const setItem = (key, ready, text) => {
+    document.querySelectorAll(`.cart-item[data-cart-item="${key}"]`).forEach((li) => {
+      li.classList.toggle("is-ready", ready);
+      const status = li.querySelector(".cart-item-body span");
+      if (status) status.textContent = text;
+    });
+  };
+  setItem("plans", plansCount > 0, plansCount > 0 ? `${plansCount} file${plansCount === 1 ? "" : "s"} added` : "No plans added yet");
+  setItem("material", materialReady, materialReady ? "Generated and ready" : "Not generated yet");
+  setItem("hydraulic", hydraulicReady, hydraulicReady ? "Generated and ready" : "Not generated yet");
+  const anyReady = plansCount || materialReady || hydraulicReady;
+  const allReady = plansCount && materialReady && hydraulicReady;
+  document.querySelectorAll("[data-package-export]").forEach((btn) => {
+    if (!btn.dataset.busy) btn.disabled = !anyReady;
+    btn.classList.toggle("is-muted", !allReady);
+  });
+  updateCartProjectReadout();
+}
+
+// Read-only project readout in the cart — mirrors the editable fields live.
+function updateCartProjectReadout() {
+  const val = (id) => (document.getElementById(id)?.value || "").trim();
+  const nameEl = document.getElementById("cartProjectName");
+  const addrEl = document.getElementById("cartProjectAddress");
+  const subEl = document.getElementById("cartProjectSubtitle");
+  if (nameEl) nameEl.textContent = val("projectNameInput") || "Untitled project";
+  if (addrEl) { const v = val("projectAddressInput"); addrEl.textContent = v; addrEl.hidden = !v; }
+  if (subEl) { const v = val("projectSubtitleInput"); subEl.textContent = v; subEl.hidden = !v; }
+}
+
+let sessionBannerDismissed = false;
+// Show a "you have a submittal in progress" banner on Step 1 when items are already loaded.
+function maybeShowSessionBanner() {
+  const banner = document.getElementById("sessionBanner");
+  if (!banner) return;
+  const items = (state.selectedIds || []).length;
+  const plans = projectPlanFiles.length;
+  const show = !sessionBannerDismissed
+    && state.viewMode === "simple"
+    && currentActiveTool() === "submittal"
+    && state.simpleStep === "intake"
+    && (items > 0 || plans > 0);
+  banner.hidden = !show;
+  if (show) {
+    const detail = document.getElementById("sessionBannerDetail");
+    if (detail) {
+      const parts = [];
+      if (items) parts.push(`${items} datasheet${items === 1 ? "" : "s"}`);
+      if (plans) parts.push(`${plans} plan file${plans === 1 ? "" : "s"}`);
+      detail.textContent = `This submittal already has ${parts.join(" and ")} loaded from a previous session.`;
+    }
+  }
+}
+
+async function openGeneratedOutputFolder(type, statusFn) {
+  const path = runtime.generatedOutputs[type]?.path;
+  if (!path) return;
+  try {
+    await readApiJson("./api/open-output-folder", {
+      method: "POST",
+      body: JSON.stringify({ path }),
+    });
+  } catch (error) {
+    statusFn(`Could not open the output folder: ${error.message || "unknown error."}`, "error");
+  }
+}
+
+async function copyGeneratedOutputPath(type, statusFn) {
+  const path = runtime.generatedOutputs[type]?.path;
+  if (!path) return;
+  try {
+    await navigator.clipboard.writeText(path);
+    statusFn("File path copied to clipboard.", "success");
+  } catch (_) {
+    try {
+      await readApiJson("./api/clipboard-copy", {
+        method: "POST",
+        body: JSON.stringify({ text: path }),
+      });
+      statusFn("File path copied to clipboard.", "success");
+    } catch (error) {
+      statusFn(`Could not copy the path: ${error.message || "unknown error."}`, "error");
+    }
+  }
+}
+
+function selectedMaterialItemsForGeneration() {
+  const items = selectedCatalogItems();
+  if (!items.length) {
+    throw new Error("Select at least one cut sheet first.");
+  }
+  const missingPdf = items.find((item) => !item.absolutePath && !uploadedFiles.has(item.id));
+  if (missingPdf) {
+    throw new Error(`"${displayName(missingPdf)}" does not have a PDF available. Re-import that cut sheet or remove it.`);
+  }
+  return items;
+}
+
+function materialSubmittalPayload(items, openGeneratedPdf) {
+  return {
+    project: { ...state.project, coverTemplate: state.coverTemplate },
+    contractor: formContractor(),
+    settings: { ...normalizeSettings(state.settings), openGeneratedPdf },
+    items: items.map((item) => ({
+      ...item,
+      annotatedPdfPath: annotatedPdfOverrides.get(item.id)?.path || "",
+      customTitle: tocDisplayName(item),
+      upload: uploadedFiles.has(item.id)
+        ? {
+            name: item.uploadName || item.fileName,
+            dataUrl: uploadedFiles.get(item.id),
+          }
+        : undefined,
+    })),
+  };
+}
+
+async function createMaterialSubmittalOutput({ openGeneratedPdf = state.settings.openGeneratedPdf } = {}) {
+  syncStateFromInputs();
+  if (!ensureLicensedToolAccess(setGenerateStatus)) throw new Error("SprinkFlow tools are locked.");
+  const licenseBlock = commercialOutputBlockMessage();
+  if (licenseBlock) {
+    openLicenseDialog();
+    throw new Error(licenseBlock);
+  }
+  const items = selectedMaterialItemsForGeneration();
+  const response = await fetch("./api/generate-submittal", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(materialSubmittalPayload(items, openGeneratedPdf)),
+  });
+  const result = await readJsonResponse(response);
+  if (!response.ok || !result.ok) {
+    throw new Error(result.error || `PDF generation failed with server status ${response.status}.`);
+  }
+  runtime.generatedOutputs.material = { path: result.path, createdAt: new Date().toISOString() };
+  renderGeneratedPackageActions();
+  return result.path;
+}
+
+function hydraulicPackagePayload(openGeneratedPdf) {
+  if (!hydraulicCalcFiles.length) {
+    throw new Error("Add at least one hydraulic calc PDF before generating.");
+  }
+  hydraulicCalcFiles.forEach((file, index) => {
+    if (!file.label) file.label = defaultHydraulicLabel(file.name, index);
+  });
+  const projectName = dom.hydraulicProjectNameInput?.value.trim() || state.project.name || "Hydraulic Calculations";
+  const projectAddress = dom.hydraulicProjectAddressInput?.value.trim() || state.project.address || "";
+  return {
+    project: {
+      name: projectName,
+      address: projectAddress,
+      subtitle: dom.hydraulicSubtitleInput?.value.trim() || "Hydraulic Calculations",
+      coverTemplate: state.coverTemplate,
+      coverTitle: "HYDRAULIC CALCULATION PACKAGE",
+      coverAdditionalInfoEnabled: Boolean(state.project.coverAdditionalInfoEnabled),
+      additionalInfo: normalizeCoverAdditionalInfo(state.project.additionalInfo),
+      hideContractor: Boolean(dom.hydraulicHideContractorInput?.checked),
+    },
+    contractor: formContractor(),
+    settings: { ...normalizeSettings(state.settings), openGeneratedPdf },
+    files: hydraulicCalcFiles.map((file) => ({
+      id: file.id,
+      name: file.name,
+      dataUrl: file.dataUrl,
+      label: file.label || defaultHydraulicLabel(file.name),
+      remoteAreaNumber: file.remoteAreaNumber || "",
+      remoteAreaLocation: file.remoteAreaLocation || "",
+      reportDescription: file.reportDescription || "",
+      drawingName: file.drawingName || "",
+      hazard: file.hazard || "",
+      startPage: file.startPage || 1,
+      endPage: file.endPage || file.pageCount || null,
+    })),
+  };
+}
+
+async function createHydraulicPackageOutput({ openGeneratedPdf = state.settings.openGeneratedPdf } = {}) {
+  if (!ensureLicensedToolAccess(setHydraulicStatus)) throw new Error("SprinkFlow tools are locked.");
+  const licenseBlock = commercialOutputBlockMessage();
+  if (licenseBlock) {
+    openLicenseDialog();
+    throw new Error(licenseBlock);
+  }
+  const response = await fetch("./api/generate-hydraulic-package", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(hydraulicPackagePayload(openGeneratedPdf)),
+  });
+  const result = await readJsonResponse(response);
+  if (!response.ok || !result.ok) throw new Error(result.error || `Hydraulic package generation failed with server status ${response.status}.`);
+  runtime.generatedOutputs.hydraulic = { path: result.path, createdAt: new Date().toISOString() };
+  renderGeneratedPackageActions();
+  return result.path;
+}
+
+function setProjectPackageStatus(message, type = "info") {
+  const els = [...document.querySelectorAll("[data-package-status]")];
+  els.forEach((el) => { el.textContent = message || ""; el.dataset.status = type; });
+  if (els[0]) scheduleStatusAutoClear(els[0], message, type, () => setProjectPackageStatus(""));
+}
+
+async function exportProjectPackage() {
+  syncStateFromInputs();
+  if (!ensureLicensedToolAccess(setProjectPackageStatus)) return;
+  const plans = projectPlanFiles
+    .filter((file) => file?.dataUrl && /\.pdf$/i.test(file.name || ""))
+    .map((file) => ({ name: file.name || "Plan.pdf", dataUrl: file.dataUrl }));
+  const hasMaterial = selectedCatalogItems().length > 0;
+  const hasCalcs = hydraulicCalcFiles.length > 0;
+  if (!plans.length && !hasMaterial && !hasCalcs) {
+    setProjectPackageStatus("Drop plans and calcs, or add material items, before exporting a package.", "error");
+    return;
+  }
+  const buttons = [...document.querySelectorAll("[data-package-export]")];
+  buttons.forEach((b) => { b.disabled = true; b.dataset.busy = "1"; b.textContent = "Building package..."; });
+  try {
+    let materialPath = "";
+    let hydraulicPath = "";
+    if (hasMaterial) {
+      setProjectPackageStatus("Generating material submittal...", "info");
+      materialPath = await createMaterialSubmittalOutput({ openGeneratedPdf: false });
+    }
+    if (hasCalcs) {
+      setProjectPackageStatus("Generating calc package...", "info");
+      hydraulicPath = await createHydraulicPackageOutput({ openGeneratedPdf: false });
+    }
+    setProjectPackageStatus("Choose a destination folder for the project package...", "info");
+    const response = await fetch("./api/project-package", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectName: state.project.name || "Project",
+        materialPath,
+        hydraulicPath,
+        plans,
+      }),
+    });
+    const result = await readJsonResponse(response);
+    if (!response.ok || !result.ok) throw new Error(result.error || `Project package failed with server status ${response.status}.`);
+    const parts = (result.included || []).join(", ");
+    setProjectPackageStatus(`Project package saved (${result.fileCount} file${result.fileCount === 1 ? "" : "s"})${parts ? ": " + parts : ""}. Opened ${result.folder}.`, "success");
+  } catch (error) {
+    const message = error?.message || "Project package failed.";
+    if (/cancel/i.test(message)) {
+      setProjectPackageStatus("Project package cancelled.", "info");
+      return;
+    }
+    setProjectPackageStatus(message, "error");
+  } finally {
+    buttons.forEach((b) => { b.disabled = false; delete b.dataset.busy; b.textContent = "Export full package…"; });
+    renderSubmittalCart();
+  }
+}
+
+function openPackageEmailDialog(preferredType = "") {
+  const attachments = generatedAttachments(preferredType);
+  if (!attachments.length) {
+    const message = "Generate a material submittal or hydraulic calc package first, then add it to an email.";
+    preferredType === "hydraulic" ? setHydraulicStatus(message, "error") : setGenerateStatus(message, "error");
+    return;
+  }
+  const variables = emailTemplateVariables(dom.emailDraftNameInput?.value.trim() || "");
+  if (dom.emailDraftToInput) dom.emailDraftToInput.value = "";
+  if (dom.emailDraftNameInput) dom.emailDraftNameInput.value = "";
+  if (dom.emailDraftSubjectInput) dom.emailDraftSubjectInput.value = applyEmailTemplate(state.settings.emailSubjectTemplate, variables);
+  if (dom.emailDraftBodyInput) dom.emailDraftBodyInput.value = applyEmailTemplate(state.settings.emailBodyTemplate, variables);
+  if (dom.emailDraftAttachmentList) {
+    dom.emailDraftAttachmentList.innerHTML = attachments
+      .map((file) => `<div class="email-attachment-row"><strong>${escapeHtml(file.label)}</strong><span>${escapeHtml(file.path)}</span></div>`)
+      .join("");
+  }
+  if (dom.emailDraftStatus) {
+    dom.emailDraftStatus.textContent = "";
+    dom.emailDraftStatus.dataset.status = "";
+  }
+  openDialogSafely(dom.emailDraftDialog);
+  annotateEmailAttachmentSizes(attachments);
+}
+
+const EMAIL_ATTACHMENT_WARN_BYTES = 20 * 1024 * 1024;
+
+function formatFileSize(bytes) {
+  if (!bytes) return "0 KB";
+  const mb = bytes / (1024 * 1024);
+  return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+async function fetchAttachmentFileInfo(paths) {
+  const payload = await readApiJson("./api/file-info", {
+    method: "POST",
+    body: JSON.stringify({ paths }),
+  });
+  return Array.isArray(payload.files) ? payload.files : [];
+}
+
+function attachmentSizeWarning(totalBytes) {
+  if (totalBytes <= EMAIL_ATTACHMENT_WARN_BYTES) return "";
+  return `Attachments total ${formatFileSize(totalBytes)}. Outlook often rejects email drafts over about 20 MB - consider compressing the PDFs first in the Merge / Compress PDFs tool.`;
+}
+
+async function annotateEmailAttachmentSizes(attachments) {
+  if (!dom.emailDraftAttachmentList) return;
+  try {
+    const files = await fetchAttachmentFileInfo(attachments.map((file) => file.path));
+    const infoByPath = new Map(files.map((file) => [file.path, file]));
+    let total = 0;
+    dom.emailDraftAttachmentList.innerHTML = attachments
+      .map((file) => {
+        const info = infoByPath.get(file.path);
+        total += info?.size || 0;
+        const sizeNote = info ? (info.exists ? ` (${formatFileSize(info.size)})` : " (file is missing - regenerate it)") : "";
+        return `<div class="email-attachment-row"><strong>${escapeHtml(file.label + sizeNote)}</strong><span>${escapeHtml(file.path)}</span></div>`;
+      })
+      .join("");
+    const warning = attachmentSizeWarning(total);
+    if (warning && dom.emailDraftStatus) {
+      dom.emailDraftStatus.textContent = warning;
+      dom.emailDraftStatus.dataset.status = "error";
+    }
+  } catch (_) {}
+}
+
+function refreshEmailDraftTemplate() {
+  if (!dom.emailDraftDialog?.open) return;
+  const variables = emailTemplateVariables(dom.emailDraftNameInput?.value.trim() || "");
+  if (dom.emailDraftSubjectInput) dom.emailDraftSubjectInput.value = applyEmailTemplate(state.settings.emailSubjectTemplate, variables);
+  if (dom.emailDraftBodyInput) dom.emailDraftBodyInput.value = applyEmailTemplate(state.settings.emailBodyTemplate, variables);
+}
+
+let packageEmailDraftCreating = false;
+
+async function createPackageEmailDraft() {
+  if (packageEmailDraftCreating) return;
+  const attachments = generatedAttachments().map((file) => file.path);
+  if (!attachments.length) {
+    if (dom.emailDraftStatus) {
+      dom.emailDraftStatus.textContent = "Generate a PDF package first.";
+      dom.emailDraftStatus.dataset.status = "error";
+    }
+    return;
+  }
+  packageEmailDraftCreating = true;
+  if (dom.emailDraftCreateButton) {
+    dom.emailDraftCreateButton.disabled = true;
+    dom.emailDraftCreateButton.textContent = "Creating...";
+  }
+  if (dom.emailDraftStatus) {
+    dom.emailDraftStatus.textContent = "Creating email draft...";
+    dom.emailDraftStatus.dataset.status = "info";
+  }
+  try {
+    const payload = await readApiJson("./api/create-email-draft", {
+      method: "POST",
+      body: JSON.stringify({
+        to: dom.emailDraftToInput?.value.trim() || "",
+        subject: dom.emailDraftSubjectInput?.value.trim() || "",
+        body: dom.emailDraftBodyInput?.value || "",
+        attachments,
+      }),
+    });
+    if (dom.emailDraftStatus) {
+      dom.emailDraftStatus.textContent = payload.message || "Email draft created.";
+      dom.emailDraftStatus.dataset.status = payload.method === "outlook" ? "success" : "info";
+    }
+  } catch (error) {
+    if (dom.emailDraftStatus) {
+      dom.emailDraftStatus.textContent = `Could not create email draft: ${error.message || "draft failed."}`;
+      dom.emailDraftStatus.dataset.status = "error";
+    }
+  } finally {
+    packageEmailDraftCreating = false;
+    if (dom.emailDraftCreateButton) {
+      dom.emailDraftCreateButton.disabled = false;
+      dom.emailDraftCreateButton.textContent = "Create Draft";
+    }
+  }
+}
+
+async function createEmailDraftWithAttachments(attachments, statusElement = dom.emailDraftStatus) {
+  const variables = emailTemplateVariables("");
+  const payload = await readApiJson("./api/create-email-draft", {
+    method: "POST",
+    body: JSON.stringify({
+      to: "",
+      subject: applyEmailTemplate(state.settings.emailSubjectTemplate, variables),
+      body: applyEmailTemplate(state.settings.emailBodyTemplate, variables),
+      attachments,
+    }),
+  });
+  if (statusElement) {
+    statusElement.textContent = payload.message || "Email draft created.";
+    statusElement.dataset.status = payload.method === "outlook" || payload.method === "eml" ? "success" : "info";
+  }
+  return payload;
+}
+
+let fullSubmittalEmailGenerating = false;
+
+async function generateAndEmailFullSubmittal() {
+  if (fullSubmittalEmailGenerating) return;
+  syncStateFromInputs();
+  if (!ensureLicensedToolAccess(setGenerateStatus)) return;
+  const licenseBlock = commercialOutputBlockMessage();
+  if (licenseBlock) {
+    setGenerateStatus(licenseBlock, "error");
+    openLicenseDialog();
+    return;
+  }
+
+  const shouldGenerateMaterial = selectedCatalogItems().length > 0;
+  const shouldGenerateHydraulic = hydraulicCalcFiles.length > 0;
+  if (!shouldGenerateMaterial && !shouldGenerateHydraulic) {
+    setGenerateStatus("Add selected datasheets or hydraulic calc PDFs before creating an email package.", "error");
+    return;
+  }
+
+  fullSubmittalEmailGenerating = true;
+  const originalLabel = dom.submittalEmailDraftButton?.textContent || "Generate + Email Full Submittal";
+  if (dom.submittalEmailDraftButton) {
+    dom.submittalEmailDraftButton.disabled = true;
+    dom.submittalEmailDraftButton.textContent = "Preparing Email...";
+  }
+  if (dom.printButton) dom.printButton.disabled = true;
+  setGenerateStatus("Generating package PDFs for email...", "info");
+
+  const attachments = [];
+  const failures = [];
+  try {
+    const planAttachments = projectPlanEmailAttachments();
+    if (planAttachments.length) {
+      attachments.push(...planAttachments);
+    }
+    if (shouldGenerateHydraulic) {
+      try {
+        setGenerateStatus("Generating hydraulic calc package for email...", "info");
+        attachments.push(await createHydraulicPackageOutput({ openGeneratedPdf: false }));
+      } catch (error) {
+        failures.push(`Hydraulic calcs: ${error.message || "generation failed"}`);
+      }
+    }
+    if (shouldGenerateMaterial) {
+      try {
+        setGenerateStatus("Generating material data submittal for email...", "info");
+        attachments.push(await createMaterialSubmittalOutput({ openGeneratedPdf: false }));
+      } catch (error) {
+        failures.push(`Material submittal: ${error.message || "generation failed"}`);
+      }
+    }
+    if (!attachments.length) {
+      throw new Error(failures.join(" | ") || "No package PDFs could be generated.");
+    }
+    const planNote = planAttachments.length ? ` with ${planAttachments.length} plan PDF${planAttachments.length === 1 ? "" : "s"}` : "";
+    setGenerateStatus(`Opening email draft${planNote} and generated package PDFs attached...`, "info");
+    let sizeNote = "";
+    try {
+      const files = await fetchAttachmentFileInfo(attachments);
+      const warning = attachmentSizeWarning(files.reduce((sum, file) => sum + (file.size || 0), 0));
+      if (warning) sizeNote = ` ${warning}`;
+    } catch (_) {}
+    const result = await createEmailDraftWithAttachments(attachments, dom.generateStatus);
+    const failureNote = failures.length ? ` Some items were skipped: ${failures.join(" | ")}` : "";
+    setGenerateStatus(`${result.message || "Email draft created."}${failureNote}${sizeNote}`, result.method === "fallback" || sizeNote ? "info" : "success");
+  } catch (error) {
+    setGenerateStatus(`Could not create email package: ${error.message || "email workflow failed."}`, "error");
+  } finally {
+    fullSubmittalEmailGenerating = false;
+    if (dom.submittalEmailDraftButton) {
+      dom.submittalEmailDraftButton.disabled = false;
+      dom.submittalEmailDraftButton.textContent = originalLabel;
+    }
+    if (dom.printButton) dom.printButton.disabled = false;
+  }
+}
+
+function renderAll() {
+  renderContractorSelect();
+  renderContractorLogoPreview();
+  renderCoverTemplateOptions();
+  renderHydraulicCoverTemplateOptions();
+  renderSettings();
+  renderGeneratedPackageActions();
+  syncHydraulicProjectDefaults();
+  renderHydraulicWorkspace();
+  renderLoadouts();
+  renderCatalog();
+  renderQuickTocSummary();
+  renderSpecRequirements();
+  renderPreview();
+  updateViewModeUI();
+  saveState();
+}
+
+function renderQuickTocSummary() {
+  const cartSheets = document.getElementById("cartSheets");
+  if (!dom.quickTocSummaryBody) return;
+  const items = selectedCatalogItems();
+  if (cartSheets) cartSheets.hidden = !items.length;
+  if (!items.length) {
+    dom.quickTocSummaryBody.innerHTML = '<p class="toc-summary-empty">No datasheets added yet.</p>';
+    return;
+  }
+  const byCategory = new Map();
+  for (const item of items) {
+    const cat = item.category || "Miscellaneous";
+    if (!byCategory.has(cat)) byCategory.set(cat, []);
+    byCategory.get(cat).push(item);
+  }
+  const ordered = [...CATEGORIES, ...[...byCategory.keys()].filter((c) => !CATEGORIES.includes(c))]
+    .filter((cat) => byCategory.has(cat));
+  const groups = ordered.map((cat) => {
+    const rows = byCategory.get(cat)
+      .sort((a, b) => tocDisplayName(a).localeCompare(tocDisplayName(b)))
+      .map((item) => `<li><span>${escapeHtml(tocDisplayName(item))}</span></li>`)
+      .join("");
+    return `<div class="toc-summary-group"><p class="toc-summary-cat">${escapeHtml(cat)} (${byCategory.get(cat).length})</p><ul>${rows}</ul></div>`;
+  }).join("");
+  dom.quickTocSummaryBody.innerHTML =
+    `<p class="toc-summary-count">${items.length} datasheet${items.length === 1 ? "" : "s"} across ${ordered.length} categor${ordered.length === 1 ? "y" : "ies"}.</p>${groups}`;
+}
+
+function renderAllPreservingCatalogScroll() {
+  const results = dom.catalogList?.querySelector(".catalog-results");
+  const scrollTop = results?.scrollTop || 0;
+  renderAll();
+  const nextResults = dom.catalogList?.querySelector(".catalog-results");
+  if (nextResults) nextResults.scrollTop = scrollTop;
+  requestAnimationFrame(() => {
+    const settledResults = dom.catalogList?.querySelector(".catalog-results");
+    if (settledResults) settledResults.scrollTop = scrollTop;
+  });
+}
+
+function renderContractorLogoPreview() {
+  if (!dom.contractorLogoPreview) return;
+  const logo = currentContractor().logo;
+  dom.contractorLogoPreview.innerHTML = logo
+    ? `<img src="${logo}" alt="Current contractor logo" />`
+    : "<span>No logo</span>";
+}
+
+function renderCoverTemplateOptions() {
+  renderCoverTemplateOptionsInto(dom.coverTemplateOptions);
+}
+
+function renderHydraulicCoverTemplateOptions() {
+  renderCoverTemplateOptionsInto(dom.hydraulicCoverTemplateOptions);
+}
+
+function renderCoverTemplateOptionsInto(container) {
+  if (!container) return;
+  container.innerHTML = `
+    <select class="cover-template-select" data-cover-template-select aria-label="Cover template">
+      ${COVER_TEMPLATES.map((template) =>
+        `<option value="${escapeHtml(template.id)}" ${template.id === state.coverTemplate ? "selected" : ""}>${escapeHtml(template.name)}</option>`
+      ).join("")}
+    </select>`;
+}
+
+function syncHydraulicProjectDefaults() {
+  if (dom.hydraulicProjectNameInput && !dom.hydraulicProjectNameInput.value.trim()) {
+    dom.hydraulicProjectNameInput.placeholder = state.project.name || "Uses current project if blank";
+  }
+  if (dom.hydraulicProjectAddressInput && !dom.hydraulicProjectAddressInput.value.trim()) {
+    dom.hydraulicProjectAddressInput.placeholder = state.project.address || "Uses current address if blank";
+  }
+}
+
+function renderLoadouts() {
+  if (!dom.loadoutSelect) return;
+  const selectedValue = dom.loadoutSelect.value;
+  dom.loadoutSelect.innerHTML = [
+    '<option value="">Saved loadouts</option>',
+    ...state.loadouts.map((loadout) => {
+      const count = loadoutLoadableItems(loadout).length || loadout.itemIds.length || loadout.items.length;
+      return `<option value="${escapeHtml(loadout.id)}">${escapeHtml(loadout.name)} (${count})</option>`;
+    }),
+  ].join("");
+  if (state.loadouts.some((loadout) => loadout.id === selectedValue)) dom.loadoutSelect.value = selectedValue;
+  const hasSelectedLoadout = Boolean(dom.loadoutSelect.value);
+  const hasCurrentSelection = state.selectedIds.length > 0;
+  if (dom.applyLoadoutButton) dom.applyLoadoutButton.disabled = !hasSelectedLoadout;
+  if (dom.editLoadoutButton) dom.editLoadoutButton.disabled = !hasSelectedLoadout;
+  if (dom.exportLoadoutButton) dom.exportLoadoutButton.disabled = !hasSelectedLoadout;
+  if (dom.deleteLoadoutButton) dom.deleteLoadoutButton.disabled = !hasSelectedLoadout;
+  if (dom.saveLoadoutButton) dom.saveLoadoutButton.disabled = !hasCurrentSelection;
+}
+
+function currentLoadout() {
+  return state.loadouts.find((loadout) => loadout.id === dom.loadoutSelect?.value) || null;
+}
+
+function createLoadoutFromCurrentSelection(name, existing = null) {
+  const selectedItems = selectedCatalogItems();
+  const now = new Date().toISOString();
+  return {
+    id: existing?.id || localId("loadout"),
+    name: String(name || "").replace(/\s+/g, " ").trim().slice(0, 80),
+    itemIds: selectedItems.map((item) => item.id),
+    items: selectedItems.map((item) => ({
+      id: item.id,
+      category: item.category || "",
+      title: displayName(item),
+      sourceUrl: item.sourceUrl || item.datasheetUrl || "",
+      relativePath: item.relativePath || "",
+      manufacturer: item.manufacturer || "",
+      model: item.model || "",
+    })),
+    createdAt: existing?.createdAt || now,
+    updatedAt: now,
+  };
+}
+
+function selectedCatalogItems() {
+  const selected = new Set(state.selectedIds);
+  return state.catalog.filter((item) => selected.has(item.id));
+}
+
+function loadoutLoadableItems(loadout) {
+  const resolved = [];
+  const seen = new Set();
+  for (const id of Array.isArray(loadout?.itemIds) ? loadout.itemIds : []) {
+    const item = state.catalog.find((entry) => entry.id === id);
+    if (item && !seen.has(item.id)) {
+      seen.add(item.id);
+      resolved.push(item);
+    }
+  }
+  for (const stored of Array.isArray(loadout?.items) ? loadout.items : []) {
+    const item = resolveLoadoutItem(stored);
+    if (item && !seen.has(item.id)) {
+      seen.add(item.id);
+      resolved.push(item);
+    }
+  }
+  return resolved;
+}
+
+function resolveLoadoutItem(stored) {
+  if (!stored) return null;
+  const sourceUrl = normalize(stored.sourceUrl || stored.datasheetUrl || "");
+  const relativePath = normalizePath(stored.relativePath || "");
+  const title = normalize(displayName(stored) || stored.title || "");
+  const category = normalize(stored.category || "");
+  return state.catalog.find((item) => {
+    if (stored.id && item.id === stored.id) return true;
+    if (sourceUrl && normalize(item.sourceUrl || item.datasheetUrl || "") === sourceUrl) return true;
+    if (relativePath && normalizePath(item.relativePath || "") === relativePath) return true;
+    if (title && normalize(displayName(item)) === title && (!category || normalize(item.category || "") === category)) return true;
+    return false;
+  }) || null;
+}
+
+function normalizePath(value) {
+  return String(value || "").replace(/[\\/]+/g, "/").toLowerCase();
+}
+
+function saveCurrentSelectionAsLoadout(existing = null) {
+  if (!state.selectedIds.length) {
+    setGenerateStatus("Select at least one datasheet before saving a loadout.", "error");
+    return;
+  }
+  const defaultName = existing?.name || `${state.project.name || "Project"} Loadout`.replace(/\s+/g, " ").trim();
+  const name = window.prompt(existing ? "Rename this loadout and replace its saved materials with the current selections:" : "Name this new material loadout:", defaultName);
+  if (name === null) return;
+  const loadout = createLoadoutFromCurrentSelection(name, existing);
+  if (!loadout.name) {
+    setGenerateStatus("Loadout name is required.", "error");
+    return;
+  }
+  if (!loadout.items.length) {
+    setGenerateStatus("No catalog items could be saved to the loadout.", "error");
+    return;
+  }
+  state.loadouts = state.loadouts.filter((entry) => entry.id !== loadout.id);
+  state.loadouts.push(loadout);
+  state.loadouts = normalizeLoadouts(state.loadouts);
+  renderLoadouts();
+  if (dom.loadoutSelect) dom.loadoutSelect.value = loadout.id;
+  renderLoadouts();
+  saveState();
+  setGenerateStatus(`Saved loadout "${loadout.name}" with ${loadout.items.length} item${loadout.items.length === 1 ? "" : "s"}.`, "success");
+}
+
+function applySelectedLoadout() {
+  const loadout = currentLoadout();
+  if (!loadout) return;
+  const items = loadoutLoadableItems(loadout);
+  if (!items.length) {
+    setGenerateStatus(`No catalog items from "${loadout.name}" are currently available. Refresh the catalog or import the missing datasheets.`, "error");
+    return;
+  }
+  const selected = new Set(state.selectedIds);
+  let added = 0;
+  for (const item of items) {
+    if (isRemoteCatalogItem(item)) continue;
+    if (!selected.has(item.id)) added += 1;
+    selected.add(item.id);
+    if (!state.tocTitles[item.id]) state.tocTitles[item.id] = displayName(item);
+  }
+  state.selectedIds = [...selected];
+  renderAllPreservingCatalogScroll();
+  setGenerateStatus(`Applied loadout "${loadout.name}". ${added} new item${added === 1 ? "" : "s"} added.`, "success");
+}
+
+function exportSelectedLoadout() {
+  const loadout = currentLoadout();
+  if (!loadout) return;
+  const blob = new Blob([JSON.stringify({ version: 1, loadout }, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${safeFileName(loadout.name)}.sprinkflow-loadout.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function safeFileName(value) {
+  return String(value || "loadout").replace(/[<>:"/\\|?*\x00-\x1f]+/g, "-").replace(/\s+/g, " ").trim() || "loadout";
+}
+
+async function importLoadoutFile(file) {
+  if (!file) return;
+  try {
+    const parsed = JSON.parse(await file.text());
+    const incoming = parsed.loadout || parsed;
+    const normalized = normalizeLoadouts([{ ...incoming, id: localId("loadout") }])[0];
+    if (!normalized) throw new Error("The file does not look like a SprinkFlow loadout.");
+    state.loadouts.push(normalized);
+    state.loadouts = normalizeLoadouts(state.loadouts);
+    renderLoadouts();
+    if (dom.loadoutSelect) dom.loadoutSelect.value = normalized.id;
+    renderLoadouts();
+    saveState();
+    setGenerateStatus(`Imported loadout "${normalized.name}".`, "success");
+  } catch (error) {
+    setGenerateStatus(`Could not import loadout: ${error.message || "Invalid file."}`, "error");
+  }
+}
+
+function deleteSelectedLoadout() {
+  const loadout = currentLoadout();
+  if (!loadout) return;
+  if (!window.confirm(`Delete loadout "${loadout.name}"? This will not delete any catalog datasheets.`)) return;
+  state.loadouts = state.loadouts.filter((entry) => entry.id !== loadout.id);
+  renderLoadouts();
+  saveState();
+  setGenerateStatus(`Deleted loadout "${loadout.name}".`, "success");
+}
+
+function renderContractorSelect() {
+  const options = ['<option value="">New contractor profile</option>'];
+  for (const contractor of state.contractors) {
+    options.push(`<option value="${escapeHtml(contractor.id)}">${escapeHtml(contractor.name || "Unnamed Contractor")}</option>`);
+  }
+  dom.contractorSelect.innerHTML = options.join("");
+  dom.contractorSelect.value = state.activeContractorId;
+}
+
+function renderCatalog() {
+  syncCategoriesFromCatalog();
+  const selected = new Set(state.selectedIds);
+  const queryTokens = searchTokens(state.catalogSearch || "");
+  const isSearching = queryTokens.length > 0;
+  const selectedOnly = Boolean(state.catalogSelectedOnly);
+  const activeCategory = (state.activeCategory === "All" || CATEGORIES.includes(state.activeCategory)) ? state.activeCategory : CATEGORIES[0];
+  state.activeCategory = activeCategory;
+  const isAll = activeCategory === "All";
+  const showAll = isSearching || isAll;
+  dom.selectedCount.textContent = `${selected.size} selected`;
+
+  const categoryCounts = new Map();
+  const categorySelectedCounts = new Map();
+  for (const category of CATEGORIES) {
+    const items = baseCategoryItems(category, queryTokens);
+    categoryCounts.set(category, items.length);
+    categorySelectedCounts.set(category, items.filter((item) => selected.has(item.id)).length);
+  }
+  updateBulkDeleteButton();
+
+  const visibleBaseItems = showAll
+    ? state.catalog.filter((item) => itemMatchesSearch(item, queryTokens))
+    : baseCategoryItems(activeCategory, queryTokens);
+  const selectedFilteredBaseItems = selectedOnly
+    ? visibleBaseItems.filter((item) => selected.has(item.id))
+    : visibleBaseItems;
+  const visibleItems = showAll
+    ? sortCatalogItemsForDisplay(selectedFilteredBaseItems)
+    : sortCatalogItemsForDisplay(applyCategoryFilters(activeCategory, selectedFilteredBaseItems));
+  const visibleSelectedCount = visibleItems.filter((item) => selected.has(item.id)).length;
+  const panelLabel = isSearching ? "Search results" : (isAll ? "All datasheets" : activeCategory);
+  const searchTerm = (state.catalogSearch || "").trim();
+  const emptyHtml = isSearching && searchTerm.length >= 2
+    ? `<div class="catalog-empty-ai">
+         <p class="empty-category">No datasheets in your catalog match &ldquo;${escapeHtml(searchTerm)}&rdquo;.</p>
+         <button class="secondary-button compact-button" type="button" data-ai-find="${escapeHtml(searchTerm)}">&#10024; Ask AI to find this datasheet</button>
+         <div class="ai-datasheet-result" id="aiDatasheetResult" hidden></div>
+       </div>`
+    : '<p class="empty-category">No datasheets found.</p>';
+  const body = visibleItems.length
+    ? (showAll ? renderSearchResultsByCategory(visibleItems, selected) : renderCategoryItems(activeCategory, visibleItems, selected))
+    : emptyHtml;
+
+  dom.catalogList.innerHTML = `
+    <div class="catalog-browser ${isSearching ? "search-mode" : ""}">
+      <nav class="category-rail" aria-label="Catalog categories">
+        ${(() => {
+          const allCount = [...categoryCounts.values()].reduce((sum, n) => sum + n, 0);
+          const allSelected = [...categorySelectedCounts.values()].reduce((sum, n) => sum + n, 0);
+          return `
+            <button class="category-tab category-tab-all ${isAll ? "active" : ""}" type="button" data-category-tab="All" aria-pressed="${isAll ? "true" : "false"}">
+              <span class="category-tab-symbol">${isAll ? "-" : "+"}</span>
+              <span class="category-tab-name">All</span>
+              <span class="category-tab-count">${allCount}${allSelected ? ` / ${allSelected} selected` : ""}</span>
+            </button>
+          `;
+        })()}
+        ${CATEGORIES.map((category) => {
+          const itemsCount = categoryCounts.get(category) || 0;
+          const selectedCount = categorySelectedCounts.get(category) || 0;
+          const isActive = category === activeCategory;
+          return `
+            <button class="category-tab ${isActive ? "active" : ""} ${itemsCount === 0 ? "is-empty" : ""}" type="button" data-category-tab="${escapeHtml(category)}" aria-pressed="${isActive ? "true" : "false"}">
+              <span class="category-tab-symbol">${isActive ? "-" : "+"}</span>
+              <span class="category-tab-name">${escapeHtml(category)}</span>
+              <span class="category-tab-count">${itemsCount}${selectedCount ? ` / ${selectedCount} selected` : ""}</span>
+            </button>
+          `;
+        }).join("")}
+      </nav>
+      <section class="catalog-content-panel" aria-label="${escapeHtml(panelLabel)} catalog contents">
+        <div class="catalog-panel-header">
+          <p class="catalog-result-count">${visibleItems.length} ${isSearching ? (visibleItems.length === 1 ? "result" : "results") : (isAll ? "datasheets" : escapeHtml(panelLabel.toLowerCase()))}${visibleSelectedCount ? ` <span class="count-selected">· ${visibleSelectedCount} selected</span>` : ""}</p>
+          ${renderCatalogFilterControls(activeCategory, visibleBaseItems, isSearching)}
+        </div>
+        <div class="catalog-results">${body}</div>
+      </section>
+    </div>
+  `;
+  wireCatalogActionButtons();
+}
+
+function baseCategoryItems(category, queryTokens) {
+  return state.catalog
+    .filter((item) => item.category === category)
+    .filter((item) => itemMatchesSearch(item, queryTokens));
+}
+
+function renderCategoryFilters(category, items) {
+  const filters = categoryFilterState(category);
+  normalizeCategoryFilters(category, items);
+  const manufacturers = uniqueSorted(filterItemsForOptionList(category, items, "manufacturer").map((item) => item.manufacturer || "Unknown Manufacturer").filter(Boolean));
+  const manufacturerSelect = renderFilterSelect("manufacturer", "Manufacturer", filters.manufacturer || "", manufacturers.map((manufacturer) => ({ value: manufacturer, label: manufacturer })));
+
+  if (category !== "Sprinklers") {
+    return `<div class="catalog-filters">${manufacturerSelect}</div>`;
+  }
+
+  const kFactors = uniqueSorted(filterItemsForOptionList(category, items, "kFactor").flatMap(itemKFactors), numericStringCompare);
+  const typeItems = filterItemsForOptionList(category, items, "type");
+  const responseItems = filterItemsForOptionList(category, items, "response");
+  const orientationItems = filterItemsForOptionList(category, items, "orientation");
+  const availableTypes = SPRINKLER_TYPES.filter((type) => typeItems.some((item) => itemMatchesSprinklerType(item, type.value)));
+  const availableResponses = SPRINKLER_RESPONSES.filter((response) => responseItems.some((item) => itemMatchesSprinklerResponse(item, response.value)));
+  const availableOrientations = SPRINKLER_ORIENTATIONS.filter((orientation) => orientationItems.some((item) => itemMatchesSprinklerOrientation(item, orientation.value)));
+
+  return `
+    <div class="catalog-filters sprinkler-filters">
+      ${manufacturerSelect}
+      ${renderFilterSelect("kFactor", "K-Factor", filters.kFactor || "", kFactors.map((value) => ({ value, label: `K${value}` })))}
+      ${renderFilterSelect("orientation", "Orientation", filters.orientation || "", availableOrientations)}
+      ${renderFilterSelect("type", "Type", filters.type || "", availableTypes)}
+      ${renderFilterSelect("response", "Response", filters.response || "", availableResponses)}
+    </div>
+  `;
+}
+
+function activeFilterCount(category) {
+  const f = state.catalogFilters[category];
+  if (!f) return 0;
+  return ["manufacturer", "kFactor", "orientation", "type", "response"].filter((key) => f[key]).length;
+}
+
+function renderCatalogFilterControls(category, items, isSearching) {
+  if (isSearching) return '<p class="search-scope-note">Searching all categories</p>';
+  if (category === "All") return '<p class="search-scope-note">Showing all categories</p>';
+  const selectedOnly = Boolean(state.catalogSelectedOnly);
+  const activeCount = activeFilterCount(category) + (selectedOnly ? 1 : 0);
+  const hasFilters = categoryHasActiveFilters(category) || selectedOnly;
+  return `
+    <details class="catalog-filters-disclosure" ${hasFilters || state.catalogFiltersOpen ? "open" : ""}>
+      <summary title="Narrow the ${escapeHtml(category.toLowerCase())} list">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18l-7 8.5V19l-4 2.5v-8L3 5z"/></svg>
+        Filters${activeCount ? ` <span class="filter-badge">${activeCount}</span>` : ""}
+      </summary>
+      <div class="catalog-filter-controls">
+        ${renderCategoryFilters(category, items)}
+        <button class="ghost-button compact-button clear-filters-button" type="button" data-clear-catalog-filters ${hasFilters ? "" : "disabled"}>Clear Filters</button>
+      </div>
+    </details>
+  `;
+}
+
+function selectedDeletableCatalogItems() {
+  const selected = new Set(state.selectedIds);
+  return state.catalog.filter((item) => selected.has(item.id) && item.source === "database" && isLocalCatalogItem(item));
+}
+
+function updateBulkDeleteButton() {
+  if (!dom.deleteSelectedDatasheetsButton) return;
+  const count = selectedDeletableCatalogItems().length;
+  dom.deleteSelectedDatasheetsButton.disabled = count === 0;
+  dom.deleteSelectedDatasheetsButton.textContent = count ? `Delete Selected (${count})` : "Delete Selected";
+  dom.deleteSelectedDatasheetsButton.title = count
+    ? `Delete ${count} selected local datasheet${count === 1 ? "" : "s"} from the database`
+    : "Select one or more local datasheets to delete them from the database";
+}
+
+function renderFilterSelect(key, label, currentValue, options) {
+  return `
+    <label class="catalog-filter">
+      ${escapeHtml(label)}
+      <select data-filter-key="${escapeHtml(key)}">
+        <option value="">All</option>
+        ${options.map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === currentValue ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}
+      </select>
+    </label>
+  `;
+}
+
+function categoryFilterState(category) {
+  if (!state.catalogFilters[category]) {
+    state.catalogFilters[category] = { manufacturer: "", kFactor: "", orientation: "", type: "", response: "" };
+  }
+  if (!Object.prototype.hasOwnProperty.call(state.catalogFilters[category], "orientation")) state.catalogFilters[category].orientation = "";
+  return state.catalogFilters[category];
+}
+
+function defaultCatalogFilters() {
+  return Object.fromEntries(
+    CATEGORIES.map((category) => [
+      category,
+      { manufacturer: "", kFactor: "", orientation: "", type: "", response: "" },
+    ]),
+  );
+}
+
+function resetCatalogFilters() {
+  state.catalogFilters = defaultCatalogFilters();
+}
+
+function resetActiveCatalogFilters() {
+  state.catalogSearch = "";
+  if (dom.catalogSearchInput) dom.catalogSearchInput.value = "";
+  state.catalogSelectedOnly = false;
+  if (dom.catalogSelectedOnlyInput) dom.catalogSelectedOnlyInput.checked = false;
+  state.catalogFilters[state.activeCategory] = { manufacturer: "", kFactor: "", orientation: "", type: "", response: "" };
+  renderCatalog();
+  saveState();
+}
+
+function categoryHasActiveFilters(category) {
+  const filters = categoryFilterState(category);
+  return Object.values(filters).some(Boolean);
+}
+
+function applyCategoryFilters(category, items) {
+  return applyCategoryFiltersExcept(category, items);
+}
+
+function applyCategoryFiltersExcept(category, items, exceptKey = "") {
+  const filters = categoryFilterState(category);
+  return items.filter((item) => {
+    if (exceptKey !== "manufacturer" && filters.manufacturer && (item.manufacturer || "Unknown Manufacturer") !== filters.manufacturer) return false;
+    if (category === "Sprinklers" && exceptKey !== "kFactor" && filters.kFactor && !itemKFactors(item).includes(filters.kFactor)) return false;
+    if (category === "Sprinklers" && exceptKey !== "orientation" && filters.orientation && !itemMatchesSprinklerOrientation(item, filters.orientation)) return false;
+    if (category === "Sprinklers" && exceptKey !== "type" && filters.type && !itemMatchesSprinklerType(item, filters.type)) return false;
+    if (category === "Sprinklers" && exceptKey !== "response" && filters.response && !itemMatchesSprinklerResponse(item, filters.response)) return false;
+    return true;
+  });
+}
+
+function filterItemsForOptionList(category, items, key) {
+  return applyCategoryFiltersExcept(category, items, key);
+}
+
+function normalizeCategoryFilters(category, items) {
+  const filters = categoryFilterState(category);
+  const validManufacturers = new Set(filterItemsForOptionList(category, items, "manufacturer").map((item) => item.manufacturer || "Unknown Manufacturer"));
+  if (filters.manufacturer && !validManufacturers.has(filters.manufacturer)) filters.manufacturer = "";
+  if (category !== "Sprinklers") return;
+
+  const validKFactors = new Set(filterItemsForOptionList(category, items, "kFactor").flatMap(itemKFactors));
+  if (filters.kFactor && !validKFactors.has(filters.kFactor)) filters.kFactor = "";
+  if (filters.orientation && !SPRINKLER_ORIENTATIONS.some((orientation) => orientation.value === filters.orientation && filterItemsForOptionList(category, items, "orientation").some((item) => itemMatchesSprinklerOrientation(item, orientation.value)))) filters.orientation = "";
+  if (filters.type && !SPRINKLER_TYPES.some((type) => type.value === filters.type && filterItemsForOptionList(category, items, "type").some((item) => itemMatchesSprinklerType(item, type.value)))) filters.type = "";
+  if (filters.response && !SPRINKLER_RESPONSES.some((response) => response.value === filters.response && filterItemsForOptionList(category, items, "response").some((item) => itemMatchesSprinklerResponse(item, response.value)))) filters.response = "";
+}
+
+function catalogTableHeader(items, selected) {
+  const sort = state.catalogSort || "manufacturer";
+  const arrow = sort === "name-desc" ? "▴" : "▾";
+  const mfrSorted = sort === "manufacturer";
+  const nameSorted = sort === "name" || sort === "name-desc";
+  const selectable = items.filter((item) => !isRemoteCatalogItem(item));
+  const selCount = selectable.filter((item) => selected.has(item.id)).length;
+  const allSelected = selectable.length > 0 && selCount === selectable.length;
+  const someSelected = selCount > 0 && !allSelected;
+  return `
+    <div class="catalog-row catalog-row-head" role="row">
+      <label class="row-check"><input type="checkbox" data-select-all data-some-selected="${someSelected}" ${allSelected ? "checked" : ""} ${selectable.length ? "" : "disabled"} aria-label="Select all shown" /></label>
+      <button class="col-sort ${mfrSorted ? "is-sorted" : ""}" type="button" data-catalog-sort="manufacturer">Manufacturer${mfrSorted ? ` <span class="sort-arrow">${arrow}</span>` : ""}</button>
+      <button class="col-sort ${nameSorted ? "is-sorted" : ""}" type="button" data-catalog-sort="name">Product${nameSorted ? ` <span class="sort-arrow">${arrow}</span>` : ""}</button>
+      <span class="col-label">Details</span>
+      <span aria-hidden="true"></span>
+    </div>`;
+}
+
+function renderCategoryItems(category, items, selected) {
+  return `<div class="catalog-table" role="table">${catalogTableHeader(items, selected)}${items.map((item) => renderCatalogItem(item, selected)).join("")}</div>`;
+}
+
+function renderSearchResultsByCategory(items, selected) {
+  const groups = CATEGORIES
+    .map((category) => [category, sortCatalogItemsForDisplay(items.filter((item) => item.category === category))])
+    .filter(([, categoryItems]) => categoryItems.length);
+
+  return groups.map(([category, categoryItems]) => `
+    <section class="search-result-group">
+      <h3>${escapeHtml(category)} <span>${categoryItems.length}</span></h3>
+      <div class="catalog-table" role="table">${catalogTableHeader(categoryItems, selected)}${categoryItems.map((item) => renderCatalogItem(item, selected)).join("")}</div>
+    </section>
+  `).join("");
+}
+
+function uniqueSorted(values, sorter = (a, b) => a.localeCompare(b)) {
+  return [...new Set(values.filter(Boolean))].sort(sorter);
+}
+
+function numericStringCompare(a, b) {
+  return Number(a) - Number(b) || a.localeCompare(b);
+}
+
+function sortCatalogItemsForDisplay(items) {
+  return [...items].sort(compareCatalogItemsForDisplay);
+}
+
+function compareCatalogItemsForDisplay(a, b) {
+  const sort = state.catalogSort || "manufacturer";
+  if (sort === "name") return displayName(a).localeCompare(displayName(b)) || compareCatalogItems(a, b);
+  if (sort === "name-desc") return displayName(b).localeCompare(displayName(a)) || compareCatalogItems(a, b);
+  if (sort === "category") return compareCatalogItemsByCategory(a, b);
+  if (sort === "status") return catalogStatusRank(a) - catalogStatusRank(b) || compareCatalogItems(a, b);
+  if (sort === "kfactor") return firstCatalogKFactor(a) - firstCatalogKFactor(b) || compareCatalogItems(a, b);
+  return compareCatalogItems(a, b);
+}
+
+function catalogStatusRank(item) {
+  if (isRemoteCatalogItem(item)) return 0;
+  if (isLocalCatalogItem(item)) return 1;
+  return 2;
+}
+
+function firstCatalogKFactor(item) {
+  const values = itemKFactors(item).map((value) => Number(value)).filter(Number.isFinite);
+  return values.length ? Math.min(...values) : Number.POSITIVE_INFINITY;
+}
+
+function compareCatalogItems(a, b) {
+  return (a.manufacturer || "").localeCompare(b.manufacturer || "") || displayName(a).localeCompare(displayName(b));
+}
+
+function compareCatalogItemsByCategory(a, b) {
+  return categoryIndex(a.category) - categoryIndex(b.category) || compareCatalogItems(a, b);
+}
+
+function categoryIndex(category) {
+  const index = CATEGORIES.indexOf(category);
+  return index >= 0 ? index : CATEGORIES.length;
+}
+
+function itemKFactors(item) {
+  const keyed = new Map();
+  const raw = searchableRawText(item);
+  for (const match of raw.matchAll(/\bK\s*-?\s*(\d+(?:\.\d+)?)\b/gi)) {
+    const value = match[1];
+    const number = Number(value);
+    if (!Number.isFinite(number) || number <= 0) continue;
+    const key = String(number);
+    const existing = keyed.get(key);
+    if (!existing || (value.includes(".") && !existing.includes("."))) {
+      keyed.set(key, value);
+    }
+  }
+  const decimalValues = [...keyed.values()].filter((value) => value.includes("."));
+  for (const [key, value] of keyed.entries()) {
+    if (value.includes(".")) continue;
+    if (decimalValues.some((decimal) => decimal.split(".", 2)[1] === value)) {
+      keyed.delete(key);
+    }
+  }
+  return [...keyed.values()].sort(numericStringCompare);
+}
+
+function itemMatchesSprinklerType(item, type) {
+  const text = normalizeSearchText(searchableRawText(item));
+  if (type === "standard coverage") return /\bstandard coverage\b/.test(text);
+  if (type === "extended coverage") return /\bextended coverage\b/.test(text);
+  if (type === "esfr") return /\besfr\b/.test(text);
+  if (type === "residential") return /\bresidential\b/.test(text);
+  if (type === "cmsa") return /\bcmsa\b/.test(text);
+  if (type === "special application") return /\b(special|specific) application\b/.test(text) || /\battic\b/.test(text) || /\bcoin\b/.test(text);
+  return false;
+}
+
+function itemMatchesSprinklerResponse(item, response) {
+  const text = normalizeSearchText([item.response, item.datasheetTitle, item.product, displayName(item)].join(" "));
+  if (response === "quick") return /\bquick response\b/.test(text);
+  if (response === "fast") return /\bfast response\b/.test(text);
+  if (response === "standard") return /\bstandard response\b/.test(text);
+  if (response === "na") return !/\b(quick|fast|standard) response\b/.test(text);
+  return false;
+}
+
+function itemMatchesSprinklerOrientation(item, orientation) {
+  const text = normalizeSearchText([item.orientation, item.product, item.datasheetTitle, displayName(item)].join(" "));
+  if (orientation === "horizontal sidewall") return /\bhorizontal sidewall\b/.test(text) || /\bhsw\b/.test(text);
+  if (orientation === "vertical sidewall") return /\bvertical sidewall\b/.test(text) || /\bvsw\b/.test(text);
+  if (orientation === "sidewall") return /\bsidewall\b/.test(text);
+  return new RegExp(`\\b${escapeRegExp(orientation)}\\b`).test(text);
+}
+
+function groupByManufacturer(items) {
+  const groups = new Map();
+  for (const item of items) {
+    const manufacturer = item.manufacturer || "Unknown Manufacturer";
+    if (!groups.has(manufacturer)) groups.set(manufacturer, []);
+    groups.get(manufacturer).push(item);
+  }
+  return new Map(
+    [...groups.entries()]
+      .map(([manufacturer, manufacturerItems]) => [
+        manufacturer,
+        manufacturerItems.sort((a, b) => displayName(a).localeCompare(displayName(b))),
+      ])
+      .sort(([a], [b]) => a.localeCompare(b)),
+  );
+}
+
+function catalogProductLabel(item) {
+  const name = tocDisplayName(item);
+  const mfr = (item.manufacturer || "").trim();
+  if (mfr && name.toLowerCase().startsWith(mfr.toLowerCase())) {
+    const rest = name.slice(mfr.length).replace(/^[\s\-–—:|,]+/, "").trim();
+    if (rest) return rest;
+  }
+  return name;
+}
+
+function catalogRowDetails(item) {
+  if (item.category === "Sprinklers") {
+    const k = String(item.kFactor || "").trim();
+    const kLabel = k ? (/k/i.test(k) ? k : `K${k}`) : "";
+    return [kLabel, item.orientation, item.response, item.type]
+      .filter(Boolean).join(" · ");
+  }
+  const model = String(item.model || "").trim();
+  if (model && !tocDisplayName(item).toLowerCase().includes(model.toLowerCase())) return model;
+  return "";
+}
+
+function renderCatalogItem(item, selected) {
+  const localPdf = isLocalCatalogItem(item);
+  const remotePdf = isRemoteCatalogItem(item);
+  const removable = item.source !== "database";
+  const editable = item.source === "database" && localPdf;
+  const checked = selected.has(item.id);
+  const verified = isVerifiedSourceItem(item);
+  const id = escapeHtml(item.id);
+  const mfr = (item.manufacturer || "").trim();
+  const details = escapeHtml(catalogRowDetails(item));
+  const verifiedIcon = verified ? '<span class="row-verified-icon" title="Verified manufacturer source" aria-label="Verified source">✓</span>' : "";
+  const productCell = checked && localPdf
+    ? `<div class="row-tocedit"><span class="row-tocedit-label">TOC name${verifiedIcon}</span><input class="row-tocname" type="text" data-title-id="${id}" value="${escapeHtml(tocDisplayName(item))}" aria-label="Table of contents name" title="This name appears in the submittal table of contents" /></div>`
+    : `<span class="row-product" title="${escapeHtml(tocDisplayName(item))}"><span class="row-product-name">${escapeHtml(catalogProductLabel(item))}</span>${verifiedIcon}</span>`;
+
+  const importFlag = remotePdf ? '<span class="row-flag muted">Not imported</span>' : "";
+  const rowFlags = [importFlag,
+    item.needsReview ? '<span class="row-flag warn">Review details</span>' : "",
+    annotatedPdfOverrides.has(item.id) ? '<span class="row-flag">Annotated</span>' : "",
+  ].filter(Boolean).join("");
+
+  let actionsCell;
+  if (remotePdf) {
+    actionsCell = `<button class="small-button download-button" type="button" data-catalog-action="download" data-catalog-id="${id}">Import</button>`;
+  } else {
+    const menu = [`<button type="button" data-catalog-action="preview" data-catalog-id="${id}">Preview datasheet</button>`];
+    if (checked && localPdf) menu.push(`<button type="button" data-catalog-action="annotate" data-catalog-id="${id}">Annotate PDF</button>`);
+    if (editable) menu.push(`<button type="button" data-catalog-action="rename" data-catalog-id="${id}">Edit catalog name</button>`);
+    if (editable) menu.push(`<button type="button" class="row-menu-danger" data-catalog-action="delete" data-catalog-id="${id}">Delete from catalog</button>`);
+    else if (removable) menu.push(`<button type="button" class="row-menu-danger" data-catalog-action="remove" data-catalog-id="${id}">Remove from submittal</button>`);
+    actionsCell = `<div class="row-menu-wrap">
+        <button class="row-menu-button" type="button" data-row-menu aria-haspopup="true" aria-expanded="false" title="More actions" aria-label="More actions for ${escapeHtml(displayName(item))}">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="5" cy="12" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="19" cy="12" r="1.7" /></svg>
+        </button>
+        <div class="row-menu" hidden role="menu">${menu.join("")}</div>
+      </div>`;
+  }
+
+  return `
+    <div class="catalog-row ${checked ? "is-selected" : ""} ${remotePdf ? "is-remote" : ""}" role="row">
+      <label class="row-check"><input type="checkbox" data-select-id="${id}" ${checked ? "checked" : ""} ${remotePdf ? "disabled" : ""} aria-label="Select ${escapeHtml(displayName(item))}" /></label>
+      <div class="row-mfr" title="${escapeHtml(mfr)}">${escapeHtml(mfr || "—")}</div>
+      <div class="row-productcell">${productCell}${rowFlags ? `<div class="row-flags">${rowFlags}</div>` : ""}</div>
+      <div class="row-details" title="${details}">${details}</div>
+      <div class="row-actions">${actionsCell}</div>
+    </div>
+  `;
+}
+
+function renderVerifiedSourceBadge(item) {
+  if (!isVerifiedSourceItem(item)) return "";
+  return `
+    <p class="verified-source-badge" title="Official manufacturer source">
+      <span aria-hidden="true">
+        <svg viewBox="0 0 24 24">
+          <path d="M20 6 9 17l-5-5" />
+        </svg>
+      </span>
+      Verified Source
+    </p>
+  `;
+}
+
+function isVerifiedSourceItem(item) {
+  const linkStatus = String(item?.linkStatus || "").toLowerCase();
+  return Boolean(
+    item?.verifiedSource
+      || linkStatus.includes("verified")
+      || item?.sourceMethod === "fire-valve-product-data-sheet-index"
+      || item?.sourceMethod === "afcon-product-data-sheet-index"
+      || item?.sourceMethod === "tolco-catalog-page-index"
+      || item?.source === "manufacturer-link",
+  );
+}
+
+function isLocalCatalogItem(item) {
+  return item?.datasheetStatus === "local" || Boolean(item?.relativePath || item?.absolutePath);
+}
+
+function isRemoteCatalogItem(item) {
+  return !isLocalCatalogItem(item) && Boolean(item?.sourceUrl || item?.datasheetUrl || item?.productPage);
+}
+
+function renderCatalogStatus(item) {
+  return "";
+}
+
+function catalogMetaLine(item) {
+  if (item.category === "Sprinklers") {
+    const details = [
+      item.kFactor,
+      item.type,
+      item.response || "Response N/A",
+      item.orientation,
+      item.sourceLabel,
+    ].filter(Boolean);
+    return details.length ? details.join(" | ") : item.productPage || item.sourceUrl || "Official manufacturer source";
+  }
+  if (item.category === "Pipe") return [item.manufacturer, item.pipeType || item.product, item.model].filter(Boolean).join(" | ") || item.relativePath || item.fileName || "Pipe";
+  if (item.category === "Fittings") return [item.manufacturer, item.fittingType || item.product, item.model].filter(Boolean).join(" | ") || item.relativePath || item.fileName || "Fittings";
+  if (["Hangers", "Bracing", "Flex Drops", "Valves", "Miscellaneous"].includes(item.category)) {
+    return [item.manufacturer, item.model, item.product || item.displayTitle].filter(Boolean).join(" | ") || item.relativePath || item.fileName || "Datasheet";
+  }
+  return item.relativePath || item.fileName || "Manual entry";
+}
+
+function wireCatalogActionButtons() {
+  dom.catalogList.querySelectorAll("[data-catalog-action]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      handleCatalogAction(button.dataset.catalogAction, button.dataset.catalogId);
+    });
+  });
+  dom.catalogList.querySelectorAll("[data-select-all]").forEach((cb) => {
+    cb.indeterminate = cb.dataset.someSelected === "true";
+  });
+}
+
+function closeAllRowMenus() {
+  document.querySelectorAll(".row-menu:not([hidden])").forEach((menu) => { menu.hidden = true; });
+  document.querySelectorAll('[data-row-menu][aria-expanded="true"]').forEach((btn) => btn.setAttribute("aria-expanded", "false"));
+}
+
+function handleCatalogAction(action, id) {
+  closeAllRowMenus();
+  if (!id) return;
+  if (!ensureLicensedToolAccess(setGenerateStatus)) return;
+  if (action === "rename") renameCatalogItem(id);
+  if (action === "preview") previewCatalogItem(id);
+  if (action === "annotate") openPdfAnnotationWorkspace(id);
+  if (action === "download") downloadCatalogItem(id);
+  if (action === "delete") deleteCatalogItem(id);
+  if (action === "remove") removeLocalCatalogItem(id);
+}
+
+function renderPreview() {
+  syncStateFromInputs();
+  const contractor = formContractor();
+  const tocStyle = normalizeSettings(state.settings).tocStyle;
+  const selectedItems = selectedCatalogItems();
+  const plan = buildPagePlan(selectedItems, tocStyle);
+
+  dom.documentTitle.textContent = state.project.name || "Untitled Project";
+  dom.pageCount.textContent = `${plan.totalPages} pages`;
+
+  const pages = [
+    renderCoverSheet(1, contractor),
+    ...renderTocSheets(2, plan, tocStyle),
+  ];
+
+  updatePreviewScale({ force: true });
+  dom.documentPreview.innerHTML = pages.join("");
+  schedulePreviewScaleUpdate();
+  window.setTimeout(() => schedulePreviewScaleUpdate(), 80);
+}
+
+function schedulePreviewScaleUpdate() {
+  if (previewScaleFrame) cancelAnimationFrame(previewScaleFrame);
+  previewScaleFrame = requestAnimationFrame(() => {
+    previewScaleFrame = null;
+    updatePreviewScale();
+  });
+}
+
+function updatePreviewScale(options = {}) {
+  const previewPanel = dom.documentPreview?.closest(".preview-panel");
+  if (!previewPanel || !dom.documentPreview) return;
+  const panelRect = previewPanel.getBoundingClientRect();
+  const panelStyle = window.getComputedStyle(previewPanel);
+  const horizontalPadding = (parseFloat(panelStyle.paddingLeft) || 0) + (parseFloat(panelStyle.paddingRight) || 0);
+  const measuredWidth = panelRect.width ? panelRect.width - horizontalPadding : previewPanel.clientWidth;
+  const reviewSingle = state.previewView !== "both"
+    && document.body.dataset.viewMode === "simple"
+    && state.simpleStep === "review";
+  const columns = reviewSingle ? 1 : (window.matchMedia("(max-width: 720px)").matches ? 1 : 2);
+  const hasPages = Boolean(dom.documentPreview.querySelector(".sheet"));
+  if (!options.force && columns === 2 && hasPages && measuredWidth < 720) {
+    clearTimeout(previewScaleRetryTimer);
+    previewScaleRetryTimer = window.setTimeout(() => updatePreviewScale({ force: true }), 120);
+    return;
+  }
+  const availableWidth = Math.max(320, measuredWidth || previewPanel.clientWidth || 0);
+  const gap = columns > 1 ? 16 : 0;
+  const minScale = columns > 1 ? 0.42 : 0.24;
+  const scale = Math.min(1, Math.max(minScale, (availableWidth - gap - 2) / (columns * 860)));
+  previewPanel.style.setProperty("--preview-scale", scale.toFixed(4));
+}
+
+function applyPreviewView() {
+  const view = ["both", "cover", "toc"].includes(state.previewView) ? state.previewView : "both";
+  state.previewView = view;
+  document.body.dataset.previewView = view;
+  document.querySelectorAll("[data-preview-view-btn]").forEach((btn) => {
+    const active = btn.dataset.previewViewBtn === view;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+  schedulePreviewScaleUpdate();
+}
+
+let materialSubmittalGenerating = false;
+
+async function generateMaterialDataSubmittal() {
+  if (materialSubmittalGenerating) return;
+  materialSubmittalGenerating = true;
+  syncStateFromInputs();
+  const openAfter = dom.generateOpenAfterInput ? dom.generateOpenAfterInput.checked : state.settings.openGeneratedPdf;
+  setGenerateStatus(openAfter ? "Generating the submittal and opening it..." : "Generating the submittal...", "info");
+  dom.printButton.disabled = true;
+  dom.printButton.textContent = "Generating...";
+  if (dom.simpleContinueButton) {
+    dom.simpleContinueButton.disabled = true;
+    dom.simpleContinueButton.textContent = "Generating...";
+  }
+
+  let generated = false;
+  try {
+    const path = await createMaterialSubmittalOutput({ openGeneratedPdf: openAfter });
+    generated = true;
+    setGenerateStatus(`${openAfter ? "Generated and opened" : "Generated"}: ${path}`, "success");
+  } catch (error) {
+    setGenerateStatus(`Could not generate submittal: ${error.message || "PDF generation failed. Check that the selected PDFs still exist, then try Refresh Database."}`, "error");
+  } finally {
+    materialSubmittalGenerating = false;
+    dom.printButton.disabled = false;
+    if (dom.simpleContinueButton) {
+      dom.simpleContinueButton.disabled = false;
+      if (state.simpleStep === "review") dom.simpleContinueButton.textContent = "Generate Material Data Submittal";
+    }
+    syncGenerateDockState();
+    if (generated && state.viewMode === "simple") {
+      // Quick-mode handoff: the submittal is now in the package — make the calc package the obvious next step.
+      setGenerateStatus("Material Data Submittal added to your package. Next, confirm and generate your Hydraulic Calc Package.", "success");
+    }
+  }
+}
+
+function syncGenerateDockState() {
+  if (materialSubmittalGenerating) return;
+  const materialReady = Boolean(runtime.generatedOutputs.material?.path);
+  const quick = state.viewMode === "simple";
+  if (dom.goToHydraulicButton) dom.goToHydraulicButton.hidden = !(quick && materialReady);
+  if (dom.printButton) {
+    dom.printButton.classList.toggle("is-generated", quick && materialReady);
+    dom.printButton.textContent = (quick && materialReady) ? "Re-generate submittal" : "Generate Material Data Submittal";
+  }
+}
+
+async function readJsonResponse(response) {
+  const text = await response.text();
+  if (!text) return {};
+  try {
+    const payload = JSON.parse(text);
+    if (response.status === 402 && payload?.license) {
+      runtime.license = payload.license;
+      renderLicenseUi();
+    }
+    return payload;
+  } catch {
+    return {
+      ok: false,
+      error: text.slice(0, 500) || `Unexpected server response (${response.status}).`,
+    };
+  }
+}
+
+const statusAutoClearTimers = new WeakMap();
+
+function scheduleStatusAutoClear(element, message, type, clearFn) {
+  if (!element) return;
+  const existing = statusAutoClearTimers.get(element);
+  if (existing) {
+    window.clearTimeout(existing);
+    statusAutoClearTimers.delete(element);
+  }
+  if (!message) return;
+  if (type !== "success" && type !== "error") return;
+  const delay = type === "error" ? 8000 : 5000;
+  statusAutoClearTimers.set(
+    element,
+    window.setTimeout(() => {
+      statusAutoClearTimers.delete(element);
+      clearFn();
+    }, delay)
+  );
+}
+
+function setGenerateStatus(message, type = "info") {
+  const active = Boolean(message);
+  dom.generateStatus.textContent = message;
+  dom.generateStatus.classList.toggle("active", active);
+  dom.generateStatus.classList.toggle("error", active && type === "error");
+  dom.generateStatus.classList.toggle("success", active && type === "success");
+  dom.generateStatus.classList.toggle("info", active && type === "info");
+  scheduleStatusAutoClear(dom.generateStatus, message, type, () => setGenerateStatus(""));
+}
+
+function setDatasheetImportStatus(message, type = "info") {
+  if (!dom.datasheetImportStatus) return;
+  scheduleStatusAutoClear(dom.datasheetImportStatus, message, type, () => setDatasheetImportStatus(""));
+  const active = Boolean(message);
+  dom.datasheetImportStatus.textContent = message;
+  dom.datasheetImportStatus.classList.toggle("active", active);
+  dom.datasheetImportStatus.classList.toggle("error", active && type === "error");
+  dom.datasheetImportStatus.classList.toggle("success", active && type === "success");
+  dom.datasheetImportStatus.classList.toggle("info", active && type === "info");
+}
+
+function renderCoverSheet(page, contractor) {
+  const license = contractor.license ? `License #: ${contractor.license}` : "License #: License Number";
+  const template = coverTemplateById(state.coverTemplate);
+  const coverSubtitle = state.project.subtitle || DEFAULT_COVER_SUBTITLE;
+  const additionalInfo = coverAdditionalInfoEntries();
+  return `
+    <article class="sheet cover-sheet pdf-cover-preview cover-template-${escapeHtml(template.id)}">
+      <header class="cover-preview-header">
+        <div>
+          <h2>Material Data Submittal</h2>
+          <p>${escapeHtml(coverSubtitle)}</p>
+        </div>
+      </header>
+      <div class="cover-preview-stripe"></div>
+      <main class="cover-preview-main">
+        <section class="cover-preview-project">
+          <span>Project</span>
+          <h3>${escapeHtml(state.project.name || "Project Name")}</h3>
+          <p>${escapeHtml(state.project.address || "Project Address")}</p>
+          ${additionalInfo.length ? `
+            <dl class="cover-preview-additional">
+              ${additionalInfo.map((entry) => `
+                <div>
+                  <dt>${escapeHtml(entry.label)}</dt>
+                  ${entry.fields.map((field) => `<dd><strong>${escapeHtml(field.label)}:</strong> ${escapeHtml(field.value)}</dd>`).join("")}
+                </div>
+              `).join("")}
+            </dl>
+          ` : ""}
+        </section>
+        <section class="cover-preview-contractor">
+          <div class="cover-preview-logo">
+            ${contractor.logo ? `<img src="${contractor.logo}" alt="Contractor logo" />` : "<span>Contractor Logo</span>"}
+          </div>
+          <h3>${escapeHtml(contractor.name || "Contractor Name")}</h3>
+          <p>${escapeHtml(contractor.address || "Contractor Address")}</p>
+          <strong>${escapeHtml(license)}</strong>
+          <strong>${escapeHtml(contractor.phone || "Phone Number")}</strong>
+        </section>
+      </main>
+      <footer class="cover-preview-footer">
+        <div></div>
+        ${state.project.coverDisclaimerEnabled === false ? "" : `<p>${escapeHtml(contractor.disclaimer || DEFAULT_DISCLAIMER)}</p>`}
+      </footer>
+      ${pageNumber(page)}
+    </article>
+  `;
+}
+
+function coverTemplateById(id) {
+  return COVER_TEMPLATES.find((template) => template.id === id) || COVER_TEMPLATES[0];
+}
+
+function renderTocSheets(startPage, plan, tocStyle = "standard") {
+  if (tocStyle === "web-links") return renderWebLinkTocSheets(startPage, plan);
+
+  const rows = [];
+  for (const category of CATEGORIES) {
+    const items = plan.groups.get(category) || [];
+    if (!items.length) continue;
+    rows.push({ label: category, page: plan.categoryPages.get(category), type: "category" });
+    for (const item of items) {
+      rows.push({ label: tocDisplayName(item), page: plan.itemPages.get(item.id), type: "item" });
+    }
+  }
+  const pages = paginateTocRows(rows.length ? rows : [{ label: "No datasheets selected", page: 2, type: "category" }]);
+
+  return pages.map((pageRows, index) => `
+    <article class="sheet">
+      <h2 class="toc-title">Table of Contents</h2>
+      <div class="toc-list">${pageRows.map((row) => tocRow(row.label, row.page, row.type)).join("")}</div>
+      ${pageNumber(startPage + index)}
+    </article>
+  `);
+}
+
+function renderWebLinkTocSheets(startPage, plan) {
+  const pages = paginateWebLinkPreviewRows(plan.groups);
+  if (!pages.length) {
+    return [`
+      <article class="sheet web-link-toc-sheet">
+        <h2 class="toc-title">Table of Contents</h2>
+        <div class="preview-web-toc-empty">No datasheets selected</div>
+        ${pageNumber(startPage)}
+      </article>
+    `];
+  }
+
+  return pages.map((pageBlocks, index) => `
+    <article class="sheet web-link-toc-sheet">
+      <div class="preview-web-toc-heading">
+        <h2 class="toc-title">Table of Contents</h2>
+        <span>Web Link</span>
+      </div>
+      <div class="preview-web-toc-tables">
+        ${pageBlocks.map((block) => (block.type === "category" ? webLinkTocCategory(block.category) : webLinkTocItem(block.item, plan.itemPages.get(block.item.id)))).join("")}
+      </div>
+      ${pageNumber(startPage + index)}
+    </article>
+  `);
+}
+
+function webLinkTocCategory(category) {
+  return `
+    <div class="preview-web-toc-category">${escapeHtml(category)}</div>
+    <div class="preview-web-toc-header" aria-label="${escapeHtml(category)} table headers">
+      <span>ITEM / DESCRIPTION</span>
+      <span>MODEL</span>
+      <span>SUPPLIER</span>
+      <span>MANUFACTURER</span>
+      <span>PAGE #</span>
+    </div>
+  `;
+}
+
+function webLinkTocItem(item, page) {
+  const url = itemWebLink(item);
+  const manufacturer = item.manufacturer || "-";
+  const supplier = item.supplier || item.vendor || manufacturer;
+  return `
+    <div class="preview-web-toc-item">
+      <div class="preview-web-toc-main">
+        <span>${escapeHtml(tocDisplayName(item))}</span>
+        <span>${escapeHtml(item.model || item.modelName || item.sin || "-")}</span>
+        <span>${escapeHtml(supplier || "-")}</span>
+        <span>${escapeHtml(manufacturer)}</span>
+        <strong>${escapeHtml(page || "-")}</strong>
+      </div>
+      <div class="preview-web-toc-link ${url ? "" : "missing"}">${escapeHtml(url || "Add web link here")}</div>
+    </div>
+  `;
+}
+
+function paginateWebLinkPreviewRows(groups) {
+  const pages = [];
+  let page = [];
+  let used = 0;
+  const limit = 870;
+  const headerHeight = 64;
+
+  const startPage = () => {
+    if (page.length) pages.push(page);
+    page = [];
+    used = 0;
+  };
+
+  for (const category of CATEGORIES) {
+    const items = groups.get(category) || [];
+    if (!items.length) continue;
+    const firstItemHeight = previewWebLinkTocItemHeight(items[0]);
+    if (page.length && used + headerHeight + firstItemHeight > limit) startPage();
+    page.push({ type: "category", category });
+    used += headerHeight;
+
+    for (const item of items) {
+      const itemHeight = previewWebLinkTocItemHeight(item);
+      if (page.length && used + itemHeight > limit) {
+        startPage();
+        page.push({ type: "category", category });
+        used += headerHeight;
+      }
+      page.push({ type: "item", item });
+      used += itemHeight;
+    }
+  }
+
+  if (page.length) pages.push(page);
+  return pages;
+}
+
+function previewWebLinkTocItemHeight(item) {
+  const titleLines = Math.min(4, Math.max(1, Math.ceil(String(tocDisplayName(item) || "").length / 58)));
+  const linkLines = Math.min(2, Math.max(1, Math.ceil(String(itemWebLink(item) || "Add web link here").length / 92)));
+  return 42 + (titleLines - 1) * 16 + (linkLines - 1) * 13;
+}
+
+function paginateTocRows(rows) {
+  const pages = [[]];
+  let used = 0;
+  for (const row of rows) {
+    const height = previewTocRowHeight(row);
+    if (pages[pages.length - 1].length && used + height > 880) {
+      pages.push([]);
+      used = 0;
+    }
+    pages[pages.length - 1].push(row);
+    used += height;
+  }
+  return pages;
+}
+
+function previewTocRowHeight(row) {
+  const label = String(row.label || "");
+  const maxChars = row.type === "category" ? 58 : 84;
+  const lines = Math.min(2, Math.max(1, Math.ceil(label.length / maxChars)));
+  return (row.type === "category" ? 26 : 22) + (lines - 1) * 18 + 12;
+}
+
+function renderDatasheetPage(page, item) {
+  return `
+    <article class="sheet">
+      <div class="datasheet-title">
+        <h2>${escapeHtml(tocDisplayName(item))}</h2>
+        <p>${escapeHtml(item.category)}</p>
+      </div>
+      <div class="datasheet-body">
+        ${specRow("Manufacturer", item.manufacturer)}
+        ${specRow(item.category === "Sprinklers" ? "SIN / Model" : "Figure / Model", item.model)}
+        ${specRow("Product", item.product)}
+        ${item.response ? specRow("Response", item.response) : ""}
+        ${item.kFactor ? specRow("K-Factor", item.kFactor) : ""}
+        ${item.orientation ? specRow("Orientation", item.orientation) : ""}
+        ${specRow("Source File", item.fileName || "Manual entry")}
+      </div>
+      <div class="datasheet-placeholder">Insert manufacturer datasheet behind this index page: ${escapeHtml(item.fileName || tocDisplayName(item))}</div>
+      ${pageNumber(page)}
+    </article>
+  `;
+}
+
+function coverField(label, value) {
+  return `<div><span class="cover-label">${escapeHtml(label)}</span><p class="cover-value">${escapeHtml(value)}</p></div>`;
+}
+
+function specRow(label, value) {
+  return `<div class="spec-row"><strong>${escapeHtml(label)}</strong><span>${escapeHtml(value || "Not set")}</span></div>`;
+}
+
+function tocRow(label, page, type) {
+  return `
+    <div class="toc-row ${type}">
+      <span>${escapeHtml(label)}</span>
+      <span class="toc-dots"></span>
+      <span>${page}</span>
+    </div>
+  `;
+}
+
+function pageNumber(page) {
+  return `<span class="page-number">${page}</span>`;
+}
+
+function buildPagePlan(items, tocStyle = "standard") {
+  const groups = new Map(CATEGORIES.map((category) => [category, []]));
+  for (const item of items) groups.get(item.category)?.push(item);
+
+  const tocPageCount = estimatePreviewTocPageCount(groups, tocStyle);
+  let page = 2 + tocPageCount;
+  const categoryPages = new Map();
+  const itemPages = new Map();
+
+  for (const category of CATEGORIES) {
+    const categoryItems = groups.get(category) || [];
+    if (!categoryItems.length) continue;
+    categoryPages.set(category, page);
+    for (const item of categoryItems) {
+      itemPages.set(item.id, page);
+      page += Number(item.pages || item.pageCount || 1);
+    }
+  }
+
+  return {
+    groups,
+    categoryPages,
+    itemPages,
+    totalPages: Math.max(2, page - 1),
+    tocPageCount,
+  };
+}
+
+function estimatePreviewTocPageCount(groups, tocStyle = "standard") {
+  if (tocStyle === "web-links") return paginateWebLinkPreviewRows(groups).length || 1;
+
+  const rows = [];
+  for (const category of CATEGORIES) {
+    const items = groups.get(category) || [];
+    if (!items.length) continue;
+    rows.push({ label: category, type: "category" });
+    for (const item of items) rows.push({ label: tocDisplayName(item), type: "item" });
+  }
+  return paginateTocRows(rows).length || 1;
+}
+
+function selectedCatalogItems() {
+  const selected = new Set(state.selectedIds);
+  return state.catalog
+    .filter((item) => selected.has(item.id))
+    .filter((item) => !isRemoteCatalogItem(item))
+    .sort((a, b) => categoryIndex(a.category) - categoryIndex(b.category) || displayName(a).localeCompare(displayName(b)));
+}
+
+async function analyzeProjectInfoFile(fileOrFiles) {
+  const files = Array.isArray(fileOrFiles) ? fileOrFiles.filter(Boolean) : [fileOrFiles].filter(Boolean);
+  if (!files.length) return;
+  if (!ensureLicensedToolAccess(setOcrStatus)) return;
+  if (files.length > 1) {
+    await processProjectIntakeFiles(files);
+    return;
+  }
+  const file = files[0];
+  const lowerName = file.name.toLowerCase();
+  if (lowerName.endsWith(".pdf") || file.type === "application/pdf") {
+    await processProjectIntakeFiles([file]);
+    return;
+  }
+  if (file.type.startsWith("image/")) {
+    await handleImageFile(file);
+    return;
+  }
+  setOcrStatus("Drop a PDF plan set or an image crop of the title block.");
+}
+
+async function processProjectIntakeFiles(files) {
+  const pdfFiles = files.filter((file) => file.name.toLowerCase().endsWith(".pdf") || file.type === "application/pdf");
+  const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+  if (!pdfFiles.length) {
+    if (imageFiles[0]) await handleImageFile(imageFiles[0]);
+    return;
+  }
+
+  setOcrStatus(`Reviewing ${pdfFiles.length} dropped PDF${pdfFiles.length === 1 ? "" : "s"}...`);
+  const hydraulicFiles = [];
+  const planFiles = [];
+  const specFiles = [];
+  for (const [index, file] of pdfFiles.entries()) {
+    try {
+      setOcrStatus(`Classifying ${file.name} (${index + 1} of ${pdfFiles.length})...`);
+      const dataUrl = await readFileAsDataUrl(file);
+      const classification = await classifyProjectIntakePdf(file, dataUrl);
+      const record = { file, dataUrl, classification };
+      if (classification.kind === "hydraulic") {
+        hydraulicFiles.push(record);
+      } else if (classification.kind === "specs") {
+        specFiles.push(record);
+      } else {
+        planFiles.push(record);
+      }
+    } catch (error) {
+      setOcrStatus(`Could not classify ${file.name}: ${error.message || "PDF read failed."}`);
+    }
+  }
+
+  if (specFiles.length) {
+    await analyzeSpecsPdf(specFiles[0]);
+    if (specFiles.length > 1) {
+      setOcrStatus(`Scanned ${specFiles[0].file.name} for spec requirements. Drop additional spec sets one at a time.`);
+    }
+  }
+
+  if (hydraulicFiles.length) {
+    const records = hydraulicFiles.map(({ file, dataUrl }, index) => ({
+      id: localId("hydraulic"),
+      name: file.name,
+      size: file.size,
+      dataUrl,
+      label: defaultHydraulicLabel(file.name, hydraulicCalcFiles.length + index),
+      remoteAreaNumber: "",
+      remoteAreaLocation: "",
+      reportDescription: "",
+      drawingName: "",
+      hazard: "",
+      pageCount: null,
+      thumbnailDataUrl: "",
+      thumbnailStatus: "pending",
+      detectedNote: "Detected from project intake.",
+    }));
+    await addHydraulicCalcDataFiles(records);
+    setOcrStatus(`${hydraulicFiles.length} hydraulic calc PDF${hydraulicFiles.length === 1 ? "" : "s"} loaded into the Hydraulic Calc Package workspace${planFiles.length ? "; scanning plans next." : "."}`);
+  }
+
+  if (planFiles.length) {
+    storeProjectPlanFiles(planFiles);
+    await analyzePlansPdf(planFiles[0].file, planFiles[0].dataUrl);
+    if (planFiles.length > 1) {
+      setOcrStatus(`Plans scan applied. ${planFiles.length - 1} additional plan PDF${planFiles.length === 2 ? "" : "s"} were not scanned yet; drop them again if needed.`);
+    }
+  } else if (hydraulicFiles.length) {
+    activateTool("hydraulic");
+    setOcrStatus(`${hydraulicFiles.length} hydraulic calc PDF${hydraulicFiles.length === 1 ? "" : "s"} loaded into the Hydraulic Calc Package workspace.`);
+  } else if (imageFiles[0]) {
+    await handleImageFile(imageFiles[0]);
+  } else if (!specFiles.length) {
+    setOcrStatus("No plan, calc, or spec PDFs were found in that drop.");
+  }
+}
+
+function storeProjectPlanFiles(records) {
+  records.forEach(({ file, dataUrl }) => {
+    if (!file || !dataUrl) return;
+    const key = projectPlanFileKey(file);
+    const existingIndex = projectPlanFiles.findIndex((record) => record.key === key);
+    const entry = {
+      id: existingIndex >= 0 ? projectPlanFiles[existingIndex].id : localId("plan"),
+      key,
+      name: file.name || "Project Plans.pdf",
+      size: file.size || 0,
+      lastModified: file.lastModified || 0,
+      dataUrl,
+    };
+    if (existingIndex >= 0) {
+      projectPlanFiles[existingIndex] = entry;
+    } else {
+      projectPlanFiles.push(entry);
+    }
+  });
+  renderSubmittalCart();
+}
+
+function projectPlanFileKey(file) {
+  return [
+    String(file?.name || "").toLowerCase(),
+    file?.size || 0,
+    file?.lastModified || 0,
+  ].join("|");
+}
+
+function projectPlanEmailAttachments() {
+  return projectPlanFiles
+    .filter((file) => file?.dataUrl && /\.pdf$/i.test(file.name || ""))
+    .map((file) => ({
+      name: file.name || "Project Plans.pdf",
+      dataUrl: file.dataUrl,
+    }));
+}
+
+async function analyzeSpecsPdf(record) {
+  const { file, dataUrl } = record;
+  const pages = record.classification?.pageCount;
+  const slow = pages && pages > 400 ? " Large spec books can take a couple of minutes —" : "";
+  setOcrStatus(`Scanning ${file.name}${pages ? ` (${pages} pages)` : ""} for fire-sprinkler specifications...${slow} the document stays on your computer.`);
+  try {
+    const response = await fetch("./api/specs/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ file: { name: file.name, dataUrl } }),
+    });
+    const payload = await readJsonResponse(response);
+    if (!response.ok || !payload.ok) throw new Error(payload.error || "Spec scan failed.");
+    state.specRequirements = {
+      fileName: payload.name || file.name,
+      pageCount: payload.pageCount || 0,
+      sections: payload.sections || [],
+      scattered: payload.scattered || [],
+      scannedAt: Date.now(),
+    };
+    saveState();
+    renderSpecRequirements();
+    const sections = state.specRequirements.sections;
+    if (sections.length) {
+      const totalReqs = sections.reduce((n, s) => n + (s.requirements?.length || 0), 0);
+      const labels = sections.map((s) => s.number).join(", ");
+      setOcrStatus(`Found ${sections.length} fire-sprinkler spec section${sections.length === 1 ? "" : "s"} (${labels}) with ${totalReqs} material requirement${totalReqs === 1 ? "" : "s"} — review them in the Datasheets step.`, "success");
+    } else {
+      setOcrStatus(`No dedicated fire-sprinkler section found in ${file.name} (${state.specRequirements.pageCount} pages scanned). ${state.specRequirements.scattered.length ? "A few scattered sprinkler mentions are listed in the Datasheets step." : ""}`);
+    }
+  } catch (error) {
+    setOcrStatus(`Could not scan ${file.name}: ${error.message || "spec scan failed."}`);
+  }
+}
+
+const SPEC_MATCH_TOKENS = [
+  { pattern: /schedule\s*10\b/i, tokens: ["schedule 10", "sch 10", "sch. 10"] },
+  { pattern: /schedule\s*40\b/i, tokens: ["schedule 40", "sch 40", "sch. 40"] },
+  { pattern: /\bcpvc\b/i, tokens: ["cpvc"] },
+  { pattern: /\bclevis\b/i, tokens: ["clevis"] },
+  { pattern: /band hanger|ring hanger/i, tokens: ["band", "swivel ring"] },
+  { pattern: /grooved|coupling/i, tokens: ["grooved", "coupling", "victaulic"] },
+  { pattern: /threaded fitting|malleable|cast iron fitting/i, tokens: ["threaded", "fitting"] },
+  { pattern: /butterfly valve/i, tokens: ["butterfly"] },
+  { pattern: /check valve/i, tokens: ["check"] },
+  { pattern: /backflow|double check|dcda|rpa\b/i, tokens: ["backflow", "double check", "detector"] },
+  { pattern: /sway brac|seismic/i, tokens: ["sway brace", "bracing", "brace"] },
+  { pattern: /quick[- ]response/i, tokens: ["quick"] },
+  { pattern: /concealed/i, tokens: ["concealed"] },
+  { pattern: /sidewall/i, tokens: ["sidewall"] },
+  { pattern: /stainless/i, tokens: ["stainless"] },
+  { pattern: /galvanized/i, tokens: ["galvanized"] },
+];
+
+function matchSpecRequirementToCatalog(requirement) {
+  const text = `${requirement.item || ""} ${requirement.requirement || ""}`;
+  const wanted = [];
+  for (const rule of SPEC_MATCH_TOKENS) {
+    if (rule.pattern.test(text)) wanted.push(...rule.tokens);
+  }
+  if (!wanted.length) return [];
+  const matches = [];
+  for (const item of state.catalog) {
+    const hay = `${item.manufacturer || ""} ${item.model || ""} ${item.product || ""}`.toLowerCase();
+    const score = wanted.reduce((n, tok) => n + (hay.includes(tok) ? 1 : 0), 0);
+    if (score > 0) matches.push({ item, score });
+  }
+  matches.sort((a, b) => b.score - a.score);
+  return matches.slice(0, 3).map((m) => m.item);
+}
+
+function renderSpecRequirements() {
+  const panel = document.getElementById("specRequirementsPanel");
+  if (!panel) return;
+  const spec = state.specRequirements;
+  if (!spec || (!spec.sections?.length && !spec.scattered?.length)) {
+    panel.classList.add("hidden");
+    panel.innerHTML = "";
+    return;
+  }
+  panel.classList.remove("hidden");
+  const selected = new Set(state.selectedIds);
+  const sectionsHtml = (spec.sections || []).map((section) => {
+    const reqs = section.requirements || [];
+    const grouped = new Map();
+    reqs.forEach((r) => {
+      const cat = r.category || "General";
+      if (!grouped.has(cat)) grouped.set(cat, []);
+      grouped.get(cat).push(r);
+    });
+    const groupsHtml = [...grouped.entries()].map(([cat, items]) => {
+      const rows = items.map((r) => {
+        const matches = matchSpecRequirementToCatalog(r);
+        const matchHtml = matches.length
+          ? `<span class="spec-req-matches">${matches.map((m) => selected.has(m.id)
+              ? `<span class="spec-match added">✓ ${escapeHtml(displayName(m)).slice(0, 44)}</span>`
+              : `<button type="button" class="spec-match" data-spec-add="${escapeHtml(m.id)}">+ ${escapeHtml(displayName(m)).slice(0, 44)}</button>`).join("")}</span>`
+          : "";
+        return `<li class="spec-req ${r.mode === "prohibited" ? "is-prohibited" : ""}">
+          <span class="spec-req-mode">${r.mode === "prohibited" ? "✕ PROHIBITED" : (r.mode === "preferred" ? "PREFERRED" : "REQUIRED")}</span>
+          <span class="spec-req-text">${escapeHtml(r.requirement || "")}</span>
+          ${r.quote ? `<span class="spec-req-quote">“${escapeHtml(r.quote)}”</span>` : ""}
+          ${matchHtml}
+        </li>`;
+      }).join("");
+      return `<div class="spec-req-group"><h4>${escapeHtml(cat)}</h4><ul>${rows}</ul></div>`;
+    }).join("");
+    return `<details class="spec-section" open>
+      <summary><strong>Section ${escapeHtml(section.number)}</strong> ${escapeHtml(section.title || "")} <span class="spec-section-meta">p${section.pageStart}–${section.pageEnd} · ${reqs.length} requirement${reqs.length === 1 ? "" : "s"} · ${section.aiUsed ? "AI-read" : "keyword scan"}</span></summary>
+      ${groupsHtml || '<p class="spec-none">No material callouts detected in this section.</p>'}
+    </details>`;
+  }).join("");
+
+  const scatteredHtml = (!spec.sections?.length && spec.scattered?.length)
+    ? `<div class="spec-scattered"><p>No dedicated fire-sprinkler section — scattered mentions:</p><ul>${spec.scattered.slice(0, 8).map((s) => `<li>p${s.page}: ${escapeHtml(s.sample || "")}</li>`).join("")}</ul></div>`
+    : "";
+
+  panel.innerHTML = `
+    <div class="spec-reqs-head">
+      <div>
+        <p class="eyebrow">Spec requirements</p>
+        <span class="spec-reqs-file">${escapeHtml(spec.fileName || "")} · ${spec.pageCount} pages scanned</span>
+      </div>
+      <button type="button" class="ghost-button compact-button" id="specReqsClearButton">Clear</button>
+    </div>
+    ${sectionsHtml}${scatteredHtml}`;
+
+  panel.querySelector("#specReqsClearButton")?.addEventListener("click", () => {
+    state.specRequirements = null;
+    saveState();
+    renderSpecRequirements();
+  });
+  panel.querySelectorAll("[data-spec-add]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-spec-add");
+      if (id && !state.selectedIds.includes(id)) {
+        state.selectedIds.push(id);
+        saveState();
+        renderCatalog();
+        renderQuickTocSummary();
+        renderSubmittalCart();
+        renderSpecRequirements();
+      }
+    });
+  });
+}
+
+async function classifyProjectIntakePdf(file, dataUrl) {
+  const response = await fetch("./api/classify-pdf-upload", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ file: { name: file.name, dataUrl } }),
+  });
+  const payload = await readJsonResponse(response);
+  if (!response.ok || !payload.ok) throw new Error(payload.error || "PDF classification failed.");
+  return payload;
+}
+
+async function analyzePlansPdf(file, providedDataUrl = "") {
+  if (!ensureLicensedToolAccess(setOcrStatus)) return;
+  const scanOptions = readPlanScanOptions();
+  const enabledLabels = Object.entries(scanOptions)
+    .filter(([, enabled]) => enabled)
+    .map(([key]) => PLAN_SCAN_LABELS[key] || key.toLowerCase());
+  const tracker = createPlanScanTracker(file, enabledLabels);
+  tracker.update(4, "Preparing plan scan...", [
+    `File: ${file.name}`,
+    enabledLabels.length ? `Looking for: ${enabledLabels.join(", ")}` : "Catalog matching disabled for this scan",
+  ]);
+  try {
+    setOcrStatus(`Scanning ${file.name} for project information${enabledLabels.length ? ` and ${enabledLabels.join(", ")}` : ""}...`);
+    let dataUrl = providedDataUrl;
+    if (!dataUrl) {
+      dataUrl = await readFileAsDataUrl(file, (progress) => {
+        tracker.update(5 + progress * 18, `Reading local PDF... ${Math.round(progress * 100)}%`, [
+          `File: ${file.name}`,
+          formatFileSize(file.size),
+        ]);
+      });
+    } else {
+      tracker.update(23, "Using previously read PDF data...", [
+        `File: ${file.name}`,
+        formatFileSize(file.size),
+      ]);
+    }
+    tracker.update(26, "Uploading PDF to scanner...", [
+      "Preparing secure local scan request",
+      enabledLabels.length ? `Enabled categories: ${enabledLabels.join(", ")}` : "Only project and contractor information will be scanned",
+    ]);
+    tracker.startAnalysis();
+    const response = await fetch("./api/analyze-plans", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ file: { name: file.name, dataUrl }, scanOptions }),
+    });
+    tracker.stopAnalysis();
+    tracker.update(88, "Parsing scan results...", [
+      "Checking detected project and contractor fields",
+      "Preparing catalog match review",
+    ]);
+    const payload = await readJsonResponse(response);
+    if (!response.ok || !payload.ok) throw new Error(payload.error || "Plan scan failed.");
+    const project = payload.project || {};
+    tracker.update(100, "Scan complete. Opening review...", summarizePlanScan(project));
+    await delay(220);
+    const hadResults = hasPlansScanResults(project);
+    const accepted = await reviewPlansAnalysis(project);
+    if (accepted) {
+      setOcrStatus("Plans scan applied. Drop another fire sprinkler plans PDF here to scan again.");
+    } else if (hadResults) {
+      setOcrStatus("Plans scan review closed without applying changes.");
+    } else {
+      const note = Array.isArray(project.notes) && project.notes.length ? ` ${project.notes[0]}` : "";
+      setOcrStatus(`Plans scan finished, but no selectable project data or selected catalog items were found.${note}`);
+    }
+  } catch (error) {
+    tracker.stopAnalysis();
+    tracker.update(100, "Scan stopped.", [error.message || "Plan scan failed"]);
+    setOcrStatus(`Could not scan that PDF: ${error.message}`);
+  } finally {
+    tracker.stopAnalysis();
+    if (dom.plansPdfInput) dom.plansPdfInput.value = "";
+    setTimeout(() => setPlanScanProgress(0, "", { hidden: true }), 1400);
+  }
+}
+
+const PLAN_SCAN_LABELS = {
+  sprinklers: "sprinklers",
+  piping: "piping",
+  hangers: "hangers",
+  bracing: "bracing",
+  valves: "valves",
+  miscellaneous: "miscellaneous",
+};
+
+function readPlanScanOptions() {
+  return {
+    sprinklers: true,
+    piping: true,
+    hangers: true,
+    bracing: true,
+    valves: true,
+    miscellaneous: true,
+  };
+}
+
+function hasPlansScanResults(projectInfo) {
+  const hasProjectInfo = Boolean((projectInfo.name || "").trim() || (projectInfo.address || "").trim());
+  const contractor = projectInfo.contractor || {};
+  const hasContractorInfo = Boolean(
+    contractor.name || contractor.phone || contractor.license || contractor.address
+  );
+  const hasCatalogSuggestions = [
+    projectInfo.sprinklers,
+    projectInfo.pipeTypes,
+    projectInfo.fittings,
+    projectInfo.hangers,
+    projectInfo.bracing,
+    projectInfo.valves,
+    projectInfo.miscellaneous,
+  ].some((items) => Array.isArray(items) && items.length);
+  return hasProjectInfo || hasContractorInfo || hasCatalogSuggestions;
+}
+
+function createPlanScanTracker(file, enabledLabels) {
+  let analysisTimer = null;
+  let analysisStartedAt = 0;
+  const fileSize = formatFileSize(file?.size || 0);
+
+  function update(percent, label, details = []) {
+    setPlanScanProgress(percent, label, { details });
+  }
+
+  function startAnalysis() {
+    stopAnalysis();
+    analysisStartedAt = Date.now();
+    const stages = [
+      { seconds: 0, percent: 34, label: "Extracting selectable PDF text...", detail: "Reading title block text from the first plan sheets" },
+      { seconds: 3, percent: 44, label: "Finding project name and full address...", detail: "Ranking title-block candidates and filtering sheet-note noise" },
+      { seconds: 6, percent: 54, label: "Checking contractor information...", detail: "Comparing phone, address, license, and saved contractor records" },
+      { seconds: 9, percent: 64, label: "Reading sprinkler legend and pipe notes...", detail: enabledLabels.length ? `Scanning enabled categories: ${enabledLabels.join(", ")}` : "Catalog matching is disabled for this scan" },
+      { seconds: 14, percent: 74, label: "Matching detected products to the catalog...", detail: "Checking SIN/model numbers, pipe types, valves, hangers, and bracing terms" },
+      { seconds: 20, percent: 82, label: "Running OCR fallback if needed...", detail: "Encoded or scanned sheets can take longer to read accurately" },
+      { seconds: 32, percent: 90, label: "Still scanning this plan set...", detail: "Large plan sets and OCR-heavy PDFs can take a minute or more" },
+    ];
+
+    analysisTimer = window.setInterval(() => {
+      const elapsed = Math.floor((Date.now() - analysisStartedAt) / 1000);
+      const activeStage = [...stages].reverse().find((stage) => elapsed >= stage.seconds) || stages[0];
+      const nextStage = stages.find((stage) => stage.seconds > elapsed);
+      const nextPercent = nextStage ? nextStage.percent : 92;
+      const stageSpan = nextStage ? Math.max(1, nextStage.seconds - activeStage.seconds) : 18;
+      const stageElapsed = Math.max(0, elapsed - activeStage.seconds);
+      const easedStageProgress = Math.min(1, stageElapsed / stageSpan);
+      const percent = Math.min(94, activeStage.percent + (nextPercent - activeStage.percent) * easedStageProgress);
+      update(percent, `${activeStage.label} ${elapsed}s`, [
+        activeStage.detail,
+        `PDF size: ${fileSize}`,
+      ]);
+    }, 650);
+  }
+
+  function stopAnalysis() {
+    if (analysisTimer) {
+      window.clearInterval(analysisTimer);
+      analysisTimer = null;
+    }
+  }
+
+  return { update, startAnalysis, stopAnalysis };
+}
+
+function summarizePlanScan(projectInfo) {
+  const details = [];
+  const hasName = Boolean((projectInfo.name || "").trim());
+  const hasAddress = Boolean((projectInfo.address || "").trim());
+  const contractor = projectInfo.contractor || {};
+  const hasContractor = Boolean(contractor.name || contractor.phone || contractor.license || contractor.address);
+  const matchedCount = [
+    projectInfo.sprinklers,
+    projectInfo.pipeTypes,
+    projectInfo.fittings,
+    projectInfo.hangers,
+    projectInfo.bracing,
+    projectInfo.valves,
+    projectInfo.miscellaneous,
+  ].reduce((count, items) => count + (Array.isArray(items) ? items.length : 0), 0);
+  details.push(`${hasName ? "Found" : "No"} project name${hasAddress ? " and address" : hasName ? "" : " detected"}`);
+  details.push(`${hasContractor ? "Found" : "No"} contractor information`);
+  details.push(`${matchedCount} catalog suggestion${matchedCount === 1 ? "" : "s"} prepared`);
+  if (Array.isArray(projectInfo.notes) && projectInfo.notes.length) details.push(projectInfo.notes[0]);
+  return details;
+}
+
+function setPlanScanProgress(percent, label, options = {}) {
+  if (!dom.planScanProgress || !dom.planScanProgressBar || !dom.planScanProgressLabel) return;
+  dom.planScanProgress.hidden = Boolean(options.hidden);
+  if (!options.hidden) {
+    dom.planScanProgressBar.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+    dom.planScanProgressLabel.textContent = label || "Scanning plans...";
+    if (dom.planScanProgressDetails) {
+      const details = Array.isArray(options.details) ? options.details.filter(Boolean) : [];
+      dom.planScanProgressDetails.innerHTML = details.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+      dom.planScanProgressDetails.hidden = !details.length;
+    }
+  } else {
+    dom.planScanProgressBar.style.width = "0%";
+    dom.planScanProgressLabel.textContent = "Waiting for plans PDF";
+    if (dom.planScanProgressDetails) {
+      dom.planScanProgressDetails.innerHTML = "";
+      dom.planScanProgressDetails.hidden = true;
+    }
+  }
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function reviewPlansAnalysis(projectInfo) {
+  const hasAdvancedData = Boolean(
+    projectInfo.contractor?.name
+      || (Array.isArray(projectInfo.sprinklers) && projectInfo.sprinklers.length)
+      || (Array.isArray(projectInfo.pipeTypes) && projectInfo.pipeTypes.length)
+      || (Array.isArray(projectInfo.fittings) && projectInfo.fittings.length)
+      || (Array.isArray(projectInfo.hangers) && projectInfo.hangers.length)
+      || (Array.isArray(projectInfo.bracing) && projectInfo.bracing.length)
+      || (Array.isArray(projectInfo.valves) && projectInfo.valves.length)
+      || (Array.isArray(projectInfo.miscellaneous) && projectInfo.miscellaneous.length)
+  );
+  if (!hasAdvancedData || !dom.plansReviewDialog) {
+    return reviewProjectInfo(projectInfo);
+  }
+
+  await loadExternalCatalog();
+  const review = buildPlansReview(projectInfo);
+  try {
+    populatePlansReviewDialog(review);
+    return await showPlansReviewDialog(review);
+  } catch (error) {
+    console.error("Could not open plans review dialog", error);
+    setOcrStatus(`Plans scan finished, but the review window could not open: ${error.message || error}`);
+    return reviewProjectInfo(projectInfo);
+  }
+}
+
+function buildPlansReview(projectInfo) {
+  const contractorMatch = matchSavedContractor(projectInfo.contractor || {});
+  return {
+    project: {
+      name: detectedProjectCaps(projectInfo.name || state.project.name || ""),
+      address: detectedProjectCaps(projectInfo.address || state.project.address || ""),
+      confidence: projectInfo.confidence || "low",
+      source: projectInfo.source || "plans",
+      notes: Array.isArray(projectInfo.notes) ? projectInfo.notes : [],
+      nameCandidates: Array.isArray(projectInfo.projectNameCandidates) ? projectInfo.projectNameCandidates : [],
+    },
+    contractor: contractorMatch || projectInfo.contractor || {},
+    contractorMatchedSaved: Boolean(contractorMatch),
+    suggestions: buildPlanCatalogSuggestions(projectInfo),
+  };
+}
+
+function matchSavedContractor(candidate) {
+  const candidateName = normalize(candidate?.name || "");
+  const candidateAddress = normalize(candidate?.address || "");
+  const candidateLicense = normalize(candidate?.license || "");
+  const candidatePhone = digitsOnly(candidate?.phone || "");
+  if (!candidateName && !candidateAddress && !candidateLicense && !candidatePhone) return null;
+  const scored = state.contractors
+    .map((contractor) => {
+    const savedName = normalize(contractor.name || "");
+      const savedAddress = normalize(contractor.address || "");
+      const savedLicense = normalize(contractor.license || "");
+      const savedPhone = digitsOnly(contractor.phone || "");
+      let score = 0;
+      if (candidateName && savedName && (savedName === candidateName || savedName.includes(candidateName) || candidateName.includes(savedName))) score += 6;
+      if (candidateLicense && savedLicense && candidateLicense === savedLicense) score += 6;
+      if (candidateAddress && savedAddress && (savedAddress.includes(candidateAddress) || candidateAddress.includes(savedAddress))) score += 5;
+      if (candidatePhone && savedPhone && (savedPhone === candidatePhone || savedPhone.endsWith(candidatePhone.slice(-7)) || candidatePhone.endsWith(savedPhone.slice(-7)))) score += 4;
+      return { contractor, score };
+    })
+    .filter((entry) => entry.score >= 5)
+    .sort((a, b) => b.score - a.score);
+  return scored[0]?.contractor || null;
+}
+
+function buildPlanCatalogSuggestions(projectInfo) {
+  const suggestions = [];
+  const seen = new Set();
+  const addSuggestion = (kind, detected, match, options = {}) => {
+    if (!match?.item || seen.has(match.item.id)) return;
+    seen.add(match.item.id);
+    const needsImport = isRemoteCatalogItem(match.item);
+    suggestions.push({
+      kind,
+      detected,
+      item: match.item,
+      status: match.status || (needsImport ? "import" : "exact"),
+      selectable: true,
+      checked: options.checked ?? false,
+    });
+  };
+  const addChoiceSuggestion = (kind, detected, category, terms, label = "", config = {}) => {
+    const choiceOptions = findCatalogChoiceOptions(category, terms, new Set(), config.excludeTerms || []);
+    if (!choiceOptions.length) return;
+    suggestions.push({
+      kind,
+      detected,
+      category,
+      label: label || detected.term || detected.sourceText || category,
+      options: choiceOptions,
+      selectedId: choiceOptions[0]?.id || "",
+      selectable: true,
+      checked: config.checked ?? false,
+      status: isRemoteCatalogItem(choiceOptions[0]) ? "import" : "choice",
+    });
+  };
+  for (const sprinkler of Array.isArray(projectInfo.sprinklers) ? projectInfo.sprinklers : []) {
+    addSuggestion("sprinkler", sprinkler, matchSprinklerFromPlan(sprinkler));
+  }
+  for (const aliasMatch of catalogAliasMatchesFromPlan(projectInfo)) {
+    addSuggestion("custom-alias", aliasMatch.detected, { item: aliasMatch.item, status: isRemoteCatalogItem(aliasMatch.item) ? "import" : "exact" });
+  }
+  for (const pipe of Array.isArray(projectInfo.pipeTypes) ? projectInfo.pipeTypes : []) {
+    addSuggestion("pipe", pipe, matchPipeFromPlan(pipe));
+    for (const fitting of suggestedFittingsForPipe(pipe)) {
+      const choice = planChoiceConfig(fitting, "Fittings");
+      if (choice) {
+        addChoiceSuggestion("fitting-choice", fitting, "Fittings", choice.terms, choice.label, { excludeTerms: choice.excludeTerms });
+      } else {
+        addSuggestion("fitting", fitting, matchCatalogTermFromPlan(fitting, "Fittings"));
+      }
+    }
+  }
+  for (const fitting of Array.isArray(projectInfo.fittings) ? projectInfo.fittings : []) {
+    const choice = planChoiceConfig(fitting, "Fittings");
+    if (choice) addChoiceSuggestion("fitting-choice", fitting, "Fittings", choice.terms, choice.label, { excludeTerms: choice.excludeTerms });
+    else addSuggestion("fitting", fitting, matchCatalogTermFromPlan(fitting, "Fittings"));
+  }
+  for (const hanger of Array.isArray(projectInfo.hangers) ? projectInfo.hangers : []) {
+    if (isSpecificHangerModelDetection(hanger)) {
+      addSuggestion("hanger", hanger, matchCatalogTermFromPlan(hanger, "Hangers"));
+    } else {
+      const choice = planChoiceConfig(hanger, "Hangers");
+      if (choice) addChoiceSuggestion("hanger-choice", hanger, "Hangers", choice.terms, choice.label, { excludeTerms: choice.excludeTerms });
+      else addSuggestion("hanger", hanger, matchCatalogTermFromPlan(hanger, "Hangers"));
+    }
+  }
+  for (const bracing of Array.isArray(projectInfo.bracing) ? projectInfo.bracing : []) {
+    const choice = planChoiceConfig(bracing, "Bracing");
+    if (choice) addChoiceSuggestion("bracing-choice", bracing, "Bracing", choice.terms, choice.label, { excludeTerms: choice.excludeTerms });
+    else addSuggestion("bracing", bracing, matchCatalogTermFromPlan(bracing, "Bracing"));
+  }
+  for (const valve of Array.isArray(projectInfo.valves) ? projectInfo.valves : []) {
+    if (isFlowSwitchDetection(valve)) continue;
+    const specificValveText = normalize(`${valve?.term || ""} ${valve?.sourceText || ""}`);
+    if (/\bumc\b|\beasypac\b|\buniversal manifold check\b/.test(specificValveText)) {
+      addSuggestion("valve", valve, matchCatalogTermFromPlan(valve, "Valves"));
+    } else {
+      const choice = planChoiceConfig(valve, "Valves");
+      if (choice) addChoiceSuggestion("valve-choice", valve, "Valves", choice.terms, choice.label, { excludeTerms: choice.excludeTerms });
+      else addSuggestion("valve", valve, matchCatalogTermFromPlan(valve, "Valves"));
+    }
+  }
+  for (const misc of Array.isArray(projectInfo.miscellaneous) ? projectInfo.miscellaneous : []) {
+    const choice = planChoiceConfig(misc, "Miscellaneous");
+    if (choice) addChoiceSuggestion("misc-choice", misc, "Miscellaneous", choice.terms, choice.label, { excludeTerms: choice.excludeTerms });
+    else addSuggestion("misc", misc, matchCatalogTermFromPlan(misc, "Miscellaneous"));
+  }
+  return consolidatePlanChoiceSuggestions(suggestions);
+}
+
+function consolidatePlanChoiceSuggestions(suggestions) {
+  const choiceCategories = new Set(["Fittings", "Hangers", "Bracing", "Flex Drops", "Valves", "Miscellaneous"]);
+  const output = [];
+  const groups = new Map();
+  const groupedSuggestions = new Set();
+  const choiceByFirstSuggestion = new Map();
+
+  for (const suggestion of suggestions) {
+    if (suggestion.options?.length || !suggestion.item) continue;
+    const category = suggestion.category || suggestion.item.category || suggestion.detected?.category || "";
+    if (!choiceCategories.has(category)) continue;
+    const choice = choiceConfigFromSuggestion(suggestion, category);
+    if (!choice) continue;
+    const key = `${category}|${choice.label}`;
+    if (!groups.has(key)) groups.set(key, { category, choice, suggestions: [] });
+    groups.get(key).suggestions.push(suggestion);
+  }
+
+  for (const group of groups.values()) {
+    const detected = group.suggestions[0]?.detected || { term: group.choice.label };
+    const expandedOptions = findCatalogChoiceOptions(group.category, group.choice.terms, new Set(), group.choice.excludeTerms || []);
+    const options = uniqueCatalogItems([
+      ...group.suggestions.map((suggestion) => suggestion.item),
+      ...expandedOptions,
+    ]).sort(compareCatalogItems);
+    if (options.length < 2) continue;
+    group.suggestions.forEach((suggestion) => groupedSuggestions.add(suggestion));
+    const preferred = group.suggestions.find((suggestion) => suggestion.checked === true)?.item || group.suggestions[0]?.item || options[0];
+    choiceByFirstSuggestion.set(group.suggestions[0], {
+      kind: `${group.category.toLowerCase()}-choice`,
+      detected,
+      category: group.category,
+      label: group.choice.label,
+      options,
+      selectedId: preferred?.id || options[0]?.id || "",
+      selectable: true,
+      checked: group.suggestions.some((suggestion) => suggestion.checked === true),
+      status: isRemoteCatalogItem(preferred) ? "import" : "choice",
+    });
+  }
+
+  for (const suggestion of suggestions) {
+    if (choiceByFirstSuggestion.has(suggestion)) {
+      output.push(choiceByFirstSuggestion.get(suggestion));
+      continue;
+    }
+    if (groupedSuggestions.has(suggestion)) continue;
+    output.push(suggestion);
+  }
+  return dedupePlanChoiceRows(output);
+}
+
+function dedupePlanChoiceRows(suggestions) {
+  const output = [];
+  const choiceByKey = new Map();
+
+  for (const suggestion of Array.isArray(suggestions) ? suggestions : []) {
+    if (!suggestion.options?.length) {
+      output.push(suggestion);
+      continue;
+    }
+    const key = normalizePlanChoiceKey(suggestion);
+    const existing = choiceByKey.get(key);
+    if (!existing) {
+      choiceByKey.set(key, suggestion);
+      output.push(suggestion);
+      continue;
+    }
+    const selectedItem = planSuggestionSelectedItem(existing) || planSuggestionSelectedItem(suggestion);
+    existing.options = uniqueCatalogItems([...existing.options, ...suggestion.options]).sort(compareCatalogItems);
+    existing.selectedId = selectedItem?.id || existing.selectedId || existing.options[0]?.id || "";
+    existing.checked = Boolean(existing.checked || suggestion.checked);
+    existing.status = isRemoteCatalogItem(planSuggestionSelectedItem(existing)) ? "import" : "choice";
+  }
+
+  return output.filter((suggestion) => {
+    if (suggestion.options?.length) return true;
+    if (!suggestion.item?.id) return true;
+    return ![...choiceByKey.values()].some((choice) => choice.options.some((item) => item.id === suggestion.item.id));
+  });
+}
+
+function normalizePlanChoiceKey(suggestion) {
+  return `${suggestion.category || ""}|${normalizeSearchText(suggestion.label || "")}`;
+}
+
+function choiceConfigFromSuggestion(suggestion, category) {
+  const detectedText = [
+    suggestion.detected?.term,
+    suggestion.detected?.sourceText,
+    suggestion.detected?.sourceLine,
+    suggestion.detected?.model,
+    suggestion.detected?.product,
+  ].filter(Boolean).join(" ");
+  const itemText = [
+    displayName(suggestion.item),
+    catalogMetaLine(suggestion.item),
+    suggestion.item?.manufacturer,
+    suggestion.item?.model,
+    suggestion.item?.product,
+    suggestion.item?.fittingType,
+  ].filter(Boolean).join(" ");
+  if (category === "Hangers" && (isSpecificHangerModelDetection(suggestion.detected) || isSpecificHangerModelText(itemText))) {
+    return null;
+  }
+  return planChoiceConfig({ term: `${detectedText} ${itemText}`, sourceText: itemText }, category);
+}
+
+function isSpecificHangerModelDetection(record) {
+  return isSpecificHangerModelText([
+    record?.term,
+    record?.model,
+    record?.product,
+    record?.sourceText,
+    record?.sourceLine,
+  ].filter(Boolean).join(" "));
+}
+
+function isSpecificHangerModelText(value) {
+  return /\bfig(?:ure)?\.?\s*[0-9]{1,4}[a-z]?\b/i.test(String(value || ""))
+    || /\bB30(?:33|34|37|42T)\b/i.test(String(value || ""));
+}
+
+function isFlowSwitchDetection(record) {
+  return /\b(?:flow\s*switch(?:es)?|water\s*flow|waterflow)\b/i.test([
+    record?.term,
+    record?.model,
+    record?.product,
+    record?.sourceText,
+    record?.sourceLine,
+  ].filter(Boolean).join(" "));
+}
+
+function uniqueCatalogItems(items) {
+  const seen = new Set();
+  const unique = [];
+  for (const item of items) {
+    if (!item?.id || seen.has(item.id)) continue;
+    seen.add(item.id);
+    unique.push(item);
+  }
+  return unique;
+}
+
+function planChoiceConfig(record, category) {
+  const term = normalizeSearchText(`${record?.term || ""} ${record?.sourceText || ""}`);
+  const rules = {
+    Fittings: [
+      { label: "Grooved Flexible Couplings", terms: ["grooved flexible coupling", "flexible coupling", "flex coupling"], excludeTerms: ["rigid", "push-on", "push on"], pattern: /\b(?:grooved\s+)?flex(?:ible)?\s+couplings?\b|\bflex\s+couplings?\b/ },
+      { label: "Grooved Rigid Couplings - Push-On", terms: ["grooved rigid coupling push-on", "push-on coupling", "push on coupling", "push on"], excludeTerms: ["flexible", "standard"], pattern: /\bpush[-\s]?on\b.{0,30}\bcouplings?\b|\bcouplings?\b.{0,30}\bpush[-\s]?on\b/ },
+      { label: "Grooved Rigid Couplings", terms: ["grooved rigid coupling", "rigid coupling"], excludeTerms: ["flexible"], pattern: /\b(?:grooved\s+)?rigid\s+couplings?\b|\bcouplings?\b.{0,30}\brigid\b/ },
+      { label: "Grooved Fittings", terms: ["grooved fittings", "victaulic grooved fittings"], excludeTerms: ["coupling"], pattern: /\bgrooved fittings?\b|\bgrooved\b(?!\s+(?:flexible|rigid)?\s*couplings?)/ },
+      { label: "Mechanical Tee", terms: ["mechanical tee"], pattern: /\bmechanical tees?\b/ },
+      { label: "Threaded Fittings", terms: ["threaded fittings", "ductile iron threaded", "cast iron threaded", "malleable iron threaded", "black malleable"], pattern: /\bthreaded fittings?\b|\b(?:ductile|cast|malleable)\s+iron\b.{0,50}\bthreaded\b|\bthreaded\b.{0,50}\b(?:ductile|cast|malleable)\s+iron\b/ },
+    ],
+    Hangers: [
+      { label: "Beam Clamp", terms: ["beam clamp"], pattern: /\bbeam clamps?\b/ },
+      { label: "Clevis Hanger", terms: ["clevis hanger"], pattern: /\bclevis\b/ },
+      { label: "Ring Hanger", terms: ["tolco fig 200", "fig 200", "adjustable band hanger", "ring hanger"], pattern: /\bring hanger\b|\bfig\.?\s*200\b/ },
+      { label: "Threaded Rod / Hanger Rod", terms: ["threaded rod", "all thread", "hanger rod"], pattern: /\ball thread\b|\bthreaded rod\b|\bhanger rod\b/ },
+      { label: "Sammy / Sidewinder", terms: ["sammy", "sidewinder"], pattern: /\bsammy\b|\bsidewinder\b/ },
+    ],
+    Bracing: [
+      { label: "Lateral Brace", terms: ["lateral brace", "lateral sway brace", "lateral seismic clamp", "sway brace attachment", "seismic brace attachment"], pattern: /\blateral\b/ },
+      { label: "Longitudinal Brace", terms: ["longitudinal brace", "longitudinal lateral seismic clamp", "longitudinal seismic clamp", "sway brace attachment", "seismic brace attachment"], pattern: /\blongitudinal\b/ },
+      { label: "4-Way Brace", terms: ["4-way brace", "four way brace", "sway brace attachment", "seismic brace attachment"], pattern: /\b4[-\s]?way\b|\bfour[-\s]?way\b/ },
+      { label: "Branch Line Restraint", terms: ["branch line restraint", "restraint"], pattern: /\bbranch line restraint\b|\brestraint\b/ },
+      { label: "Sway Brace", terms: ["sway brace", "sway brace attachment", "seismic brace attachment", "seismic clamp"], pattern: /\bsway\b|\bseismic\b/ },
+    ],
+    Valves: [
+      { label: "Check Valve", terms: ["check valve", "riser check", "alarm check"], pattern: /\bcheck valves?\b|\briser check\b|\balarm check\b/ },
+      { label: "Butterfly Valve", terms: ["butterfly valve"], pattern: /\bbutterfly valves?\b/ },
+      { label: "Gate Valve", terms: ["gate valve", "os&y", "os y", "nrs"], pattern: /\bgate valves?\b|\bos\s*y\b|\bnrs\b/ },
+      { label: "Dry Pipe Valve", terms: ["dry pipe valve"], pattern: /\bdry pipe valves?\b/ },
+      { label: "Deluge Valve", terms: ["deluge valve"], pattern: /\bdeluge valves?\b/ },
+      { label: "Backflow", terms: ["backflow", "double check", "rpz"], pattern: /\bbackflow\b|\bdouble check\b|\brpz\b/ },
+      { label: "Test and Drain", terms: ["test and drain"], pattern: /\btest\s*(?:and|n|&)\s*drain\b/ },
+      { label: "Air Vent", terms: ["air vent"], pattern: /\bair vents?\b/ },
+      { label: "Riser Assembly", terms: ["riser assembly", "umc", "easypac", "manifold check"], pattern: /\briser assembl(?:y|ies)\b|\bumc\b|\beasypac\b|\bmanifold check\b/ },
+    ],
+    Miscellaneous: [
+      { label: "Bell / Horn / Strobe", terms: ["bell", "horn", "strobe", "alarm"], pattern: /\bbell\b|\bhorn\b|\bstrobe\b/ },
+      { label: "Sprinkler Cabinet", terms: ["cabinet", "head cabinet", "sprinkler head storage"], pattern: /\bcabinet\b|\bhead storage\b/ },
+      { label: "Sprinkler Guard", terms: ["head guard", "sprinkler guard"], pattern: /\bhead guard\b|\bsprinkler guard\b/ },
+      { label: "Signs", terms: ["identification signs", "sign"], pattern: /\bsigns?\b/ },
+    ],
+  };
+  return (rules[category] || []).find((rule) => rule.pattern.test(term)) || null;
+}
+
+function findCatalogChoiceOptions(category, terms, seen = new Set(), excludeTerms = []) {
+  const termTokens = [...new Set(terms.flatMap((term) => catalogMatchTerms(term)).filter((token) => token.length > 1))];
+  const excludeTokens = excludeTerms.map((term) => normalize(term)).filter(Boolean);
+  return state.catalog
+    .filter((item) => {
+      if (item.category !== category || seen.has(item.id)) return false;
+      if (!excludeTokens.length) return true;
+      const text = normalize([displayName(item), item.product, item.model, item.manufacturer, item.subcategory, aliasesText(item)].join(" "));
+      return !excludeTokens.some((token) => text.includes(token));
+    })
+    .map((item) => ({ item, score: scoreCatalogTermMatch(item, termTokens) + scoreChoicePhraseMatch(item, terms) + scoreChoiceCategoryMatch(item, category, terms) }))
+    .filter((entry) => entry.score >= 5)
+    .sort((a, b) => b.score - a.score || compareCatalogItems(a.item, b.item))
+    .slice(0, 24)
+    .map((entry) => entry.item);
+}
+
+function scoreChoicePhraseMatch(item, terms) {
+  const text = normalize([displayName(item), item.searchText, item.product, item.model, item.manufacturer, item.subcategory, aliasesText(item)].join(" "));
+  const searchable = searchableText(item);
+  let score = 0;
+  for (const term of terms) {
+    const phrase = normalize(term);
+    if (phrase && text.includes(phrase)) score += 8;
+    for (const modelTerm of catalogModelTerms(term)) {
+      if (modelTerm && text.includes(modelTerm)) score += 18;
+      if (modelTerm && searchable.includes(modelTerm.replace(/([a-z]+)(\d+)/, "$1 $2"))) score += 10;
+    }
+  }
+  return score;
+}
+
+function scoreChoiceCategoryMatch(item, category, terms) {
+  const text = normalizeSearchText([displayName(item), item.searchText, item.product, item.model, item.manufacturer, item.subcategory, aliasesText(item)].join(" "));
+  const combinedTerms = normalizeSearchText(terms.join(" "));
+  let score = 0;
+  if (category === "Bracing") {
+    if (combinedTerms.includes("lateral")) {
+      if (text.includes("lateral")) score += 12;
+      if (text.includes("longitudinal") && text.includes("lateral")) score += 5;
+      if (text.includes("sway brace")) score += 5;
+      if (text.includes("seismic")) score += 4;
+      if (text.includes("brace attachment") || text.includes("brace clamp")) score += 4;
+    }
+    if (combinedTerms.includes("longitudinal")) {
+      if (text.includes("longitudinal")) score += 12;
+      if (text.includes("longitudinal") && text.includes("lateral")) score += 5;
+      if (text.includes("seismic clamp")) score += 5;
+      if (text.includes("sway brace")) score += 3;
+    }
+    if (combinedTerms.includes("4 way") || combinedTerms.includes("four way")) {
+      if (text.includes("4 way") || text.includes("four way")) score += 12;
+      if (text.includes("sway brace") || text.includes("swivel attachment")) score += 4;
+    }
+    if (combinedTerms.includes("sway")) {
+      if (text.includes("sway brace")) score += 10;
+      if (text.includes("swivel attachment")) score += 5;
+      if (text.includes("seismic")) score += 4;
+    }
+  }
+  if (category === "Valves") {
+    if (combinedTerms.includes("check valve") && text.includes("check")) score += 10;
+    if (combinedTerms.includes("butterfly") && text.includes("butterfly")) score += 10;
+    if (combinedTerms.includes("gate valve") && (text.includes("gate") || text.includes("os y") || text.includes("nrs"))) score += 10;
+    if (combinedTerms.includes("bell") && (text.includes("bell") || text.includes("gong"))) score += 10;
+  }
+  if (category === "Fittings") {
+    if (combinedTerms.includes("threaded")) {
+      if (text.includes("threaded fittings") || text.includes("threadedfittings")) score += 16;
+      if (text.includes("threaded")) score += 8;
+      if (text.includes("ductile iron") || text.includes("cast iron") || text.includes("malleable")) score += 4;
+    }
+    if (combinedTerms.includes("grooved fittings") && text.includes("grooved") && text.includes("fittings")) score += 12;
+    if (combinedTerms.includes("flexible coupling") && text.includes("flexible") && text.includes("coupling")) score += 12;
+    if (combinedTerms.includes("rigid coupling") && text.includes("rigid") && text.includes("coupling")) score += 12;
+  }
+  if (category === "Miscellaneous") {
+    if (combinedTerms.includes("bell") && (text.includes("bell") || text.includes("gong"))) score += 10;
+    if (combinedTerms.includes("cabinet") && text.includes("cabinet")) score += 10;
+    if (combinedTerms.includes("guard") && text.includes("guard")) score += 10;
+  }
+  if (category === "Hangers") {
+    if (combinedTerms.includes("beam clamp") && text.includes("beam") && text.includes("clamp")) score += 10;
+    if (combinedTerms.includes("ring hanger") && (text.includes("fig 200") || text.includes("adjustable band hanger") || text.includes("ring hanger"))) score += 12;
+  }
+  return score;
+}
+
+function suggestedFittingsForPipe(pipe) {
+  const label = normalize(pipe?.pipeType || pipe?.sourceText || "");
+  const compact = label.replace(/\s+/g, "");
+  const needsSteelFittings = ["sch10", "sch40", "schedule10", "schedule40", "megaflow", "megathread", "eddyflow", "eddythread"].some((token) => compact.includes(token));
+  if (!needsSteelFittings) return [];
+  const reason = `Suggested because steel pipe (${pipe.pipeType || pipe.sourceText}) was detected`;
+  return [
+    { category: "Fittings", term: "Threaded Fittings", sourceText: reason },
+    { category: "Fittings", term: "Grooved Fittings", sourceText: reason },
+    { category: "Fittings", term: "Grooved Flexible Couplings", sourceText: reason },
+    { category: "Fittings", term: "Grooved Rigid Couplings - Push-On", sourceText: reason },
+  ];
+}
+
+function aliasesText(item) {
+  const aliases = item?.aliases || item?.searchAliases || item?.planScanTerms || "";
+  return Array.isArray(aliases) ? aliases.join(" ") : String(aliases || "");
+}
+
+function catalogAliasMatchesFromPlan(projectInfo) {
+  const source = normalizeSearchText(projectInfo?.scanTextSample || "");
+  if (!source) return [];
+  const results = [];
+  const seen = new Set();
+  for (const item of state.catalog) {
+    const aliases = splitAliasTerms(aliasesText(item));
+    for (const alias of aliases) {
+      const normalized = normalizeSearchText(alias);
+      if (normalized.length < 3 || !source.includes(normalized) || seen.has(item.id)) continue;
+      seen.add(item.id);
+      results.push({
+        item,
+        detected: {
+          category: item.category,
+          term: alias,
+          sourceText: `Matched custom plan scan term: ${alias}`,
+        },
+      });
+      break;
+    }
+  }
+  return results;
+}
+
+function splitAliasTerms(value) {
+  return String(value || "")
+    .split(/[,;\n]+/)
+    .map((term) => term.trim())
+    .filter(Boolean);
+}
+
+function matchSprinklerFromPlan(record) {
+  const sprinklers = state.catalog.filter((item) => item.category === "Sprinklers");
+  const modelTokens = planSprinklerModelTokens(record);
+  if (!modelTokens.length) return null;
+  const hasSinToken = modelTokens.some(isSinLikeModelToken);
+  const hasOnlyBroadFamilyTokens = modelTokens.every(isBroadFamilyModelToken);
+  const criteriaCount = [record.manufacturer, record.kFactor, record.response, record.orientation, record.type].filter(Boolean).length;
+  if (!hasSinToken && hasOnlyBroadFamilyTokens && criteriaCount < 2) return null;
+  const exact = sprinklers
+    .map((item) => ({ item, score: scoreSprinklerMatch(item, record, modelTokens) }))
+    .filter((entry) => entry.score >= 12)
+    .sort((a, b) => b.score - a.score)[0];
+  return exact ? { item: exact.item, status: isRemoteCatalogItem(exact.item) ? "import" : "exact" } : null;
+}
+
+function scoreSprinklerMatch(item, record, modelTokens = []) {
+  const text = normalizeSearchText(searchableRawText(item));
+  const detectedSinTokens = modelTokens.filter(isSinLikeModelToken);
+  const itemSinTokens = itemSprinklerSinTokens(item);
+  const sinOverlap = detectedSinTokens.filter((token) => itemSinTokens.has(token));
+  if (detectedSinTokens.length && item.sinNumbers && !sinOverlap.length) return -1000;
+  if (detectedSinTokens.length && itemSinTokens.size && !sinOverlap.length) return -1000;
+  if (detectedSinTokens.length && !sinOverlap.length && !detectedSinTokens.some((token) => text.includes(token))) return -1000;
+  let score = 0;
+  if (sinOverlap.length) score += 20;
+  if (modelTokens.some((token) => text.includes(token))) score += detectedSinTokens.length ? 8 : 12;
+  score += scoreSprinklerModelSpecificity(item, record, modelTokens);
+  if (record.manufacturer && normalize(item.manufacturer || "").includes(normalize(record.manufacturer))) score += 3;
+  if (record.kFactor && itemKFactors(item).some((value) => normalizeKFactor(value) === normalizeKFactor(record.kFactor))) score += 2;
+  if (record.response && itemMatchesSprinklerResponse(item, normalizeResponse(record.response))) {
+    score += 1;
+  } else if (record.response) {
+    score -= 3;
+  }
+  const planOrientations = splitPlanOrientation(record.orientation);
+  if (planOrientations.length && planOrientations.some((value) => itemMatchesSprinklerOrientation(item, value))) {
+    score += 2;
+  } else if (planOrientations.length) {
+    score -= 8;
+  }
+  if (record.type && itemMatchesSprinklerType(item, normalizeFilterText(record.type))) score += 1;
+  return score;
+}
+
+function itemSprinklerSinTokens(item) {
+  const values = [
+    item.sinNumbers,
+    item.model,
+  ];
+  const tokens = new Set();
+  const pattern = /\b(?:VK\d{2,5}[A-Z0-9/-]*|R[A-Z]?\d{4}|RA\d{3,5}[A-Z0-9/-]*|TY\d{3,5}[A-Z0-9/-]*|V\d{3,4}[A-Z0-9/-]*|SS\d{3,5}|GL\d{3,5})\b/gi;
+  for (const value of values) {
+    for (const match of String(value || "").matchAll(pattern)) {
+      tokens.add(normalizeModel(match[0]));
+    }
+  }
+  return tokens;
+}
+
+function isSinLikeModelToken(token) {
+  return /^(?:vk\d{2,5}|r[a-z]?\d{4}|ra\d{3,5}|ty\d{3,5}|v\d{3,4}|ss\d{3,5}|gl\d{3,5})/.test(token);
+}
+
+function isBroadFamilyModelToken(token) {
+  return /^(?:fl-|rc|rcres|series|model)$/.test(token) || token === "flqr" || token === "flqrc";
+}
+
+function scoreSprinklerModelSpecificity(item, record, modelTokens) {
+  const itemText = normalizeSearchText([item.model, item.product, item.datasheetTitle, displayName(item)].join(" "));
+  const sourceText = normalizeSearchText(record?.sourceLine || "");
+  const hasDetectedSin = modelTokens.some(isSinLikeModelToken);
+  let score = 0;
+  for (const token of modelTokens) {
+    if (!token || !itemText.includes(token)) continue;
+    if (hasDetectedSin && !isSinLikeModelToken(token)) continue;
+    if (new RegExp(`\\b${escapeRegExp(token)}\\s+series\\b`).test(itemText)) score += 3;
+    if ((itemText.includes(`${token} 300`) || /\bhigh pressure\b/.test(itemText)) && !sourceText.includes("300")) score -= 3;
+    if ((itemText.includes(`${token} ll`) || /\blow lead\b/.test(itemText)) && !/\bll\b|\blow lead\b/.test(sourceText)) score -= 3;
+  }
+  if (normalizeFilterText(record?.type || "") === "standard coverage" && /\b(qrec|extended coverage)\b/.test(itemText)) score -= 3;
+  return score;
+}
+
+function planSprinklerModelTokens(record) {
+  const values = [
+    record?.model,
+    ...(Array.isArray(record?.modelCandidates) ? record.modelCandidates : []),
+  ];
+  const source = String(record?.sourceLine || "");
+  const pattern = /\b(?:VK\d{2,5}[A-Z0-9/-]*|R[A-Z]?\d{4}|RA\d{3,5}[A-Z0-9/-]*|F\dFR\d+[A-Z0-9/-]*|RFC\d+[A-Z0-9/-]*|TY\d{3,5}[A-Z0-9/-]*|TY-[A-Z0-9/-]+|V\d{3,4}[A-Z0-9/-]*|SS\d{3,5}|RC[-A-Z0-9/]+|FL-[A-Z0-9/]+)\b/gi;
+  for (const match of source.matchAll(pattern)) {
+    values.push(match[0]);
+  }
+  const tokens = [...new Set(values.map((value) => normalizeModel(value)).filter(Boolean))];
+  return tokens.some(isSinLikeModelToken) ? tokens.filter(isSinLikeModelToken) : tokens;
+}
+
+function findSprinklerCriteriaOptions(record) {
+  return state.catalog
+    .filter((item) => item.category === "Sprinklers")
+    .filter((item) => {
+      if (record.manufacturer && normalize(item.manufacturer || "") !== normalize(record.manufacturer)) return false;
+      if (record.kFactor && !itemKFactors(item).some((value) => normalizeKFactor(value) === normalizeKFactor(record.kFactor))) return false;
+      if (record.response && !itemMatchesSprinklerResponse(item, normalizeResponse(record.response))) return false;
+      if (record.orientation && !splitPlanOrientation(record.orientation).some((value) => itemMatchesSprinklerOrientation(item, value))) return false;
+      if (record.type && !itemMatchesSprinklerType(item, normalizeFilterText(record.type))) return false;
+      return true;
+    })
+    .sort(compareCatalogItems);
+}
+
+function matchPipeFromPlan(record) {
+  const label = normalize(record.pipeType || "");
+  if (!label) return null;
+  const pipes = state.catalog.filter((item) => item.category === "Pipe");
+  const scored = pipes
+    .map((item) => ({ item, score: scorePipeMatch(item, label) }))
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score)[0];
+  return scored ? { item: scored.item, status: isRemoteCatalogItem(scored.item) ? "import" : "exact" } : null;
+}
+
+function matchCatalogTermFromPlan(record, category) {
+  const terms = planCatalogSearchTerms(record);
+  if (!terms.length) return null;
+  const scored = state.catalog
+    .filter((item) => item.category === category)
+    .map((item) => ({ item, score: scoreCatalogTermMatch(item, terms) }))
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score)[0];
+  return scored ? { item: scored.item, status: isRemoteCatalogItem(scored.item) ? "import" : "exact" } : null;
+}
+
+function planCatalogSearchTerms(record) {
+  const values = [
+    record?.term,
+    record?.model,
+    record?.product,
+    record?.sourceText,
+  ];
+  return [...new Set(values.flatMap((value) => catalogMatchTerms(value)).filter((token) => token.length > 2 || /^(?:fig|af|b)\d+/i.test(token)))];
+}
+
+function catalogMatchTerms(value) {
+  const raw = String(value || "");
+  return [...searchTokens(raw), ...catalogModelTerms(raw)];
+}
+
+function catalogModelTerms(value) {
+  const raw = String(value || "");
+  const terms = [];
+  for (const match of raw.matchAll(/\bfig(?:ure)?\.?\s*([0-9]{1,4}[A-Z]?)\b/gi)) {
+    terms.push(`fig${match[1].toLowerCase()}`);
+  }
+  for (const match of raw.matchAll(/\b(AF0\d{2,3}|B30(?:33|34|37|42T))\b/gi)) {
+    terms.push(match[1].toLowerCase());
+  }
+  return terms;
+}
+
+function scoreCatalogTermMatch(item, terms) {
+  const text = searchableText(item);
+  const compact = normalize(searchableRawText(item));
+  let score = 0;
+  for (const term of terms) {
+    if (/^(?:fig|af|b)\d+/i.test(term) && compact.includes(normalize(term))) {
+      score += 30;
+      continue;
+    }
+    if (text.includes(term)) score += term.length > 5 ? 3 : 1;
+  }
+  return score;
+}
+
+function scorePipeMatch(item, label) {
+  const text = normalize([item.pipeType, item.product, item.displayTitle, displayName(item)].join(" "));
+  if (label === "sch 10" && /sch\.? 10/.test(text)) return text.includes("sch 40") ? 4 : 8;
+  if (label === "sch 40" && /sch\.? 40/.test(text)) return text.includes("sch 10") ? 4 : 8;
+  if (label.includes("steel") && /sch\.? 10/.test(text) && /sch\.? 40/.test(text)) return 6;
+  if (label === "mega thread" && text.includes("mega thread")) return 8;
+  if (label === "mega flow" && text.includes("mega flow")) return 8;
+  if (label && text.includes(label)) return 8;
+  if (label === "cpvc" && /cpvc|blazemaster|flameguard/.test(text)) return 7;
+  if (label === "ductile iron" && /ductile iron/.test(text)) return 7;
+  return 0;
+}
+
+function normalizeModel(value) {
+  return normalizeSearchText(String(value || "").replace(/[^a-zA-Z0-9.-]/g, ""));
+}
+
+function normalizeKFactor(value) {
+  const match = String(value || "").match(/\d+(?:\.\d+)?/);
+  return match ? String(Number(match[0])) : "";
+}
+
+function normalizeResponse(value) {
+  const text = normalize(value);
+  if (text.startsWith("quick") || text === "qr") return "quick";
+  if (text.startsWith("fast") || text === "fr") return "fast";
+  if (text.startsWith("standard") || text === "sr") return "standard";
+  return text || "na";
+}
+
+function populatePlansReviewDialog(review) {
+  dom.plansReviewProjectNameInput.value = review.project.name;
+  dom.plansReviewProjectAddressInput.value = review.project.address;
+  dom.plansReviewSummary.textContent = `Detected from ${review.project.source}. Confidence: ${review.project.confidence}. Confirm project/contractor information and approve catalog matches before applying.`;
+  populateProjectNameCandidates(review.project.nameCandidates || [], review.project.name);
+
+  const contractor = review.contractor || {};
+  const hasContractor = Boolean(contractor.name || contractor.address || contractor.license || contractor.phone);
+  dom.plansReviewContractorPanel.hidden = !hasContractor;
+  dom.plansReviewApplyContractorInput.checked = hasContractor;
+  dom.plansReviewContractorNameInput.value = contractor.name || "";
+  dom.plansReviewContractorAddressInput.value = contractor.address || "";
+  dom.plansReviewContractorLicenseInput.value = contractor.license || "";
+  dom.plansReviewContractorPhoneInput.value = contractor.phone || "";
+
+  refreshPlansReviewSuggestionList(review);
+}
+
+function populateProjectNameCandidates(candidates, selectedName) {
+  if (!dom.plansReviewProjectNameCandidates || !dom.plansReviewProjectNameCandidatesLabel) return;
+  const unique = [];
+  const seen = new Set();
+  for (const candidate of candidates) {
+    const name = detectedProjectCaps(candidate?.name || "");
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    unique.push({ ...candidate, name });
+  }
+  dom.plansReviewProjectNameCandidatesLabel.hidden = unique.length < 2;
+  dom.plansReviewProjectNameCandidates.innerHTML = unique.map((candidate, index) => {
+    const reasons = Array.isArray(candidate.reasons) ? candidate.reasons.join(", ") : "";
+    const label = `${candidate.name}${index === 0 ? " (recommended)" : ""}${reasons ? ` - ${reasons}` : ""}`;
+    return `<option value="${escapeHtml(candidate.name)}">${escapeHtml(label)}</option>`;
+  }).join("");
+  dom.plansReviewProjectNameCandidates.value = detectedProjectCaps(selectedName || unique[0]?.name || "");
+  dom.plansReviewProjectNameCandidates.onchange = () => {
+    dom.plansReviewProjectNameInput.value = dom.plansReviewProjectNameCandidates.value;
+  };
+}
+
+function refreshPlansReviewSuggestionList(review) {
+  review.suggestions = dedupePlanChoiceRows(review.suggestions);
+  dom.plansReviewSuggestions.innerHTML = renderPlansReviewSuggestions(review.suggestions);
+  const visibleMatches = review.suggestions.filter((suggestion) => suggestion.item || suggestion.options?.length).length;
+  const importCount = review.suggestions.filter((suggestion) => {
+    const item = planSuggestionSelectedItem(suggestion);
+    return item && isRemoteCatalogItem(item);
+  }).length;
+  if (dom.plansReviewImportApplyButton) {
+    dom.plansReviewImportApplyButton.hidden = importCount === 0;
+    dom.plansReviewImportApplyButton.textContent = importCount
+      ? `Import All Missing Datasheet${importCount === 1 ? "" : "s"}`
+      : "Import All Missing Datasheets";
+  }
+  if (!visibleMatches) {
+    dom.plansReviewSuggestions.innerHTML = '<p class="empty-category">No exact datasheet matches were found in the plans text.</p>';
+  }
+}
+
+function renderPlansReviewSuggestions(suggestions) {
+  if (!suggestions.length) {
+    return '<p class="empty-category">No sprinkler or pipe datasheet matches were found in the plans text.</p>';
+  }
+  return suggestions.map((suggestion, index) => {
+    const choiceItem = planSuggestionSelectedItem(suggestion);
+    if (suggestion.options?.length) {
+      const checked = suggestion.checked ? "checked" : "";
+      const selectedItem = choiceItem || suggestion.options[0];
+      const action = selectedItem && isRemoteCatalogItem(selectedItem)
+        ? `<button class="small-button download-button plan-import-button" type="button" data-plan-import="${index}">Import Datasheet</button>`
+        : `<span class="plan-suggestion-badge">Choose</span>`;
+      const options = suggestion.options.map((item) => (
+        `<option value="${escapeHtml(item.id)}" ${item.id === selectedItem?.id ? "selected" : ""}>${escapeHtml(displayName(item))}${isRemoteCatalogItem(item) ? " (import needed)" : ""}</option>`
+      )).join("");
+      return `
+        <article class="plan-suggestion-row choice-row">
+          <input type="checkbox" data-plan-suggestion="${index}" ${checked} />
+          <span>
+            <span class="plan-suggestion-title">${escapeHtml(suggestion.label || "Choose Datasheet")}</span>
+            <span class="plan-suggestion-meta">${escapeHtml(planDetectedSummary(suggestion.detected))}</span>
+            <select class="plan-suggestion-select" data-plan-choice="${index}" aria-label="Choose ${escapeHtml(suggestion.label || "datasheet")}">
+              ${options}
+            </select>
+          </span>
+          ${action}
+        </article>
+      `;
+    }
+    if (suggestion.item) {
+      const disabled = suggestion.selectable ? "" : "disabled";
+      const checked = suggestion.selectable && suggestion.checked === true ? "checked" : "";
+      const badge = suggestion.status === "import" ? "Import needed" : "Matched";
+      const action = suggestion.status === "import"
+        ? `<button class="small-button download-button plan-import-button" type="button" data-plan-import="${index}">Import Datasheet</button>`
+        : `<span class="plan-suggestion-badge">${escapeHtml(badge)}</span>`;
+      return `
+        <article class="plan-suggestion-row">
+          <input type="checkbox" data-plan-suggestion="${index}" ${checked} ${disabled} />
+          <span>
+            <span class="plan-suggestion-title">${escapeHtml(displayName(suggestion.item))}</span>
+            <span class="plan-suggestion-meta">${escapeHtml(planDetectedSummary(suggestion.detected))}</span>
+          </span>
+          ${action}
+        </article>
+      `;
+    }
+    return "";
+  }).join("");
+}
+
+function planSuggestionSelectedItem(suggestion) {
+  if (!suggestion) return null;
+  if (suggestion.item) return suggestion.item;
+  if (!Array.isArray(suggestion.options) || !suggestion.options.length) return null;
+  return suggestion.options.find((item) => item.id === suggestion.selectedId) || suggestion.options[0] || null;
+}
+
+function planDetectedSummary(detected) {
+  return [
+    detected.manufacturer,
+    detected.model,
+    detected.term,
+    detected.pipeType,
+    detected.kFactor ? `K${detected.kFactor}` : "",
+    detected.response,
+    detected.orientation,
+    detected.type,
+  ].filter(Boolean).join(" | ") || detected.sourceLine || detected.sourceText || "Detected from plans";
+}
+
+function showPlansReviewDialog(review) {
+  return new Promise((resolve) => {
+    const onCancel = () => {
+      cleanup();
+      closeDialogSafely(dom.plansReviewDialog);
+      resolve(false);
+    };
+    const onApply = () => {
+      applyPlansReviewSelections(review);
+      cleanup();
+      closeDialogSafely(dom.plansReviewDialog);
+      resolve(true);
+    };
+    const onImportAllMissing = async () => {
+      if (!dom.plansReviewImportApplyButton) return;
+      dom.plansReviewImportApplyButton.disabled = true;
+      dom.plansReviewImportApplyButton.textContent = "Importing...";
+      const ok = await importMissingPlanSuggestions(review, { selectImported: false, onlyChecked: false });
+      dom.plansReviewImportApplyButton.disabled = false;
+      if (!ok) {
+        refreshPlansReviewSuggestionList(review);
+        return;
+      }
+      refreshPlansReviewSuggestionList(review);
+    };
+    const onSelectAll = () => {
+      dom.plansReviewSuggestions.querySelectorAll("[data-plan-suggestion]:not(:disabled)").forEach((input) => {
+        input.checked = true;
+        const suggestion = review.suggestions[Number(input.dataset.planSuggestion)];
+        if (suggestion) suggestion.checked = true;
+      });
+    };
+    const onImport = async (event) => {
+      const button = event.target.closest("[data-plan-import]");
+      if (!button) return;
+      const index = Number(button.dataset.planImport);
+      const suggestion = review.suggestions[index];
+      const item = planSuggestionSelectedItem(suggestion);
+      if (!item) return;
+      button.disabled = true;
+      button.textContent = "Importing...";
+      const updated = await downloadCatalogItem(item.id);
+      if (!updated) {
+        button.disabled = false;
+        button.textContent = "Import Datasheet";
+        return;
+      }
+      if (suggestion.item) suggestion.item = updated;
+      if (Array.isArray(suggestion.options)) {
+        suggestion.options = suggestion.options.map((option) => option.id === item.id ? updated : option);
+        suggestion.selectedId = updated.id;
+      }
+      suggestion.status = "exact";
+      suggestion.selectable = true;
+      suggestion.checked = Boolean(suggestion.checked);
+      refreshPlansReviewSuggestionList(review);
+    };
+    const onChoiceChange = (event) => {
+      const checkbox = event.target.closest("[data-plan-suggestion]");
+      if (checkbox) {
+        const suggestion = review.suggestions[Number(checkbox.dataset.planSuggestion)];
+        if (suggestion) suggestion.checked = checkbox.checked;
+        if (suggestion?.options?.length || (suggestion?.item && isRemoteCatalogItem(suggestion.item))) {
+          refreshPlansReviewSuggestionList(review);
+        }
+        return;
+      }
+      const select = event.target.closest("[data-plan-choice]");
+      if (!select) return;
+      const suggestion = review.suggestions[Number(select.dataset.planChoice)];
+      if (!suggestion) return;
+      suggestion.selectedId = select.value;
+      suggestion.checked = true;
+      refreshPlansReviewSuggestionList(review);
+    };
+    const onBackdropClick = (event) => {
+      if (event.target !== dom.plansReviewDialog) return;
+      const ok = window.confirm("Close this scan result? The detected results will not be saved unless you apply them first.");
+      if (!ok) return;
+      cleanup();
+      closeDialogSafely(dom.plansReviewDialog);
+      resolve(false);
+    };
+    const cleanup = () => {
+      dom.plansReviewCancelButton.removeEventListener("click", onCancel);
+      dom.plansReviewSelectAllButton?.removeEventListener("click", onSelectAll);
+      dom.plansReviewImportApplyButton?.removeEventListener("click", onImportAllMissing);
+      dom.plansReviewApplyButton.removeEventListener("click", onApply);
+      dom.plansReviewSuggestions.removeEventListener("click", onImport);
+      dom.plansReviewSuggestions.removeEventListener("change", onChoiceChange);
+      dom.plansReviewDialog.removeEventListener("cancel", onCancel);
+      dom.plansReviewDialog.removeEventListener("click", onBackdropClick);
+    };
+    dom.plansReviewCancelButton.addEventListener("click", onCancel);
+    dom.plansReviewSelectAllButton?.addEventListener("click", onSelectAll);
+    dom.plansReviewImportApplyButton?.addEventListener("click", onImportAllMissing);
+    dom.plansReviewApplyButton.addEventListener("click", onApply);
+    dom.plansReviewSuggestions.addEventListener("click", onImport);
+    dom.plansReviewSuggestions.addEventListener("change", onChoiceChange);
+    dom.plansReviewDialog.addEventListener("cancel", onCancel);
+    dom.plansReviewDialog.addEventListener("click", onBackdropClick);
+    const opened = openDialogSafely(dom.plansReviewDialog);
+    if (!opened) {
+      cleanup();
+      throw new Error("The browser did not allow the scan review dialog to open.");
+    }
+    requestAnimationFrame(() => {
+      dom.plansReviewDialog.scrollTop = 0;
+      dom.plansReviewDialog.querySelector("form")?.scrollTo?.(0, 0);
+      dom.plansReviewDialog.querySelector(".dialog-heading")?.scrollIntoView?.({ block: "start" });
+    });
+  });
+}
+
+function openDialogSafely(dialog) {
+  if (!dialog) return false;
+  if (dialog.open) closeDialogSafely(dialog);
+  const resetDialogScroll = () => {
+    requestAnimationFrame(() => {
+      dialog.scrollTop = 0;
+      dialog.querySelector("form")?.scrollTo?.(0, 0);
+      dialog.querySelector(".preview-dialog-shell")?.scrollTo?.(0, 0);
+      dialog.querySelector(".pdf-annotation-workspace")?.scrollTo?.(0, 0);
+      dialog.querySelector(".dialog-heading, .preview-dialog-heading, .pdf-annotation-header")?.scrollIntoView?.({ block: "start" });
+    });
+  };
+  try {
+    if (typeof dialog.showModal === "function") {
+      dialog.showModal();
+      resetDialogScroll();
+      return true;
+    }
+  } catch (error) {
+    console.warn("showModal failed; trying non-modal dialog fallback", error);
+  }
+  try {
+    if (typeof dialog.show === "function") {
+      dialog.show();
+      resetDialogScroll();
+      return true;
+    }
+  } catch (error) {
+    console.warn("show failed; trying open attribute fallback", error);
+  }
+  try {
+    dialog.setAttribute("open", "");
+    resetDialogScroll();
+    return true;
+  } catch (error) {
+    console.error("Dialog open fallback failed", error);
+    return false;
+  }
+}
+
+function closeDialogSafely(dialog) {
+  if (!dialog) return;
+  try {
+    if (dialog.open && typeof dialog.close === "function") {
+      dialog.close();
+      return;
+    }
+  } catch (error) {
+    console.warn("Dialog close failed; removing open attribute", error);
+  }
+  dialog.removeAttribute("open");
+}
+
+async function importMissingPlanSuggestions(review, { selectImported = false, onlyChecked = true } = {}) {
+  const missing = review.suggestions.filter((suggestion) => {
+    const item = planSuggestionSelectedItem(suggestion);
+    return item && isRemoteCatalogItem(item) && (!onlyChecked || suggestion.checked);
+  });
+  for (const suggestion of missing) {
+    const item = planSuggestionSelectedItem(suggestion);
+    const updated = await downloadCatalogItem(item.id);
+    if (!updated) return false;
+    if (suggestion.item) suggestion.item = updated;
+    if (Array.isArray(suggestion.options)) {
+      suggestion.options = suggestion.options.map((option) => option.id === item.id ? updated : option);
+      suggestion.selectedId = updated.id;
+    }
+    suggestion.status = "exact";
+    suggestion.selectable = true;
+    if (selectImported) suggestion.checked = true;
+  }
+  refreshPlansReviewSuggestionList(review);
+  return true;
+}
+
+function applyPlansReviewSelections(review) {
+  applyReviewedProjectInfo(dom.plansReviewProjectNameInput.value.trim(), dom.plansReviewProjectAddressInput.value.trim());
+  if (dom.plansReviewApplyContractorInput.checked) {
+    applyPlansContractor();
+  }
+  const selected = new Set(state.selectedIds);
+  let added = 0;
+  dom.plansReviewSuggestions.querySelectorAll("[data-plan-suggestion]:checked").forEach((input) => {
+    const suggestion = review.suggestions[Number(input.dataset.planSuggestion)];
+    const item = planSuggestionSelectedItem(suggestion);
+    if (!item || isRemoteCatalogItem(item)) return;
+    selected.add(item.id);
+    if (!state.tocTitles[item.id]) state.tocTitles[item.id] = displayName(item);
+    added += 1;
+  });
+  state.selectedIds = [...selected];
+  renderAll();
+  setGenerateStatus(`Plans scan applied. ${added} datasheet${added === 1 ? "" : "s"} added to this submittal.`, "success");
+  // In Quick mode, scanning plans + applying datasheets completes step 1 — advance to step 2.
+  if (state.viewMode === "simple" && state.simpleStep === "intake") {
+    window.setTimeout(() => {
+      if (state.viewMode === "simple" && state.simpleStep === "intake") setSimpleStep("contractor");
+    }, 600);
+  }
+}
+
+function applyPlansContractor() {
+  const contractor = {
+    id: "",
+    name: dom.plansReviewContractorNameInput.value.trim(),
+    address: dom.plansReviewContractorAddressInput.value.trim(),
+    license: dom.plansReviewContractorLicenseInput.value.trim(),
+    phone: dom.plansReviewContractorPhoneInput.value.trim(),
+    logo: "",
+    disclaimer: dom.disclaimerInput.value.trim() || DEFAULT_DISCLAIMER,
+  };
+  if (!contractor.name && !contractor.address && !contractor.license && !contractor.phone) return;
+  const matched = matchSavedContractor(contractor);
+  if (matched) {
+    state.activeContractorId = matched.id;
+    const merged = { ...matched, ...Object.fromEntries(Object.entries(contractor).filter(([, value]) => value)) };
+    const index = state.contractors.findIndex((entry) => entry.id === matched.id);
+    if (index >= 0) state.contractors[index] = merged;
+  } else {
+    contractor.id = crypto.randomUUID();
+    state.contractors.push(contractor);
+    state.activeContractorId = contractor.id;
+  }
+  syncInputsFromState();
+}
+
+function applyPlanSuggestionFilters(detected) {
+  state.catalogSearch = "";
+  if (dom.catalogSearchInput) dom.catalogSearchInput.value = "";
+  state.activeCategory = "Sprinklers";
+  const filters = categoryFilterState("Sprinklers");
+  filters.manufacturer = detected.manufacturer || "";
+  filters.kFactor = detected.kFactor || "";
+  filters.response = detected.response ? normalizeResponse(detected.response) : "";
+  filters.orientation = sprinklerFilterOrientation(detected.orientation);
+  filters.type = normalizeFilterText(detected.type || "");
+  renderCatalog();
+  setGenerateStatus("Applied the detected sprinkler criteria to the catalog filters.", "info");
+}
+
+function splitPlanOrientation(value) {
+  return String(value || "").split(",").map((entry) => normalizeFilterText(entry)).filter(Boolean);
+}
+
+function sprinklerFilterOrientation(value) {
+  const text = normalizeFilterText(value || "");
+  const match = SPRINKLER_ORIENTATIONS.find((orientation) => text.includes(orientation.value));
+  return match?.value || "";
+}
+
+function normalizeFilterText(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function extractProjectInfoFromText(text, source = "image") {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const nameFromLabel = findLabeledValue(lines, /(project|job|site)\s*(name|title)?/i);
+  const addressFromLabel = findLabeledValue(lines, /(project\s*)?(address|location)/i);
+  const addressFromPattern = findBestAddressFromLines(lines) || findAddress(text) || findCityStateAddress(lines);
+  const address = addressFromLabel || addressFromPattern || "";
+  const name = nameFromLabel || findProjectNameNearAddress(lines, address) || findLikelyProjectName(lines, address) || "";
+  const addressCheck = validateProjectAddress(address);
+
+  return {
+    name,
+    address,
+    addressLooksValid: addressCheck.ok,
+    confidence: name && addressCheck.ok ? "medium" : "low",
+    source,
+    notes: addressCheck.message ? [addressCheck.message] : [],
+    textPreview: text.slice(0, 1200),
+  };
+}
+
+function findLabeledValue(lines, pattern) {
+  for (const line of lines) {
+    const match = line.match(/^([^:]+):\s*(.+)$/);
+    if (match && pattern.test(match[1])) return match[2].trim();
+  }
+  return "";
+}
+
+function findAddress(text) {
+  const addressMatch = text.match(/\b\d{1,6}(?:-\d{1,6})?\s+(?:[NSEW]\.?\s+)?[A-Za-z0-9.'#& -]+?\s+(?:Street|St\.?|Avenue|Ave\.?|Road|Rd\.?|Drive|Dr\.?|Lane|Ln\.?|Boulevard|Blvd\.?|Way|Court|Ct\.?|Place|Pl\.?|Highway|Hwy\.?|Parkway|Pkwy\.?|Circle|Cir\.?|Loop|Terrace|Ter\.?|Trail|Trl\.?)(?:\s+\d{1,4})?\b(?:\s+(?:Suite|Ste\.?|Unit|#)\s*[A-Za-z0-9-]+)?(?:[,\s]+[A-Za-z .'-]+,?\s+[A-Z]{2}\.?,?)?(?:\s*\d{5}(?:-\d{4})?)?/i);
+  if (!addressMatch) return "";
+  return formatDetectedAddress(addressMatch[0]);
+}
+
+function findBestAddressFromLines(lines) {
+  for (let index = 0; index < lines.length; index += 1) {
+    const street = findAddress(lines[index]);
+    if (!street) continue;
+    if (/,\s*[A-Za-z .'-]+,\s*[A-Z]{2}\.?\b/.test(street)) return street;
+    for (const candidate of lines.slice(index + 1, index + 8)) {
+      const cityState = findCityStateInLine(candidate);
+      if (cityState) return formatDetectedAddress(`${street}, ${cityState}`);
+    }
+    return street;
+  }
+  return "";
+}
+
+function findCityStateAddress(lines) {
+  for (const line of lines) {
+    const cityState = findCityStateInLine(line);
+    if (cityState) return cityState;
+  }
+  return "";
+}
+
+function findCityStateInLine(line) {
+  const match = String(line || "").trim().match(/^([A-Za-z .'-]+),?\s+([A-Z]{2})\.?,?\s*(\d{5}(?:-\d{4})?)?$/i);
+  if (!match || !match[3]) return "";
+  return `${projectTitleCase(match[1])}, ${match[2].toUpperCase()} ${match[3]}`;
+}
+
+function formatDetectedAddress(value) {
+  let address = String(value || "").replace(/\s+/g, " ").trim().replace(/\b(St|Ave|Blvd|Rd|Dr|Ln|Ct|Pl|Hwy|Pkwy|Cir|Ter|Trl)\.\s+([A-Za-z .'-]+,\s*[A-Z]{2})\b/i, "$1, $2");
+  address = address.replace(/\b((?:Street|St\.?|Avenue|Ave\.?|Road|Rd\.?|Drive|Dr\.?|Lane|Ln\.?|Boulevard|Blvd\.?|Way|Court|Ct\.?|Place|Pl\.?|Highway|Hwy\.?|Parkway|Pkwy\.?|Circle|Cir\.?|Loop|Terrace|Ter\.?|Trail|Trl\.?)(?:\s+\d{1,4})?)\s+([A-Za-z .'-]+),\s*([A-Z]{2})\b/i, "$1, $2, $3");
+  address = address.replace(/,\s*([A-Z]{2})\.?,\s*(\d{5})\b/i, ", $1 $2").replace(/\s+([A-Z]{2})\.?\s+(\d{5})\b/i, ", $1 $2");
+  const parts = address.split(",").map((part) => part.trim()).filter(Boolean);
+  if (parts.length >= 3 && /^[A-Z]{2}\.?(?:\s+\d{5}(?:-\d{4})?)?$/i.test(parts.at(-1))) {
+    return `${projectTitleCase(parts[0])}, ${projectTitleCase(parts.slice(1, -1).join(" "))}, ${parts.at(-1).replace(".", "").toUpperCase()}`;
+  }
+  return address === address.toUpperCase() ? projectTitleCase(address) : address;
+}
+
+function findProjectNameNearAddress(lines, address) {
+  if (!address) return "";
+  const addressKey = normalize(address);
+  const street = address.match(/\d{1,6}(?:-\d{1,6})?\s+.+?(?:Street|St\.?|Avenue|Ave\.?|Road|Rd\.?|Drive|Dr\.?|Lane|Ln\.?|Boulevard|Blvd\.?|Way|Court|Ct\.?|Place|Pl\.?|Highway|Hwy\.?|Parkway|Pkwy\.?|Circle|Cir\.?|Loop|Terrace|Ter\.?|Trail|Trl\.?)(?:\s+\d{1,4})?/i)?.[0] || address;
+  const streetKey = normalize(street);
+  for (let index = 0; index < lines.length; index += 1) {
+    const lineKey = normalize(lines[index]);
+    if (!lineKey || (!lineKey.includes(streetKey) && !addressKey.includes(lineKey))) continue;
+    const candidates = [];
+    for (const candidate of lines.slice(Math.max(0, index - 6), index).reverse()) {
+      const value = cleanProjectNameCandidate(candidate);
+      if (isProjectNameCandidate(value)) candidates.push(value);
+      if (candidates.length >= 3) break;
+    }
+    candidates.reverse();
+    const group = cleanProjectNameCandidate(candidates.join(" "));
+    if (group && group.split(/\s+/).length <= 8) candidates.push(group);
+    if (candidates.length) return candidates.sort((a, b) => scoreProjectNameCandidate(b) - scoreProjectNameCandidate(a))[0];
+  }
+  return "";
+}
+
+function findLikelyProjectName(lines, address) {
+  const ignored = /(sprinkler|legend|symbol|pipe|fitting|hanger|valve|scale|sheet|drawing|north|revision|title block|approved|checked|drawn|date|code|details?|architect|engineer|contractor|fire protection)/i;
+  for (const line of lines.slice(0, 20)) {
+    if (address && line.includes(address)) continue;
+    if (findAddress(line)) continue;
+    if (ignored.test(line)) continue;
+    const value = cleanProjectNameCandidate(line);
+    if (isProjectNameCandidate(value)) return value;
+  }
+  return "";
+}
+
+function cleanProjectNameCandidate(value) {
+  value = String(value || "").replace(/^(?:project|project name|project title|job name|site name)\s*[:#-]?\s*/i, "").replace(/\s+/g, " ").trim();
+  if (value.toUpperCase() === value && /[A-Z]/.test(value)) return projectTitleCase(value);
+  return value;
+}
+
+function isProjectNameCandidate(value) {
+  if (!value || value.length < 4 || value.length > 100) return false;
+  if (findAddress(value)) return false;
+  if (/^[\d\s.,#/-]+$/.test(value)) return false;
+  if (/(sprinkler|legend|symbol|pipe|fitting|hanger|valve|scale|sheet|drawing|north|revision|title block|approved|checked|drawn|date|code|details?|architect|engineer|contractor|fire protection|underground plans)/i.test(value)) return false;
+  return /[a-z]/i.test(value);
+}
+
+function scoreProjectNameCandidate(value) {
+  let score = 0;
+  if (/\b(apartments?|restaurant|hotel|school|tenant|improvement|center|building|residence|residential|company|warehouse|base|garage|plaza|pavilion|remodeling|addition)\b/i.test(value)) score += 5;
+  const words = value.split(/\s+/);
+  if (words.length >= 2 && words.length <= 7) score += 2;
+  if (value === value.toUpperCase()) score += 1;
+  return score;
+}
+
+function projectTitleCase(value) {
+  return String(value || "").split(/\s+/).map((word) => /\d/.test(word) ? word.toUpperCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(" ");
+}
+
+function validateProjectAddress(address) {
+  if (!address) return { ok: false, message: "No address was detected. Please type it in before applying." };
+  const hasStreet = /\b\d{1,6}(?:-\d{1,6})?\s+.+\s(?:Street|St\.?|Avenue|Ave\.?|Road|Rd\.?|Drive|Dr\.?|Lane|Ln\.?|Boulevard|Blvd\.?|Way|Court|Ct\.?|Place|Pl\.?|Highway|Hwy\.?|Parkway|Pkwy\.?|Circle|Cir\.?|Loop|Terrace|Ter\.?|Trail|Trl\.?)\b/i.test(address);
+  const hasCityState = /,\s*[A-Za-z .'-]+,\s*[A-Z]{2}\.?\b/.test(address);
+  const hasZip = /\b\d{5}(?:-\d{4})?\b/.test(address);
+  const isCityStateZip = /^[A-Za-z .'-]+,\s*[A-Z]{2}\s+\d{5}(?:-\d{4})?$/.test(address);
+  if (hasStreet && hasCityState && hasZip) return { ok: true, message: "" };
+  if (hasStreet && hasCityState) return { ok: true, message: "Address looks usable, but no ZIP code was detected." };
+  if (isCityStateZip) return { ok: true, message: "Only city/state/ZIP was detected; confirm whether a street address is needed." };
+  if (hasStreet) return { ok: false, message: "Address has a street, but city/state/ZIP may be missing. Please confirm before applying." };
+  return { ok: false, message: "This does not look like a complete street address. Please correct it before applying." };
+}
+
+async function handleImageFile(file) {
+  if (!file || !file.type.startsWith("image/")) return;
+  setOcrStatus("Reading project information from image...");
+  const dataUrl = await readFileAsDataUrl(file);
+  dom.pastedImagePreview.src = dataUrl;
+  dom.imageIntake.classList.add("has-image");
+
+  try {
+    const text = await readTextFromImage(dataUrl);
+    if (!text.trim()) {
+      setOcrStatus("I could not find readable text in that image.");
+      return;
+    }
+
+    const accepted = await reviewProjectInfo(extractProjectInfoFromText(text, "pasted image"));
+    setOcrStatus(accepted ? "Project information added from image." : "Project information scan canceled.");
+  } catch (error) {
+    setOcrStatus("Image was pasted, but OCR could not run. Try a clearer crop of the title block.");
+  }
+}
+
+function reviewProjectInfo(projectInfo) {
+  const name = detectedProjectCaps(projectInfo.name || state.project.name || "");
+  const address = detectedProjectCaps(projectInfo.address || state.project.address || "");
+  const source = projectInfo.source || "plans";
+  const confidence = projectInfo.confidence || "low";
+  const notes = Array.isArray(projectInfo.notes) ? projectInfo.notes.filter(Boolean) : [];
+
+  if (!name && !address) {
+    setOcrStatus("I could not find a project name or address. A tighter title block crop may help.");
+    return Promise.resolve(false);
+  }
+
+  if (!dom.projectInfoReviewDialog?.showModal) {
+    if (window.confirm(`Use detected project information?\n\nProject: ${name || "(blank)"}\nAddress: ${address || "(blank)"}`)) {
+      applyReviewedProjectInfo(name, address);
+      return Promise.resolve(true);
+    }
+    return Promise.resolve(false);
+  }
+
+  dom.reviewProjectNameInput.value = name;
+  dom.reviewProjectAddressInput.value = address;
+  dom.projectInfoReviewSummary.textContent = `Detected from ${source}. Confidence: ${confidence}. Confirm or edit before filling the project fields.`;
+  updateProjectAddressWarning(notes);
+
+  return new Promise((resolve) => {
+    const cleanup = () => {
+      dom.projectInfoApplyButton.removeEventListener("click", onApply);
+      dom.projectInfoCancelButton.removeEventListener("click", onCancel);
+      dom.projectInfoReviewDialog.removeEventListener("cancel", onCancel);
+      dom.reviewProjectAddressInput.removeEventListener("input", onAddressInput);
+    };
+    const onAddressInput = () => updateProjectAddressWarning();
+    const onApply = () => {
+      const reviewedName = dom.reviewProjectNameInput.value.trim();
+      const reviewedAddress = dom.reviewProjectAddressInput.value.trim();
+      applyReviewedProjectInfo(reviewedName, reviewedAddress);
+      cleanup();
+      closeDialogSafely(dom.projectInfoReviewDialog);
+      resolve(true);
+    };
+    const onCancel = () => {
+      cleanup();
+      closeDialogSafely(dom.projectInfoReviewDialog);
+      resolve(false);
+    };
+    dom.reviewProjectAddressInput.addEventListener("input", onAddressInput);
+    dom.projectInfoApplyButton.addEventListener("click", onApply);
+    dom.projectInfoCancelButton.addEventListener("click", onCancel);
+    dom.projectInfoReviewDialog.addEventListener("cancel", onCancel);
+    if (!openDialogSafely(dom.projectInfoReviewDialog)) {
+      cleanup();
+      resolve(false);
+    }
+  });
+}
+
+function updateProjectAddressWarning(extraNotes = []) {
+  const result = validateProjectAddress(dom.reviewProjectAddressInput.value.trim());
+  const notes = [...extraNotes];
+  if (result.message) notes.push(result.message);
+  dom.projectAddressWarning.textContent = notes.join(" ");
+  dom.projectAddressWarning.hidden = !notes.length;
+}
+
+function applyReviewedProjectInfo(name, address) {
+  state.project.name = detectedProjectCaps(name);
+  state.project.address = detectedProjectCaps(address);
+  syncInputsFromState();
+  renderAll();
+}
+
+function detectedProjectCaps(value) {
+  return String(value || "").replace(/\s+/g, " ").trim().toUpperCase();
+}
+
+function readFileAsDataUrl(file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(reader.result));
+    reader.addEventListener("error", () => reject(reader.error));
+    reader.addEventListener("progress", (event) => {
+      if (event.lengthComputable && typeof onProgress === "function") {
+        onProgress(event.loaded / event.total);
+      }
+    });
+    reader.readAsDataURL(file);
+  });
+}
+
+async function readTextFromImage(dataUrl) {
+  await ensureTesseract();
+  const result = await window.Tesseract.recognize(dataUrl, "eng", {
+    logger: (progress) => {
+      if (progress.status === "recognizing text" && progress.progress) {
+        setOcrStatus(`Reading image text... ${Math.round(progress.progress * 100)}%`);
+      }
+    },
+  });
+  return result?.data?.text || "";
+}
+
+function ensureTesseract() {
+  if (window.Tesseract) return Promise.resolve();
+  if (ensureTesseract.promise) return ensureTesseract.promise;
+
+  setOcrStatus("Loading OCR engine...");
+  ensureTesseract.promise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+    script.async = true;
+    script.addEventListener("load", () => resolve());
+    script.addEventListener("error", () => reject(new Error("OCR engine failed to load")));
+    document.head.appendChild(script);
+  });
+  return ensureTesseract.promise;
+}
+
+function setOcrStatus(message) {
+  dom.ocrStatus.textContent = message;
+}
+
+function getClipboardImageFile(event) {
+  return [...(event.clipboardData?.items || [])]
+    .find((item) => item.type.startsWith("image/"))
+    ?.getAsFile();
+}
+
+function shouldUsePastedImageAsLogo(event) {
+  const target = event.target instanceof Element ? event.target : null;
+  const active = document.activeElement instanceof Element ? document.activeElement : null;
+  return Boolean(target?.closest(".contractor-section") || active?.closest("#contractorLogoDrop"));
+}
+
+function handlePaste(event) {
+  const imageFile = getClipboardImageFile(event);
+  if (!imageFile) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (shouldUsePastedImageAsLogo(event)) {
+    handleLogoFile(imageFile);
+    return;
+  }
+  if (!ensureLicensedToolAccess(setOcrStatus)) return;
+  handleImageFile(imageFile);
+}
+
+function handleDrop(event) {
+  event.preventDefault();
+  dom.imageIntake.classList.remove("drag-over");
+  const files = [...(event.dataTransfer?.files || [])].filter((item) => item.type === "application/pdf" || item.name.toLowerCase().endsWith(".pdf") || item.type.startsWith("image/"));
+  analyzeProjectInfoFile(files);
+}
+
+function handleDatasheetDrop(event) {
+  event.preventDefault();
+  dom.datasheetDrop.classList.remove("drag-over");
+  importDatasheets([...(event.dataTransfer?.files || [])]);
+}
+
+function ignoredFilesNote(totalCount, pdfCount) {
+  const ignored = totalCount - pdfCount;
+  if (ignored <= 0) return "";
+  return ` ${ignored} non-PDF${ignored === 1 ? " was" : "s were"} ignored.`;
+}
+
+function handlePdfMergeDrop(event) {
+  event.preventDefault();
+  dom.pdfMergeDrop?.classList.remove("drag-over");
+  const recentIndex = event.dataTransfer?.getData("application/x-sprinkflow-recent");
+  if (recentIndex !== "" && recentIndex != null && !Number.isNaN(Number(recentIndex))) {
+    addRecentOutputToWorkspace(Number(recentIndex));
+    return;
+  }
+  addPdfMergeFiles([...(event.dataTransfer?.files || [])]);
+}
+
+function handleLogoDrop(event) {
+  event.preventDefault();
+  dom.contractorLogoDrop?.classList.remove("drag-over");
+  const file = [...(event.dataTransfer?.files || [])].find((item) => item.type.startsWith("image/"));
+  handleLogoFile(file);
+}
+
+let aiFetchedDatasheet = null;
+
+async function findDatasheetWithAI(query, resultId = "aiDatasheetResult") {
+  query = String(query || "").trim();
+  if (query.length < 2) return;
+  if (!ensureLicensedToolAccess(setDatasheetImportStatus)) return;
+  const result = document.getElementById(resultId);
+  if (!result) return;
+  aiFetchedDatasheet = null;
+  result.hidden = false;
+  result.innerHTML = `<p class="ai-result-status">Asking AI to identify &ldquo;${escapeHtml(query)}&rdquo;&hellip;</p>`;
+  try {
+    const payload = await readApiJson("./api/identify-datasheet", { method: "POST", body: JSON.stringify({ query }) });
+    const id = payload.identification || {};
+    const conf = String(id.confidence || "low").toLowerCase();
+    const rows = [
+      ["Manufacturer", id.manufacturer], ["Model", id.model], ["Category", id.category],
+      ["K-factor", id.kFactor], ["SIN", id.sin], ["Orientation", id.orientation], ["Response", id.responseType],
+    ].filter(([, v]) => v);
+    aiFetchedDatasheet = payload.datasheet || null;
+    const title = id.product || [id.manufacturer, id.model].filter(Boolean).join(" ") || "Possible match";
+    result.innerHTML = `
+      <div class="ai-result-card">
+        <div class="ai-result-head">
+          <strong>${escapeHtml(title)}</strong>
+          <span class="ai-conf ai-conf-${escapeHtml(conf)}">${escapeHtml(conf)} confidence</span>
+        </div>
+        ${rows.length ? `<dl class="ai-result-grid">${rows.map(([k, v]) => `<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd></div>`).join("")}</dl>` : ""}
+        ${id.note ? `<p class="ai-result-note">${escapeHtml(id.note)}</p>` : ""}
+        ${aiFetchedDatasheet
+          ? `<button class="primary-button compact-button" type="button" data-ai-import="1">Import this datasheet</button>`
+          : (id.datasheetUrl || id.productUrl)
+            ? `<div class="ai-result-actions">
+                 <button class="secondary-button compact-button" type="button" data-ai-open="${escapeHtml(id.datasheetUrl || id.productUrl)}">${id.datasheetUrl ? "Open datasheet (PDF) &#8599;" : "Open manufacturer page &#8599;"}</button>
+                 <p class="ai-result-note">Opens in your browser &mdash; then use Import PDF Files above to add it.</p>
+               </div>`
+            : `<p class="ai-result-note">I couldn't find a datasheet automatically &mdash; search the manufacturer's site, then use Import PDF Files above.</p>`}
+        <p class="ai-result-disclaimer">AI suggestion &mdash; verify the model/SIN against the manufacturer datasheet before submitting.</p>
+      </div>`;
+  } catch (error) {
+    result.innerHTML = `<p class="ai-result-status error">${escapeHtml(error.message || "AI lookup is unavailable.")} You can Import PDF Files instead.</p>`;
+  }
+}
+
+async function importFetchedDatasheet() {
+  if (!aiFetchedDatasheet?.dataUrl) return;
+  try {
+    const blob = await (await fetch(aiFetchedDatasheet.dataUrl)).blob();
+    const file = new File([blob], aiFetchedDatasheet.name || "datasheet.pdf", { type: "application/pdf" });
+    importDatasheets([file]);
+  } catch (error) {
+    setDatasheetImportStatus("Could not import the fetched datasheet. Try Import PDF Files.", "error");
+  }
+}
+
+async function importDatasheets(files) {
+  if (!ensureLicensedToolAccess(setDatasheetImportStatus)) return;
+  const nextItems = [...state.catalog];
+  const pdfFiles = files.filter((file) => file.name.toLowerCase().endsWith(".pdf"));
+  if (!pdfFiles.length) {
+    if (files.length) {
+      setDatasheetImportStatus("Only PDF cut sheets are supported. Save or export the file as a PDF, then drop it again.", "error");
+    }
+    return;
+  }
+
+  setGenerateStatus(`Reading ${pdfFiles.length} dropped cut sheet${pdfFiles.length === 1 ? "" : "s"}...${ignoredFilesNote(files.length, pdfFiles.length)}`, "info");
+  setDatasheetImportStatus(`Reading ${pdfFiles.length} PDF${pdfFiles.length === 1 ? "" : "s"}...${ignoredFilesNote(files.length, pdfFiles.length)}`, "info");
+  let analyzedItems = [];
+  try {
+    analyzedItems = await analyzeUploadedDatasheets(pdfFiles);
+  } catch (error) {
+    const message = error.message || "Could not read and categorize the dropped cut sheet.";
+    setGenerateStatus(message, "error");
+    setDatasheetImportStatus(message, "error");
+    dom.datasheetInput.value = "";
+    return;
+  }
+  const selected = new Set(state.selectedIds);
+  let importedCount = 0;
+  let addedToSubmittalCount = 0;
+  const importedCategories = [];
+
+  for (let index = 0; index < pdfFiles.length; index += 1) {
+    const file = pdfFiles[index];
+    const analyzed = analyzedItems[index] || {};
+    const review = await reviewDatasheetImport(file, analyzed);
+    if (!review || review.action === "cancel") {
+      continue;
+    }
+    let imported = null;
+    try {
+      imported = await importDatasheetPermanently(file, analyzed, review);
+    } catch (error) {
+      const message = `Could not import "${file.name}": ${error.message || "Import failed."}`;
+      setGenerateStatus(message, "error");
+      setDatasheetImportStatus(message, "error");
+      continue;
+    }
+    const item = {
+      ...imported,
+      source: "database",
+      customTitle: review.displayName,
+    };
+    const existingIndex = nextItems.findIndex((entry) => entry.id === item.id || entry.relativePath === item.relativePath);
+    if (existingIndex >= 0) nextItems[existingIndex] = item;
+    else nextItems.push(item);
+    if (review.addToSubmittal) {
+      selected.add(item.id);
+      state.tocTitles[item.id] = review.displayName;
+      addedToSubmittalCount += 1;
+    } else {
+      selected.delete(item.id);
+      delete state.tocTitles[item.id];
+    }
+    importedCategories.push(item.category || review.category || "Miscellaneous");
+    importedCount += 1;
+  }
+  state.catalog = nextItems;
+  syncCategoriesFromCatalog();
+  state.selectedIds = [...selected];
+  dom.datasheetInput.value = "";
+  const categorySummary = summarizeAddedCategories(importedCategories.map((category) => ({ category })));
+  const reviewCount = analyzedItems.filter((item) => item.needsReview).length;
+  await refreshCatalog({ preserveScroll: true });
+  const message = importedCount
+    ? `${importedCount} datasheet${importedCount === 1 ? "" : "s"} imported to the catalog${categorySummary ? ` (${categorySummary})` : ""}. ${addedToSubmittalCount} added to this submittal.${reviewCount ? ` ${reviewCount} needs review because text extraction was limited.` : ""}`
+    : "No datasheets imported.";
+  const statusType = importedCount ? "success" : "info";
+  setGenerateStatus(message, statusType);
+  setDatasheetImportStatus(message, statusType);
+}
+
+async function analyzeUploadedDatasheets(files) {
+  const payloadFiles = [];
+  for (const file of files) {
+    payloadFiles.push({
+      name: file.name,
+      dataUrl: await readFileAsDataUrl(file),
+    });
+  }
+
+  const response = await fetch("./api/analyze-cut-sheets", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ files: payloadFiles }),
+  });
+  const result = await readJsonResponse(response);
+  if (!response.ok || !result.ok) throw new Error(result.error || "Cut sheet analysis failed.");
+  return (result.items || []).map((item, index) => ({ ...item, dataUrl: payloadFiles[index].dataUrl }));
+}
+
+function reviewDatasheetImport(file, analyzed) {
+  const duplicateCandidates = Array.isArray(analyzed.duplicateCandidates) ? analyzed.duplicateCandidates : [];
+  const defaultName = suggestedImportName(file, analyzed);
+  const defaultCategory = CATEGORIES.includes(analyzed.category) ? analyzed.category : "Miscellaneous";
+  const defaultSubcategory = defaultCategory === "Fittings" ? normalizeFittingSubcategory(analyzed.subcategory || analyzed.fittingType || defaultName) : "";
+  const defaultAliases = splitAliasTerms(analyzed.aliases || analyzed.searchAliases || analyzed.planScanTerms || "").join(", ");
+
+  if (!dom.datasheetReviewDialog?.showModal) {
+    const displayName = window.prompt("Confirm the table of contents name for this datasheet:", defaultName);
+    if (!displayName) return Promise.resolve({ action: "cancel" });
+    const categoryInput = window.prompt("Confirm the catalog category for this datasheet:", defaultCategory);
+    if (!categoryInput) return Promise.resolve({ action: "cancel" });
+    const fallbackCategory = ensureCustomCategory(categoryInput) || defaultCategory;
+    const subcategory = fallbackCategory === "Fittings"
+      ? normalizeFittingSubcategory(window.prompt("Confirm the fitting subcategory:", defaultSubcategory || "Threaded Fittings") || defaultSubcategory)
+      : "";
+    const aliases = window.prompt("Optional plan scan search terms, separated by commas:", defaultAliases) || "";
+    const addToSubmittal = window.confirm("Add this datasheet to the current submittal? Choose Cancel to save it to the catalog only.");
+    if (duplicateCandidates.length) {
+      const replace = window.confirm(`This looks like a duplicate of "${duplicateCandidates[0].name}". Choose OK to replace it, or Cancel to add this as a separate datasheet.`);
+      return Promise.resolve({
+        action: replace ? "replace" : "add",
+        displayName: displayName.trim(),
+        category: fallbackCategory,
+        subcategory,
+        aliases,
+        addToSubmittal,
+        duplicate: replace ? duplicateCandidates[0] : null,
+      });
+    }
+    return Promise.resolve({ action: "add", displayName: displayName.trim(), category: fallbackCategory, subcategory, aliases, addToSubmittal, duplicate: null });
+  }
+
+  renderReviewCategoryOptions(defaultCategory);
+  renderReviewSubcategoryOptions(defaultSubcategory);
+  dom.reviewNameInput.value = defaultName;
+  if (dom.reviewAliasesInput) dom.reviewAliasesInput.value = defaultAliases;
+  if (dom.reviewAddToSubmittalInput) dom.reviewAddToSubmittalInput.checked = true;
+  dom.reviewDialogTitle.textContent = duplicateCandidates.length ? "Possible Duplicate Found" : "Confirm Datasheet Import";
+  dom.reviewDialogSummary.textContent = `File: ${file.name}. Confirm the catalog name and category before importing.`;
+  dom.duplicateWarning.hidden = duplicateCandidates.length === 0;
+  dom.duplicateWarning.innerHTML = duplicateCandidates.length
+    ? `<strong>This may already be in the catalog.</strong><span>${escapeHtml(duplicateCandidates[0].reason)}: ${escapeHtml(duplicateCandidates[0].name || duplicateCandidates[0].fileName || "Existing datasheet")}</span>`
+    : "";
+  dom.reviewAddButton.textContent = duplicateCandidates.length ? "Add Anyway" : "Import Datasheet";
+  dom.reviewReplaceButton.hidden = duplicateCandidates.length === 0;
+
+  return new Promise((resolve) => {
+    const onCancel = (event) => {
+      event.preventDefault();
+      finish("cancel");
+    };
+    const finish = (action) => {
+      const displayName = dom.reviewNameInput.value.trim() || defaultName;
+      const category = dom.reviewCategoryInput.value || defaultCategory;
+      const subcategory = category === "Fittings" ? (dom.reviewSubcategoryInput?.value || defaultSubcategory || "Other Fittings") : "";
+      const aliases = splitAliasTerms(dom.reviewAliasesInput?.value || "").join(", ");
+      const addToSubmittal = Boolean(dom.reviewAddToSubmittalInput?.checked);
+      dom.reviewCancelButton.onclick = null;
+      dom.reviewAddButton.onclick = null;
+      dom.reviewReplaceButton.onclick = null;
+      if (dom.reviewAddCategoryButton) dom.reviewAddCategoryButton.onclick = null;
+      dom.datasheetReviewDialog.removeEventListener("cancel", onCancel);
+      dom.datasheetReviewDialog.close();
+      resolve({
+        action,
+        displayName,
+        category,
+        subcategory,
+        aliases,
+        addToSubmittal,
+        duplicate: action === "replace" ? duplicateCandidates[0] : null,
+      });
+    };
+
+    dom.reviewCancelButton.onclick = () => finish("cancel");
+    dom.reviewAddButton.onclick = () => finish("add");
+    dom.reviewReplaceButton.onclick = () => finish("replace");
+    if (dom.reviewAddCategoryButton) dom.reviewAddCategoryButton.onclick = () => {
+      const category = promptForCustomCategory();
+      if (!category) return;
+      renderReviewCategoryOptions(category);
+      renderReviewSubcategoryOptions(category === "Fittings" ? defaultSubcategory : "");
+    };
+    dom.reviewCategoryInput.onchange = () => renderReviewSubcategoryOptions(dom.reviewCategoryInput.value === "Fittings" ? defaultSubcategory : "");
+    dom.datasheetReviewDialog.addEventListener("cancel", onCancel);
+    openDialogSafely(dom.datasheetReviewDialog);
+    requestAnimationFrame(() => {
+      dom.reviewNameInput.focus();
+      dom.reviewNameInput.select();
+    });
+  });
+}
+
+function renderReviewCategoryOptions(selectedCategory = "") {
+  if (!dom.reviewCategoryInput) return;
+  syncCategoriesFromCatalog();
+  const category = CATEGORIES.includes(selectedCategory) ? selectedCategory : "Miscellaneous";
+  dom.reviewCategoryInput.innerHTML = CATEGORIES.map((entry) => `<option value="${escapeHtml(entry)}">${escapeHtml(entry)}</option>`).join("");
+  dom.reviewCategoryInput.value = category;
+  renderReviewSubcategoryOptions(category === "Fittings" ? "" : "");
+}
+
+function renderReviewSubcategoryOptions(selectedSubcategory = "") {
+  const isFittings = dom.reviewCategoryInput?.value === "Fittings";
+  if (dom.reviewSubcategoryLabel) dom.reviewSubcategoryLabel.hidden = !isFittings;
+  if (!dom.reviewSubcategoryInput) return;
+  const selected = normalizeFittingSubcategory(selectedSubcategory);
+  dom.reviewSubcategoryInput.innerHTML = FITTING_SUBCATEGORY_OPTIONS
+    .map((entry) => `<option value="${escapeHtml(entry)}" ${entry === selected ? "selected" : ""}>${escapeHtml(entry)}</option>`)
+    .join("");
+  dom.reviewSubcategoryInput.value = selected || "Other Fittings";
+}
+
+function normalizeFittingSubcategory(value) {
+  const text = normalizeSearchText(value || "");
+  if (!text) return "";
+  if (text.includes("threaded") || (text.includes("ductile") && text.includes("iron")) || (text.includes("cast") && text.includes("iron")) || text.includes("malleable")) return "Threaded Fittings";
+  if (text.includes("flexible") && text.includes("coupling")) return "Grooved Flexible Couplings";
+  if ((text.includes("pushon") || text.includes("push on")) && text.includes("coupling")) return "Grooved Rigid Couplings - Push-On";
+  if (text.includes("rigid") && text.includes("coupling")) return "Grooved Rigid Couplings";
+  if (text.includes("mechanical") && text.includes("tee")) return "Mechanical Tee";
+  if (text.includes("grooved")) return "Grooved Fittings";
+  if (text.includes("cpvc")) return "CPVC Fittings";
+  if (text.includes("copper")) return "Copper Fittings";
+  return FITTING_SUBCATEGORY_OPTIONS.includes(value) ? value : "Other Fittings";
+}
+
+function promptForCustomCategory() {
+  const value = window.prompt("Name the new catalog category:", "");
+  if (value === null) return "";
+  const category = ensureCustomCategory(value);
+  if (!category) {
+    setGenerateStatus("Enter a category name before adding it.", "error");
+    return "";
+  }
+  state.activeCategory = category;
+  resetCatalogFilters();
+  renderCatalog();
+  saveState();
+  setGenerateStatus(`Added category: ${category}`, "success");
+  return category;
+}
+
+function suggestedImportName(file, item) {
+  if (item.customTitle) return item.customTitle;
+  if (item.displayTitle) return item.displayTitle;
+  if (item.category === "Sprinklers" && item.datasheetTitle) {
+    return manufacturerTitle(item.manufacturer, item.datasheetTitle);
+  }
+  if (item.category === "Sprinklers") {
+    const name = [item.manufacturer, item.model, item.response, item.kFactor, item.orientation].filter(Boolean).join(" ");
+    if (name.trim()) return name;
+  }
+  if (item.pipeType) return item.pipeType;
+  if (item.fittingType) return item.fittingType;
+  const name = [item.manufacturer, item.model, item.product].filter((value) => value && value !== "Unknown").join(" ");
+  return name.trim() || file.name.replace(/\.pdf$/i, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim() || "Imported Datasheet";
+}
+
+async function importDatasheetPermanently(file, analyzed, review) {
+  const response = await fetch("./api/import-datasheet", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      file: {
+        name: file.name,
+        dataUrl: analyzed.dataUrl || await readFileAsDataUrl(file),
+      },
+      category: review.category,
+      displayName: review.displayName,
+      subcategory: review.subcategory,
+      aliases: review.aliases,
+      action: review.action,
+      duplicate: review.duplicate,
+    }),
+  });
+  const result = await readJsonResponse(response);
+  if (!response.ok || !result.ok) {
+    throw new Error(result.error || `Import failed with server status ${response.status}.`);
+  }
+  return result.item;
+}
+
+function summarizeAddedCategories(items) {
+  const counts = new Map();
+  for (const item of items) {
+    const category = item.category || "Miscellaneous";
+    counts.set(category, (counts.get(category) || 0) + 1);
+  }
+  return [...counts.entries()].map(([category, count]) => `${category} ${count}`).join(", ");
+}
+
+async function renameCatalogItem(id) {
+  const item = state.catalog.find((entry) => entry.id === id);
+  if (!item) return;
+  const currentName = displayName(item);
+  const nextName = window.prompt("Edit the catalog name for this PDF:", currentName);
+  if (nextName === null) return;
+  const displayNameValue = nextName.trim();
+  if (!displayNameValue) {
+    setGenerateStatus("Enter a name before saving.", "error");
+    return;
+  }
+  let subcategory = item.subcategory || "";
+  if (item.category === "Fittings") {
+    const nextSubcategory = window.prompt(
+      `Fitting subcategory (${FITTING_SUBCATEGORY_OPTIONS.join(", ")}):`,
+      normalizeFittingSubcategory(item.subcategory || item.fittingType || displayNameValue) || "Threaded Fittings",
+    );
+    if (nextSubcategory === null) return;
+    subcategory = normalizeFittingSubcategory(nextSubcategory);
+  }
+  const nextAliases = window.prompt(
+    "Optional plan scan search terms, separated by commas:",
+    splitAliasTerms(aliasesText(item)).join(", "),
+  );
+  if (nextAliases === null) return;
+
+  try {
+    const result = await postCatalogAction("./api/catalog/rename", {
+      id: item.id,
+      relativePath: item.relativePath,
+      displayName: displayNameValue,
+      subcategory,
+      aliases: splitAliasTerms(nextAliases).join(", "),
+    });
+    const updated = result.item;
+    if (!updated?.id) throw new Error("The server did not return the renamed catalog item.");
+    replaceCatalogItemId(item.id, updated.id, displayNameValue);
+    state.catalog = state.catalog.filter((entry) => entry.id !== item.id && entry.id !== updated.id && entry.relativePath !== item.relativePath);
+    state.catalog.push({ ...updated, source: "database", customTitle: displayNameValue, subcategory, aliases: splitAliasTerms(nextAliases) });
+    await refreshCatalog({ preserveScroll: true });
+    setGenerateStatus(`Renamed catalog item: ${displayNameValue}`, "success");
+  } catch (error) {
+    setGenerateStatus(`Could not rename catalog item: ${error.message || "Rename failed."}`, "error");
+  }
+}
+
+async function viewCatalogItem(id) {
+  const item = state.catalog.find((entry) => entry.id === id);
+  if (!item) return;
+  try {
+    const result = await postCatalogAction("./api/catalog/open", {
+      id: item.id,
+      relativePath: item.relativePath,
+    });
+    setGenerateStatus(`Opened PDF: ${result.path || displayName(item)}`, "success");
+  } catch (error) {
+    setGenerateStatus(`Could not open PDF: ${error.message || "View failed."}`, "error");
+  }
+}
+
+function previewCatalogItem(id) {
+  if (!ensureLicensedToolAccess(setGenerateStatus)) return;
+  const item = state.catalog.find((entry) => entry.id === id);
+  if (!item || !dom.datasheetPreviewDialog) return;
+  if (isRemoteCatalogItem(item)) {
+    downloadCatalogItem(id);
+    return;
+  }
+  const params = new URLSearchParams({
+    id: item.id || "",
+    relativePath: item.relativePath || "",
+  });
+  dom.datasheetPreviewTitle.textContent = displayName(item) || "Datasheet Preview";
+  dom.datasheetPreviewFrame.src = `./api/catalog/pdf?${params.toString()}#toolbar=1&navpanes=0`;
+  if (!openDialogSafely(dom.datasheetPreviewDialog)) {
+    window.open(dom.datasheetPreviewFrame.src, "_blank", "noopener");
+  }
+}
+
+async function downloadCatalogItem(id) {
+  if (!ensureLicensedToolAccess(setGenerateStatus)) return null;
+  const item = state.catalog.find((entry) => entry.id === id);
+  if (!item) return null;
+  const name = displayName(item);
+  try {
+    setGenerateStatus(`Importing datasheet from ${item.verifiedSource || item.manufacturer || "manufacturer"}...`, "info");
+    const result = await postCatalogAction("./api/catalog/download", { id: item.id });
+    const updated = result.item;
+    if (!updated?.id) throw new Error("The server did not return the downloaded catalog item.");
+    const tocName = state.tocTitles[item.id] || displayName(updated) || name;
+    replaceCatalogItemId(item.id, updated.id, tocName);
+    if (!state.selectedIds.includes(updated.id)) {
+      state.selectedIds.push(updated.id);
+    }
+    state.tocTitles[updated.id] = tocName;
+    state.catalog = state.catalog.filter((entry) => entry.id !== item.id && entry.id !== updated.id);
+    state.catalog.push({ ...updated, source: "database" });
+    await refreshCatalog({ preserveScroll: true });
+    setGenerateStatus(`Imported datasheet and added it to this submittal: ${displayName(updated) || name}`, "success");
+    return updated;
+  } catch (error) {
+    setGenerateStatus(`Could not import datasheet: ${error.message || "Import failed."}`, "error");
+    return null;
+  }
+}
+
+function closeDatasheetPreview() {
+  if (dom.datasheetPreviewFrame) dom.datasheetPreviewFrame.src = "about:blank";
+  dom.datasheetPreviewDialog?.close();
+}
+
+async function openPdfAnnotationWorkspace(id) {
+  if (!ensureLicensedToolAccess(setGenerateStatus)) return;
+  const item = state.catalog.find((entry) => entry.id === id);
+  if (!item || !isLocalCatalogItem(item) || !state.selectedIds.includes(item.id)) return;
+  if (!window.pdfjsLib) {
+    setGenerateStatus("PDF annotation renderer is not available. Reinstall SprinkFlow or refresh the app.", "error");
+    return;
+  }
+  pdfAnnotationState.item = item;
+  pdfAnnotationState.selectedId = "";
+  pdfAnnotationState.tool = "select";
+  pdfAnnotationState.zoom = 1;
+  pdfAnnotationState.undoStack = [];
+  pdfAnnotationState.annotations = pdfAnnotationState.annotationsByItem[item.id] || [];
+  updatePdfAnnotationToolbar();
+  dom.pdfAnnotationTitle.textContent = displayName(item) || "Annotate PDF";
+  setPdfAnnotationStatus("Loading PDF...", "info");
+  dom.pdfAnnotationWorkspace.innerHTML = '<div class="annotation-loading">Rendering datasheet...</div>';
+  openDialogSafely(dom.pdfAnnotationDialog);
+  try {
+    const params = new URLSearchParams({ id: item.id || "", relativePath: item.relativePath || "" });
+    const url = `./api/catalog/pdf?${params.toString()}`;
+    pdfAnnotationState.pdf = await window.pdfjsLib.getDocument({ url }).promise;
+    await renderPdfAnnotationPages();
+    setPdfAnnotationStatus("Ready. Select a tool and draw on the PDF.", "success");
+  } catch (error) {
+    dom.pdfAnnotationWorkspace.innerHTML = "";
+    setPdfAnnotationStatus(`Could not open annotation workspace: ${error.message || "PDF render failed."}`, "error");
+  }
+}
+
+async function renderPdfAnnotationPages() {
+  const pdf = pdfAnnotationState.pdf;
+  if (!pdf || !dom.pdfAnnotationWorkspace) return;
+  pdfAnnotationState.pageCanvases.clear();
+  dom.pdfAnnotationWorkspace.innerHTML = "";
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+    const page = await pdf.getPage(pageNumber);
+    const viewport = page.getViewport({ scale: pdfAnnotationState.zoom * 1.18 });
+    const dpr = window.devicePixelRatio || 1;
+    const pageShell = document.createElement("section");
+    pageShell.className = "annotation-page";
+    pageShell.dataset.page = String(pageNumber);
+    pageShell.style.width = `${viewport.width}px`;
+    pageShell.style.height = `${viewport.height}px`;
+
+    const pdfCanvas = document.createElement("canvas");
+    pdfCanvas.className = "annotation-pdf-canvas";
+    pdfCanvas.width = Math.round(viewport.width * dpr);
+    pdfCanvas.height = Math.round(viewport.height * dpr);
+    pdfCanvas.style.width = `${viewport.width}px`;
+    pdfCanvas.style.height = `${viewport.height}px`;
+    const pdfContext = pdfCanvas.getContext("2d");
+    pdfContext.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const annotationCanvas = document.createElement("canvas");
+    annotationCanvas.className = "annotation-layer-canvas";
+    annotationCanvas.width = Math.round(viewport.width * dpr);
+    annotationCanvas.height = Math.round(viewport.height * dpr);
+    annotationCanvas.style.width = `${viewport.width}px`;
+    annotationCanvas.style.height = `${viewport.height}px`;
+    annotationCanvas.dataset.page = String(pageNumber);
+    annotationCanvas.addEventListener("pointerdown", onPdfAnnotationPointerDown);
+    annotationCanvas.addEventListener("pointermove", onPdfAnnotationPointerMove);
+    annotationCanvas.addEventListener("pointerup", onPdfAnnotationPointerUp);
+    annotationCanvas.addEventListener("pointercancel", onPdfAnnotationPointerUp);
+
+    pageShell.append(pdfCanvas, annotationCanvas);
+    dom.pdfAnnotationWorkspace.appendChild(pageShell);
+    pdfAnnotationState.pageCanvases.set(pageNumber, { annotationCanvas, width: viewport.width, height: viewport.height });
+    await page.render({ canvasContext: pdfContext, viewport }).promise;
+    renderPdfAnnotationPage(pageNumber);
+  }
+  updatePdfAnnotationToolbar();
+}
+
+function onPdfAnnotationPointerDown(event) {
+  const page = Number(event.currentTarget.dataset.page || 1);
+  const point = normalizedAnnotationPoint(event, event.currentTarget);
+  if (!point) return;
+  event.currentTarget.setPointerCapture?.(event.pointerId);
+  if (pdfAnnotationState.tool === "text") {
+    const text = window.prompt("Text label:");
+    if (!text) return;
+    pushPdfAnnotationUndo();
+    pdfAnnotationState.annotations.push({
+      id: nextAnnotationId(),
+      page,
+      type: "text",
+      x: point.x,
+      y: point.y,
+      width: 0.22,
+      height: 0.04,
+      color: "#ffb13a",
+      opacity: 1,
+      strokeWidth: 2,
+      text: text.trim(),
+      fontSize: 14,
+    });
+    persistPdfAnnotationState();
+    renderPdfAnnotationPage(page);
+    return;
+  }
+  if (pdfAnnotationState.tool === "select") {
+    const hit = hitTestPdfAnnotation(page, point);
+    pdfAnnotationState.selectedId = hit?.id || "";
+    if (hit?.type === "highlight" && isHexColor(hit.color)) {
+      pdfAnnotationState.highlightColor = hit.color;
+    }
+    if (hit) {
+      pushPdfAnnotationUndo();
+      pdfAnnotationState.pointer = {
+        mode: "move",
+        page,
+        start: point,
+        original: { ...hit },
+      };
+    }
+    renderAllPdfAnnotationLayers();
+    updatePdfAnnotationToolbar();
+    return;
+  }
+  pushPdfAnnotationUndo();
+  const annotation = {
+    id: nextAnnotationId(),
+    page,
+    type: pdfAnnotationState.tool,
+    x: point.x,
+    y: point.y,
+    width: 0,
+    height: 0,
+    x2: point.x,
+    y2: point.y,
+    color: annotationDefaultColor(pdfAnnotationState.tool),
+    opacity: pdfAnnotationState.tool === "highlight" ? 0.38 : 1,
+    strokeWidth: annotationDefaultStrokeWidth(pdfAnnotationState.tool),
+    text: "",
+    fontSize: 14,
+  };
+  pdfAnnotationState.annotations.push(annotation);
+  pdfAnnotationState.selectedId = annotation.id;
+  pdfAnnotationState.pointer = { mode: "draw", page, start: point, id: annotation.id };
+  renderPdfAnnotationPage(page);
+  updatePdfAnnotationToolbar();
+}
+
+function annotationDefaultColor(tool) {
+  if (tool === "highlight") return pdfAnnotationState.highlightColor;
+  if (tool === "checkmark" || tool === "blackbox") return "#111111";
+  return "#ff5a2f";
+}
+
+function annotationDefaultStrokeWidth(tool) {
+  if (tool === "checkmark") return 3.2;
+  return 2;
+}
+
+function onPdfAnnotationPointerMove(event) {
+  const pointer = pdfAnnotationState.pointer;
+  if (!pointer) return;
+  const point = normalizedAnnotationPoint(event, event.currentTarget);
+  if (!point) return;
+  if (pointer.mode === "draw") {
+    const annotation = pdfAnnotationState.annotations.find((entry) => entry.id === pointer.id);
+    if (!annotation) return;
+    if (annotation.type === "arrow") {
+      annotation.x2 = point.x;
+      annotation.y2 = point.y;
+    } else {
+      annotation.x = Math.min(pointer.start.x, point.x);
+      annotation.y = Math.min(pointer.start.y, point.y);
+      annotation.width = Math.abs(point.x - pointer.start.x);
+      annotation.height = Math.abs(point.y - pointer.start.y);
+    }
+  } else if (pointer.mode === "move") {
+    const annotation = pdfAnnotationState.annotations.find((entry) => entry.id === pointer.original.id);
+    if (!annotation) return;
+    const dx = point.x - pointer.start.x;
+    const dy = point.y - pointer.start.y;
+    movePdfAnnotation(annotation, pointer.original, dx, dy);
+  }
+  persistPdfAnnotationState();
+  renderPdfAnnotationPage(pointer.page);
+}
+
+function onPdfAnnotationPointerUp(event) {
+  const pointer = pdfAnnotationState.pointer;
+  if (!pointer) return;
+  event.currentTarget.releasePointerCapture?.(event.pointerId);
+  if (pointer.mode === "draw") {
+    const annotation = pdfAnnotationState.annotations.find((entry) => entry.id === pointer.id);
+    if (annotation && ["checkmark", "blackbox"].includes(annotation.type) && (annotation.width < 0.006 || annotation.height < 0.006)) {
+      applyDefaultCheckboxAnnotationSize(annotation, pointer.start);
+    }
+    const tiny = annotation && annotation.type !== "arrow"
+      ? annotation.width < 0.006 || annotation.height < 0.006
+      : annotation && Math.hypot((annotation.x2 || annotation.x) - annotation.x, (annotation.y2 || annotation.y) - annotation.y) < 0.006;
+    if (tiny) {
+      pdfAnnotationState.annotations = pdfAnnotationState.annotations.filter((entry) => entry.id !== pointer.id);
+      pdfAnnotationState.selectedId = "";
+      pdfAnnotationState.undoStack.pop();
+    }
+  }
+  pdfAnnotationState.pointer = null;
+  persistPdfAnnotationState();
+  renderAllPdfAnnotationLayers();
+  updatePdfAnnotationToolbar();
+}
+
+function applyDefaultCheckboxAnnotationSize(annotation, point) {
+  const size = 0.018;
+  annotation.x = clampNumber(point.x - size / 2, 0, 1 - size);
+  annotation.y = clampNumber(point.y - size / 2, 0, 1 - size);
+  annotation.width = size;
+  annotation.height = size;
+}
+
+function normalizedAnnotationPoint(event, canvas) {
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width || !rect.height) return null;
+  return {
+    x: clampNumber((event.clientX - rect.left) / rect.width, 0, 1),
+    y: clampNumber((event.clientY - rect.top) / rect.height, 0, 1),
+  };
+}
+
+function renderAllPdfAnnotationLayers() {
+  for (const page of pdfAnnotationState.pageCanvases.keys()) renderPdfAnnotationPage(page);
+}
+
+function renderPdfAnnotationPage(page) {
+  const pageInfo = pdfAnnotationState.pageCanvases.get(Number(page));
+  if (!pageInfo) return;
+  const { annotationCanvas, width, height } = pageInfo;
+  const dpr = window.devicePixelRatio || 1;
+  const ctx = annotationCanvas.getContext("2d");
+  ctx.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
+  ctx.save();
+  ctx.scale(dpr, dpr);
+  for (const annotation of pdfAnnotationState.annotations.filter((entry) => Number(entry.page) === Number(page))) {
+    drawPdfAnnotation(ctx, annotation, width, height, annotation.id === pdfAnnotationState.selectedId);
+  }
+  ctx.restore();
+}
+
+function drawPdfAnnotation(ctx, annotation, width, height, selected = false) {
+  const x = (annotation.x || 0) * width;
+  const y = (annotation.y || 0) * height;
+  const w = (annotation.width || 0) * width;
+  const h = (annotation.height || 0) * height;
+  ctx.lineWidth = annotation.strokeWidth || 2;
+  ctx.strokeStyle = annotation.color || "#ff5a2f";
+  ctx.fillStyle = annotation.color || "#ffeb3b";
+  ctx.globalAlpha = annotation.opacity ?? 1;
+  if (annotation.type === "highlight") {
+    ctx.fillRect(x, y, w, h);
+  } else if (annotation.type === "rectangle") {
+    ctx.strokeRect(x, y, w, h);
+  } else if (annotation.type === "arrow") {
+    drawAnnotationArrow(ctx, x, y, (annotation.x2 || annotation.x) * width, (annotation.y2 || annotation.y) * height);
+  } else if (annotation.type === "text") {
+    ctx.globalAlpha = 1;
+    ctx.font = `900 ${annotation.fontSize || 14}px Arial, sans-serif`;
+    ctx.fillStyle = annotation.color || "#ffb13a";
+    ctx.fillText(annotation.text || "", x, y);
+  } else if (annotation.type === "checkmark") {
+    drawAnnotationCheckmark(ctx, x, y, w, h, annotation.color || "#111111");
+  } else if (annotation.type === "blackbox") {
+    ctx.fillStyle = annotation.color || "#111111";
+    ctx.fillRect(x, y, w, h);
+  }
+  if (selected) {
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = "#37b7e4";
+    ctx.setLineDash([6, 4]);
+    if (annotation.type === "arrow") {
+      const x2 = (annotation.x2 || annotation.x) * width;
+      const y2 = (annotation.y2 || annotation.y) * height;
+      ctx.strokeRect(Math.min(x, x2) - 5, Math.min(y, y2) - 5, Math.abs(x2 - x) + 10, Math.abs(y2 - y) + 10);
+    } else {
+      ctx.strokeRect(x - 4, y - 4, Math.max(w, 24) + 8, Math.max(h, 18) + 8);
+    }
+    ctx.setLineDash([]);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawAnnotationCheckmark(ctx, x, y, w, h, color = "#111111") {
+  const size = Math.max(Math.min(w, h), 8);
+  const left = x + size * 0.16;
+  const midX = x + size * 0.42;
+  const right = x + size * 0.86;
+  const low = y + size * 0.72;
+  const midY = y + size * 0.88;
+  const high = y + size * 0.2;
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(2.4, size * 0.18);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(left, low);
+  ctx.lineTo(midX, midY);
+  ctx.lineTo(right, high);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawAnnotationArrow(ctx, x1, y1, x2, y2) {
+  const angle = Math.atan2(y2 - y1, x2 - x1);
+  const headLength = 14;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - headLength * Math.cos(angle - Math.PI / 6), y2 - headLength * Math.sin(angle - Math.PI / 6));
+  ctx.lineTo(x2 - headLength * Math.cos(angle + Math.PI / 6), y2 - headLength * Math.sin(angle + Math.PI / 6));
+  ctx.closePath();
+  ctx.fill();
+}
+
+function hitTestPdfAnnotation(page, point) {
+  const annotations = pdfAnnotationState.annotations.filter((entry) => Number(entry.page) === Number(page));
+  for (const annotation of annotations.slice().reverse()) {
+    if (annotationContainsPoint(annotation, point)) return annotation;
+  }
+  return null;
+}
+
+function annotationContainsPoint(annotation, point) {
+  const pad = 0.01;
+  if (annotation.type === "arrow") {
+    return distanceToNormalizedSegment(point, { x: annotation.x, y: annotation.y }, { x: annotation.x2 || annotation.x, y: annotation.y2 || annotation.y }) < 0.018;
+  }
+  const width = annotation.type === "text" ? Math.max(annotation.width || 0, 0.08) : annotation.width || 0;
+  const height = annotation.type === "text" ? Math.max(annotation.height || 0, 0.035) : annotation.height || 0;
+  return point.x >= (annotation.x || 0) - pad
+    && point.x <= (annotation.x || 0) + width + pad
+    && point.y >= (annotation.y || 0) - height - pad
+    && point.y <= (annotation.y || 0) + height + pad;
+}
+
+function distanceToNormalizedSegment(point, a, b) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  if (!dx && !dy) return Math.hypot(point.x - a.x, point.y - a.y);
+  const t = clampNumber(((point.x - a.x) * dx + (point.y - a.y) * dy) / (dx * dx + dy * dy), 0, 1);
+  return Math.hypot(point.x - (a.x + t * dx), point.y - (a.y + t * dy));
+}
+
+function movePdfAnnotation(annotation, original, dx, dy) {
+  annotation.x = clampNumber((original.x || 0) + dx, 0, 1);
+  annotation.y = clampNumber((original.y || 0) + dy, 0, 1);
+  if (annotation.type === "arrow") {
+    annotation.x2 = clampNumber((original.x2 || original.x || 0) + dx, 0, 1);
+    annotation.y2 = clampNumber((original.y2 || original.y || 0) + dy, 0, 1);
+  }
+}
+
+function pushPdfAnnotationUndo() {
+  pdfAnnotationState.undoStack.push(JSON.stringify(pdfAnnotationState.annotations));
+  if (pdfAnnotationState.undoStack.length > 60) pdfAnnotationState.undoStack.shift();
+}
+
+function undoPdfAnnotation() {
+  const snapshot = pdfAnnotationState.undoStack.pop();
+  if (!snapshot) return;
+  pdfAnnotationState.annotations = JSON.parse(snapshot);
+  pdfAnnotationState.selectedId = "";
+  persistPdfAnnotationState();
+  renderAllPdfAnnotationLayers();
+  updatePdfAnnotationToolbar();
+}
+
+function deleteSelectedPdfAnnotation() {
+  if (!pdfAnnotationState.selectedId) return;
+  pushPdfAnnotationUndo();
+  pdfAnnotationState.annotations = pdfAnnotationState.annotations.filter((entry) => entry.id !== pdfAnnotationState.selectedId);
+  pdfAnnotationState.selectedId = "";
+  persistPdfAnnotationState();
+  renderAllPdfAnnotationLayers();
+  updatePdfAnnotationToolbar();
+}
+
+function persistPdfAnnotationState() {
+  if (!pdfAnnotationState.item?.id) return;
+  pdfAnnotationState.annotationsByItem[pdfAnnotationState.item.id] = pdfAnnotationState.annotations;
+}
+
+function setPdfAnnotationTool(tool) {
+  if (!PDF_ANNOTATION_TOOLS.includes(tool)) return;
+  pdfAnnotationState.tool = tool;
+  updatePdfAnnotationToolbar();
+}
+
+async function setPdfAnnotationZoom(nextZoom) {
+  pdfAnnotationState.zoom = clampNumber(nextZoom, 0.55, 2.25);
+  updatePdfAnnotationToolbar();
+  await renderPdfAnnotationPages();
+}
+
+function handlePdfAnnotationWheel(event) {
+  if (!event.ctrlKey || !pdfAnnotationState.pdf) return;
+  event.preventDefault();
+  const direction = event.deltaY < 0 ? 1 : -1;
+  setPdfAnnotationZoom(pdfAnnotationState.zoom + direction * 0.12);
+}
+
+function setPdfAnnotationHighlightColor(value) {
+  if (!isHexColor(value)) return;
+  const color = value.toLowerCase();
+  pdfAnnotationState.highlightColor = color;
+  if (dom.pdfAnnotationHighlightColorInput) dom.pdfAnnotationHighlightColorInput.value = color;
+  const selected = pdfAnnotationState.annotations.find((entry) => entry.id === pdfAnnotationState.selectedId);
+  if (selected?.type === "highlight") {
+    selected.color = color;
+    persistPdfAnnotationState();
+    renderPdfAnnotationPage(selected.page);
+  }
+}
+
+function isHexColor(value) {
+  return /^#[0-9a-f]{6}$/i.test(String(value || ""));
+}
+
+function updatePdfAnnotationToolbar() {
+  dom.pdfAnnotationToolButtons?.forEach((button) => {
+    const active = button.dataset.annotationTool === pdfAnnotationState.tool;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  if (dom.pdfAnnotationZoomLabel) dom.pdfAnnotationZoomLabel.textContent = `${Math.round(pdfAnnotationState.zoom * 100)}%`;
+  if (dom.pdfAnnotationHighlightColorInput) dom.pdfAnnotationHighlightColorInput.value = pdfAnnotationState.highlightColor;
+  if (dom.pdfAnnotationUndoButton) dom.pdfAnnotationUndoButton.disabled = !pdfAnnotationState.undoStack.length;
+  if (dom.pdfAnnotationDeleteButton) dom.pdfAnnotationDeleteButton.disabled = !pdfAnnotationState.selectedId;
+  if (dom.pdfAnnotationSaveButton) dom.pdfAnnotationSaveButton.disabled = !pdfAnnotationState.item || !pdfAnnotationState.annotations.length;
+}
+
+async function saveAnnotatedPdf() {
+  const item = pdfAnnotationState.item;
+  if (!item) return;
+  try {
+    setPdfAnnotationStatus("Applying annotations to the current submittal...", "info");
+    const result = await postCatalogAction("./api/annotate-pdf", {
+      id: item.id,
+      relativePath: item.relativePath || "",
+      annotations: pdfAnnotationState.annotations,
+    });
+    annotatedPdfOverrides.set(item.id, {
+      path: result.path,
+      annotationCount: result.annotationCount || pdfAnnotationState.annotations.length,
+      updatedAt: new Date().toISOString(),
+    });
+    setPdfAnnotationStatus("Annotations will be used in this submittal only.", "success");
+    setGenerateStatus(`Annotations applied to current submittal for ${displayName(item)}.`, "success");
+    renderAllPreservingCatalogScroll();
+  } catch (error) {
+    setPdfAnnotationStatus(`Could not apply annotations: ${error.message || "Annotation failed."}`, "error");
+  }
+}
+
+function closePdfAnnotationWorkspace() {
+  pdfAnnotationState.pdf = null;
+  pdfAnnotationState.pageCanvases.clear();
+  pdfAnnotationState.pointer = null;
+  if (dom.pdfAnnotationWorkspace) dom.pdfAnnotationWorkspace.innerHTML = "";
+  dom.pdfAnnotationDialog?.close();
+}
+
+function setPdfAnnotationStatus(message, type = "info") {
+  if (!dom.pdfAnnotationStatus) return;
+  dom.pdfAnnotationStatus.textContent = message;
+  dom.pdfAnnotationStatus.dataset.status = type;
+  scheduleStatusAutoClear(dom.pdfAnnotationStatus, message, type, () => setPdfAnnotationStatus(""));
+}
+
+function nextAnnotationId() {
+  return window.crypto?.randomUUID?.() || `annotation-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function clampNumber(value, min, max) {
+  return Math.max(min, Math.min(max, Number.isFinite(value) ? value : min));
+}
+
+function handleDebugShortcut(event) {
+  if (!event.ctrlKey || !event.shiftKey || event.key !== "F10") return;
+  event.preventDefault();
+  openDebugDialog();
+}
+
+function openDebugDialog() {
+  if (!dom.debugDialog) return;
+  if (dom.debugStatus) dom.debugStatus.textContent = "";
+  if (dom.debugResetConfirmInput) dom.debugResetConfirmInput.value = "";
+  if (dom.debugResetDatabaseButton) dom.debugResetDatabaseButton.disabled = true;
+  openDialogSafely(dom.debugDialog);
+}
+
+function closeDebugDialog() {
+  dom.debugDialog?.close();
+}
+
+function filenameFromContentDisposition(value, fallback) {
+  const header = String(value || "");
+  const utf8Match = header.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match) {
+    try {
+      return decodeURIComponent(utf8Match[1].replace(/["]/g, ""));
+    } catch {
+      return utf8Match[1].replace(/["]/g, "") || fallback;
+    }
+  }
+  const asciiMatch = header.match(/filename="?([^";]+)"?/i);
+  return (asciiMatch?.[1] || fallback || "sprinkflow-download").trim();
+}
+
+async function exportDiagnosticsFromDebug() {
+  if (dom.debugExportDiagnosticsButton) dom.debugExportDiagnosticsButton.disabled = true;
+  if (dom.debugStatus) dom.debugStatus.textContent = "Preparing scrubbed support diagnostics...";
+  try {
+    const response = await fetch("./api/support/diagnostics", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    if (!response.ok) {
+      const result = await readJsonResponse(response);
+      throw new Error(result.error || "Could not export diagnostics.");
+    }
+    const blob = await response.blob();
+    const filename = filenameFromContentDisposition(
+      response.headers.get("Content-Disposition"),
+      "sprinkflow-diagnostics.zip"
+    );
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    if (dom.debugStatus) dom.debugStatus.textContent = `Diagnostics exported: ${filename}`;
+  } catch (error) {
+    if (dom.debugStatus) dom.debugStatus.textContent = `Diagnostics export failed: ${error.message || "Unknown error."}`;
+  } finally {
+    if (dom.debugExportDiagnosticsButton) dom.debugExportDiagnosticsButton.disabled = false;
+  }
+}
+
+function resetConfirmText() {
+  return (dom.debugResetConfirmInput?.value || "").trim().toUpperCase();
+}
+
+async function resetDatabaseFromDebug() {
+  if (resetConfirmText() !== "RESET") {
+    if (dom.debugStatus) dom.debugStatus.textContent = "Type RESET in the box above to confirm the full local reset.";
+    return;
+  }
+
+  if (dom.debugResetDatabaseButton) dom.debugResetDatabaseButton.disabled = true;
+  if (dom.debugStatus) dom.debugStatus.textContent = "Resetting local database...";
+  try {
+    const resetResponse = await fetch("./api/debug/reset-data", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-SprinkFlow-Confirm": "reset-data" },
+      body: JSON.stringify({}),
+    });
+    const resetResult = await readJsonResponse(resetResponse);
+    if (!resetResponse.ok || !resetResult.ok) {
+      throw new Error(resetResult.error || `Reset failed with server status ${resetResponse.status}.`);
+    }
+    clearMigratedBrowserStorage();
+    clearTimeout(stateSaveTimer);
+    if (dom.debugStatus) dom.debugStatus.textContent = "Database reset complete. Reloading SprinkFlow...";
+    window.removeEventListener("beforeunload", handleBeforeUnload);
+    setTimeout(() => window.location.reload(), 450);
+  } catch (error) {
+    if (dom.debugStatus) dom.debugStatus.textContent = `Reset failed: ${error.message || "Unknown error."}`;
+    if (dom.debugResetDatabaseButton) dom.debugResetDatabaseButton.disabled = false;
+  }
+}
+
+async function deleteCatalogItem(id) {
+  const item = state.catalog.find((entry) => entry.id === id);
+  if (!item) return;
+  const name = displayName(item);
+  const confirmed = window.confirm(`Are you sure you want to delete this datasheet from the database?\n\n${name}\n\nThis will remove the PDF from the datasheet folder.`);
+  if (!confirmed) return;
+
+  try {
+    await postCatalogAction("./api/catalog/delete", {
+      id: item.id,
+      relativePath: item.relativePath,
+    });
+    state.catalog = state.catalog.filter((entry) => entry.id !== id);
+    state.selectedIds = state.selectedIds.filter((selectedId) => selectedId !== id);
+    delete state.tocTitles[id];
+    annotatedPdfOverrides.delete(id);
+    await refreshCatalog({ preserveScroll: true });
+    setGenerateStatus(`Deleted catalog item: ${name}`, "success");
+  } catch (error) {
+    setGenerateStatus(`Could not delete catalog item: ${error.message || "Delete failed."}`, "error");
+  }
+}
+
+async function deleteSelectedCatalogItems() {
+  const items = selectedDeletableCatalogItems();
+  if (!items.length) {
+    setGenerateStatus("Select one or more saved local datasheets before deleting.", "error");
+    return;
+  }
+
+  const names = items.map(displayName).filter(Boolean);
+  const previewNames = names.slice(0, 8).map((name) => `- ${name}`).join("\n");
+  const extraCount = names.length > 8 ? `\n...and ${names.length - 8} more` : "";
+  const confirmed = window.confirm(
+    `Are you sure you want to delete ${items.length} datasheet${items.length === 1 ? "" : "s"} from the database?\n\n${previewNames}${extraCount}\n\nThis will remove the PDFs from the datasheet folder.`,
+  );
+  if (!confirmed) return;
+
+  dom.deleteSelectedDatasheetsButton.disabled = true;
+  setGenerateStatus(`Deleting ${items.length} datasheet${items.length === 1 ? "" : "s"}...`, "info");
+
+  const deletedIds = [];
+  const failures = [];
+  for (const item of items) {
+    try {
+      await postCatalogAction("./api/catalog/delete", {
+        id: item.id,
+        relativePath: item.relativePath,
+      });
+      deletedIds.push(item.id);
+    } catch (error) {
+      failures.push(`${displayName(item)}: ${error.message || "Delete failed."}`);
+    }
+  }
+
+  if (deletedIds.length) {
+    const deletedSet = new Set(deletedIds);
+    state.catalog = state.catalog.filter((entry) => !deletedSet.has(entry.id));
+    state.selectedIds = state.selectedIds.filter((selectedId) => !deletedSet.has(selectedId));
+    for (const id of deletedIds) {
+      delete state.tocTitles[id];
+      annotatedPdfOverrides.delete(id);
+    }
+    await refreshCatalog({ preserveScroll: true });
+  } else {
+    updateBulkDeleteButton();
+  }
+
+  if (failures.length) {
+    setGenerateStatus(`Deleted ${deletedIds.length}; ${failures.length} failed. ${failures[0]}`, "error");
+  } else {
+    setGenerateStatus(`Deleted ${deletedIds.length} datasheet${deletedIds.length === 1 ? "" : "s"} from the database.`, "success");
+  }
+}
+
+function removeLocalCatalogItem(id) {
+  state.catalog = state.catalog.filter((item) => item.id !== id);
+  state.selectedIds = state.selectedIds.filter((selectedId) => selectedId !== id);
+  delete state.tocTitles[id];
+  annotatedPdfOverrides.delete(id);
+  renderAll();
+}
+
+function replaceCatalogItemId(oldId, newId, displayNameValue) {
+  if (oldId !== newId) {
+    state.selectedIds = state.selectedIds.map((selectedId) => (selectedId === oldId ? newId : selectedId));
+    if (annotatedPdfOverrides.has(oldId)) {
+      annotatedPdfOverrides.set(newId, annotatedPdfOverrides.get(oldId));
+      annotatedPdfOverrides.delete(oldId);
+    }
+    if (state.tocTitles[oldId]) {
+      state.tocTitles[newId] = displayNameValue || state.tocTitles[oldId];
+      delete state.tocTitles[oldId];
+    }
+  }
+  state.tocTitles[newId] = displayNameValue;
+}
+
+async function postCatalogAction(url, payload) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const result = await readJsonResponse(response);
+  if (!response.ok || !result.ok) {
+    throw new Error(result.error || `Catalog action failed with server status ${response.status}.`);
+  }
+  return result;
+}
+
+function inferCatalogItem(file) {
+  const rawName = file.name.replace(/\.[^.]+$/, "");
+  const clean = rawName.replace(/[_]+/g, " ").replace(/\s+-\s+/g, " - ").replace(/\s+/g, " ").trim();
+  const path = (file.webkitRelativePath || file.name).toLowerCase();
+  const category = inferCategory(`${path} ${clean}`);
+  const parts = clean.split(/\s+-\s+|--|\|/).map((part) => part.trim()).filter(Boolean);
+  const manufacturer = parts[0] || inferManufacturer(clean);
+  const model = inferModel(clean);
+  const product = inferProduct(parts, clean, manufacturer, model);
+  const response = category === "Sprinklers" ? inferResponse(clean) : "";
+  const kFactor = category === "Sprinklers" ? inferKFactor(clean) : "";
+  const orientation = category === "Sprinklers" ? inferOrientation(clean) : "";
+
+  return {
+    id: crypto.randomUUID(),
+    category,
+    manufacturer,
+    model,
+    product,
+    response,
+    kFactor,
+    orientation,
+    fileName: file.name,
+    rawName,
+    size: file.size,
+  };
+}
+
+function inferCategory(value) {
+  if (/sprinkler|pendent|upright|sidewall|k[\s-]?\d/i.test(value)) return "Sprinklers";
+  if (/pipe|cpvc|steel|blazemaster|schedule/i.test(value)) return "Pipe";
+  if (/fitting|elbow|tee|coupling|adapter|cap\b/i.test(value)) return "Fittings";
+  if (/hanger|restraint|restrainer|stand-?off|clamp/i.test(value)) return "Hangers";
+  if (/brace|bracing|seismic|sway/i.test(value)) return "Bracing";
+  if (/valve|switch|flow|tamper|backflow|alarm|device/i.test(value)) return "Valves";
+  return "Miscellaneous";
+}
+
+function inferManufacturer(value) {
+  const known = ["Reliable", "Viking", "Victaulic", "Tyco", "Potter", "Tolco", "BlazeMaster", "NIBCO", "Anvil", "ASC", "System Sensor"];
+  return known.find((name) => normalize(value).includes(normalize(name))) || value.split(/\s+/).slice(0, 2).join(" ");
+}
+
+function inferModel(value) {
+  const candidates = [
+    /\b(?:Fig\.?|Figure)\s*([A-Z]?\d+[A-Z0-9-]*)\b/i,
+    /\b(?:Model|SIN)\s*([A-Z]{1,5}\d{2,5}[A-Z0-9+-]*)\b/i,
+    /\b(RFC49(?:LL)?plus)\b/i,
+    /\b([A-Z]{1,4}\d{2,5}[A-Z0-9+-]*)\b/i,
+  ];
+  for (const pattern of candidates) {
+    const match = value.match(pattern);
+    if (match) return match[1];
+  }
+  return "";
+}
+
+function inferProduct(parts, clean, manufacturer, model) {
+  if (parts.length >= 3) return parts.slice(2).join(" - ");
+  return clean
+    .replace(manufacturer, "")
+    .replace(model, "")
+    .replace(/\b(Model|SIN|Fig\.?|Figure)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function inferResponse(value) {
+  const match = value.match(/\b(quick response|standard response|residential|dry|extended coverage|cmsa|esfr)\b/i);
+  return match ? titleCase(match[1]) : "";
+}
+
+function inferKFactor(value) {
+  const match = value.match(/\bK\s*[-:]?\s*(\d+(?:\.\d+)?)\b/i);
+  return match ? `K${match[1]}` : "";
+}
+
+function inferOrientation(value) {
+  const terms = [];
+  for (const term of ["pendent", "upright", "sidewall", "concealed", "vertical", "horizontal", "recessed"]) {
+    if (new RegExp(`\\b${term}\\b`, "i").test(value)) terms.push(titleCase(term));
+  }
+  return terms.join(", ");
+}
+
+function addManualItem() {
+  const item = {
+    id: crypto.randomUUID(),
+    category: dom.manualCategoryInput.value,
+    manufacturer: dom.manualManufacturerInput.value.trim(),
+    model: dom.manualModelInput.value.trim(),
+    product: dom.manualProductInput.value.trim(),
+    response: "",
+    kFactor: "",
+    orientation: "",
+    fileName: "",
+    rawName: "",
+    size: 0,
+  };
+
+  const details = dom.manualDetailsInput.value.trim();
+  if (item.category === "Sprinklers") {
+    item.response = inferResponse(details);
+    item.kFactor = inferKFactor(details);
+    item.orientation = inferOrientation(details);
+  } else {
+    item.product = [item.product, details].filter(Boolean).join(" - ");
+  }
+
+  if (!item.manufacturer && !item.model && !item.product) return;
+  state.catalog.push(item);
+  state.selectedIds.push(item.id);
+
+  dom.manualManufacturerInput.value = "";
+  dom.manualModelInput.value = "";
+  dom.manualProductInput.value = "";
+  dom.manualDetailsInput.value = "";
+  renderAll();
+}
+
+function saveContractor() {
+  const existing = currentContractor();
+  const id = existing.id || crypto.randomUUID();
+  const contractor = {
+    ...existing,
+    id,
+    name: dom.contractorNameInput.value.trim(),
+    address: dom.contractorAddressInput.value.trim(),
+    license: dom.contractorLicenseInput.value.trim(),
+    phone: dom.contractorPhoneInput.value.trim(),
+    disclaimer: dom.disclaimerInput.value.trim() || DEFAULT_DISCLAIMER,
+  };
+
+  const index = state.contractors.findIndex((entry) => entry.id === id);
+  if (index >= 0) state.contractors[index] = contractor;
+  else state.contractors.push(contractor);
+
+  state.activeContractorId = id;
+  renderAll();
+}
+
+function deleteContractor() {
+  if (!state.activeContractorId) return;
+  state.contractors = state.contractors.filter((contractor) => contractor.id !== state.activeContractorId);
+  state.activeContractorId = "";
+  syncInputsFromState();
+  renderAll();
+}
+
+function applyContractorLogo(dataUrl) {
+  const contractor = currentContractor();
+  if (contractor.id) {
+    contractor.logo = dataUrl;
+  } else {
+    const id = crypto.randomUUID();
+    state.activeContractorId = id;
+    state.contractors.push({ ...blankContractor(), id, logo: dataUrl });
+  }
+  syncStateFromInputs();
+  renderAll();
+  setGenerateStatus("Contractor logo updated.", "success");
+}
+
+async function handleLogoFile(file) {
+  if (!file || !file.type.startsWith("image/")) return;
+  applyContractorLogo(await readFileAsDataUrl(file));
+}
+
+async function pasteContractorLogoFromClipboard() {
+  if (!navigator.clipboard || !navigator.clipboard.read) {
+    setGenerateStatus("Clipboard paste isn't available here. Click the logo box and press Ctrl+V instead.", "error");
+    return;
+  }
+  try {
+    const items = await navigator.clipboard.read();
+    for (const item of items) {
+      const imageType = item.types.find((type) => type.startsWith("image/"));
+      if (!imageType) continue;
+      const blob = await item.getType(imageType);
+      await handleLogoFile(new File([blob], "clipboard-logo." + (imageType.split("/")[1] || "png"), { type: imageType }));
+      setGenerateStatus("Contractor logo pasted from clipboard.", "info");
+      return;
+    }
+    setGenerateStatus("No image found on the clipboard. Copy or snip a logo image first, then try again.", "error");
+  } catch (error) {
+    setGenerateStatus("Could not read the clipboard. Click the logo box and press Ctrl+V instead.", "error");
+  }
+}
+
+function readLogo(file) {
+  handleLogoFile(file);
+}
+
+function setupPasswordToggles() {
+  document.querySelectorAll("[data-password-toggle]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const input = document.querySelector("#" + button.getAttribute("data-password-toggle"));
+      if (!input) return;
+      const reveal = input.type === "password";
+      input.type = reveal ? "text" : "password";
+      button.textContent = reveal ? "🙈" : "👁";
+      button.setAttribute("aria-label", reveal ? "Hide password" : "Show password");
+      button.setAttribute("title", reveal ? "Hide password" : "Show password");
+      button.classList.toggle("is-showing", reveal);
+      input.focus();
+    });
+  });
+}
+
+function clearContractorLogo() {
+  const contractor = currentContractor();
+  if (!contractor.id && !contractor.logo) return;
+  contractor.logo = "";
+  syncStateFromInputs();
+  renderAll();
+  setGenerateStatus("Contractor logo cleared.", "info");
+}
+
+function resetProject() {
+  state.project = {
+    name: "",
+    address: "",
+    subtitle: DEFAULT_COVER_SUBTITLE,
+    coverAdditionalInfoEnabled: false,
+    additionalInfo: normalizeCoverAdditionalInfo({}),
+  };
+  state.selectedIds = [];
+  state.tocTitles = {};
+  projectPlanFiles = [];
+  annotatedPdfOverrides.clear();
+  state.activeSavedProjectId = "";
+  state.coverTemplate = "technical-navy";
+  state.activeCategory = "Sprinklers";
+  state.catalogSearch = "";
+  state.catalogSelectedOnly = false;
+  resetCatalogFilters();
+  if (dom.catalogSearchInput) dom.catalogSearchInput.value = "";
+  if (dom.catalogSelectedOnlyInput) dom.catalogSelectedOnlyInput.checked = false;
+  if (dom.catalogSortSelect) dom.catalogSortSelect.value = state.catalogSort || "manufacturer";
+  if (dom.projectSelect) dom.projectSelect.value = "";
+  syncInputsFromState();
+  renderAll();
+  setGenerateStatus("Started a new project.", "info");
+}
+
+function requestNewProject() {
+  syncStateFromInputs();
+  if (!hasUnsavedProjectChanges()) {
+    resetProject();
+    return;
+  }
+
+  if (!dom.newProjectDialog?.showModal) {
+    const saveFirst = window.confirm("Save this project before starting a new one?");
+    if (saveFirst) saveCurrentProject();
+    resetProject();
+    return;
+  }
+
+  openDialogSafely(dom.newProjectDialog);
+}
+
+function hasProjectWork() {
+  syncStateFromInputs();
+  const contractor = formContractor();
+  return Boolean(
+    state.project.name
+      || state.project.address
+      || (state.project.subtitle && state.project.subtitle !== DEFAULT_COVER_SUBTITLE)
+      || state.project.coverAdditionalInfoEnabled
+      || coverAdditionalInfoEntries({ ...state.project, coverAdditionalInfoEnabled: true }).length
+      || state.selectedIds.length
+      || projectPlanFiles.length
+      || Object.keys(state.tocTitles || {}).length
+      || state.coverTemplate !== "technical-navy"
+      || contractor.name
+      || contractor.address
+      || contractor.license
+      || contractor.phone
+      || contractor.logo
+      || (contractor.disclaimer && contractor.disclaimer !== DEFAULT_DISCLAIMER),
+  );
+}
+
+function normalize(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function digitsOnly(value) {
+  return String(value || "").replace(/\D+/g, "");
+}
+
+function normalizeSearchText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[®™]/g, "")
+    .replace(/([a-z])(\d)/g, "$1 $2")
+    .replace(/(\d)([a-z])/g, "$1 $2")
+    .replace(/[^a-z0-9.]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function searchTokens(value) {
+  return normalizeSearchText(value)
+    .split(" ")
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
+
+function titleCase(value) {
+  return String(value).replace(/\w\S*/g, (word) => word[0].toUpperCase() + word.slice(1).toLowerCase());
+}
+
+function displayName(item) {
+  const customTitle = item.customTitle;
+  if (customTitle) {
+    return customTitle;
+  }
+  return defaultDisplayName(item);
+}
+
+function tocDisplayName(item) {
+  return state.tocTitles[item.id] || displayName(item);
+}
+
+function itemWebLink(item) {
+  for (const key of ["datasheetUrl", "sourceUrl", "datasheetLink", "productPage", "webLink", "url"]) {
+    const value = String(item?.[key] || "").trim();
+    if (/^https?:\/\//i.test(value)) return value;
+  }
+  return "";
+}
+
+function defaultDisplayName(item) {
+  if (item.category === "Sprinklers" && item.datasheetTitle) {
+    return manufacturerTitle(item.manufacturer, item.datasheetTitle);
+  }
+  if (item.category === "Sprinklers") {
+    return [item.manufacturer, item.model, item.response, item.kFactor, item.orientation]
+      .filter(Boolean)
+      .join(" ");
+  }
+  if (item.category === "Pipe") {
+    return item.pipeType || item.product || item.fileName || "Pipe";
+  }
+  if (item.category === "Fittings" && item.fittingType) {
+    return item.fittingType;
+  }
+  if (item.displayTitle) {
+    return item.displayTitle;
+  }
+  return [item.manufacturer, item.model, item.product].filter(Boolean).join(" ");
+}
+
+function manufacturerTitle(manufacturer, title) {
+  if (!title) return manufacturer || "";
+  if (manufacturer && normalize(title).startsWith(normalize(manufacturer))) return title;
+  return [manufacturer, title].filter(Boolean).join(" - ");
+}
+
+function searchableText(item) {
+  return normalizeSearchText(searchableRawText(item));
+}
+
+function searchableRawText(item) {
+  const values = [
+    displayName(item),
+    item.category,
+    item.manufacturer,
+    item.model,
+    item.product,
+    item.customTitle,
+    item.displayTitle,
+    item.pipeType,
+    item.fittingType,
+    item.subcategory,
+    item.datasheetTitle,
+    item.response,
+    item.kFactor,
+    item.orientation,
+    item.type,
+    item.sinNumbers,
+    item.sourceLabel,
+    item.linkStatus,
+    aliasesText(item),
+    Array.isArray(item.tags) ? item.tags.join(" ") : item.tags,
+  ];
+  if (item.category !== "Sprinklers") {
+    values.push(item.fileName, item.relativePath, item.originalFileName);
+  }
+  return values.join(" ");
+}
+
+function itemMatchesSearch(item, tokens) {
+  if (!tokens.length) return true;
+  const text = searchableText(item);
+  return tokens.every((token) => searchTokenMatches(text, token));
+}
+
+function searchTokenMatches(text, token) {
+  if (/^\d+\.\d+$/.test(token)) {
+    const decimalPattern = new RegExp(`(^|[^0-9])${escapeRegExp(token)}([^0-9]|$)`);
+    return decimalPattern.test(text);
+  }
+  return text.includes(token);
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function activateTool(toolId) {
+  const activeTool = toolId || "submittal";
+  dom.toolTabs.forEach((button) => {
+    const active = button.dataset.toolTab === activeTool;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+  dom.toolPanels.forEach((panel) => {
+    panel.hidden = panel.dataset.toolPanel !== activeTool;
+    panel.classList.toggle("active", panel.dataset.toolPanel === activeTool);
+  });
+  if (dom.generateDock) {
+    dom.generateDock.hidden = activeTool !== "submittal";
+  }
+  if (activeTool === "pdf") loadRecentOutputs();
+  if (activeTool === "hanger") updateEmbeddedToolThemes();
+  if (activeTool === "catalog") { matcatWire(); renderMaterialCatalog(); }
+  updateViewModeUI();
+}
+
+// ============================================================================
+//  Material Catalog — a standalone, view-first catalog tab. Reuses the shared
+//  catalog data + API (preview / import / delete / rename / /api/catalog/*) but
+//  keeps its OWN multi-select (independent of the submittal's selection/TOC), so
+//  browsing/managing datasheets here never touches a submittal.
+// ============================================================================
+const matcatSel = new Set();
+const matcatState = { search: "", category: "All", sort: "manufacturer", manufacturer: "All", type: "All", orientation: "All", kfactor: "All", temperature: "All", response: "All", wired: false };
+
+// Preferred order for the Type filter (matches how a designer picks a head);
+// any unrecognized types are appended alphabetically.
+const MATCAT_TYPE_ORDER = ["Standard Coverage", "Extended Coverage", "Residential", "Special Application", "ESFR", "CMSA", "Storage"];
+
+// NFPA 13 (2025) Table 7.2.4.1(a) classes, coolest→hottest, with the rating
+// range shown in the dropdown (per the owner's ask). temperatureClasses come
+// from the catalog data (extracted from each datasheet by Codex).
+const MATCAT_TEMP_CLASSES = [
+  ["Ordinary", "135–170°F"], ["Intermediate", "175–225°F"], ["High", "250–300°F"],
+  ["Extra High", "325–375°F"], ["Very Extra High", "400–475°F"], ["Ultra High", "500–650°F"],
+];
+
+function matcatNormalizeK(k) {
+  k = String(k || "").trim();
+  if (!k) return "";
+  // NFPA K-factors are quoted to one decimal (K5.6, K8.0, K14.0, K25.2) — canonicalize
+  // so "K14" and "K14.0" (both appear in the source data) collapse to one option.
+  const num = parseFloat(k.replace(/^k/i, "").trim());
+  if (Number.isFinite(num)) return "K" + num.toFixed(1);
+  return /^k/i.test(k) ? k.replace(/^k\s*/i, "K") : "K" + k;
+}
+
+// Pull the (possibly comma-listed) sprinkler facets off an item — a series
+// often covers several K-factors / orientations, so these are sets.
+function matcatSprinklerFacets(item) {
+  const comp = item.compatibility || {};
+  const split = (v) => String(v || "").split(",").map((s) => s.trim()).filter(Boolean);
+  const orientations = new Set([...split(comp.orientation), ...split(item.orientation)]);
+  const kfactors = new Set([...split(comp.kFactor), ...split(item.kFactor)].map(matcatNormalizeK).filter(Boolean));
+  const responses = new Set([...split(comp.response), ...split(item.response)]);
+  const types = new Set([...split(comp.sprinklerType), ...split(item.type)]);
+  const tags = (item.tags || []).join(", ");
+  MATCAT_TYPE_ORDER.forEach((t) => { if (tags.includes(t)) types.add(t); });
+  const temps = new Set(item.temperatureClasses || []);   // from the datasheet extraction
+  const manufacturers = new Set([String(item.manufacturer || "").trim()].filter(Boolean));
+  return { orientations, kfactors, responses, types, temps, manufacturers };
+}
+
+// Faceted search: does this item pass every active sprinkler filter EXCEPT the
+// one named `exceptKey`? (Pass exceptKey=null to test all filters.)
+function matcatFacetPass(facets, exceptKey) {
+  if (exceptKey !== "manufacturer" && matcatState.manufacturer !== "All" && !facets.manufacturers.has(matcatState.manufacturer)) return false;
+  if (exceptKey !== "type" && matcatState.type !== "All" && !facets.types.has(matcatState.type)) return false;
+  if (exceptKey !== "orientation" && matcatState.orientation !== "All" && !facets.orientations.has(matcatState.orientation)) return false;
+  if (exceptKey !== "kfactor" && matcatState.kfactor !== "All" && !facets.kfactors.has(matcatState.kfactor)) return false;
+  if (exceptKey !== "temperature" && matcatState.temperature !== "All" && !facets.temps.has(matcatState.temperature)) return false;
+  if (exceptKey !== "response" && matcatState.response !== "All" && !facets.responses.has(matcatState.response)) return false;
+  return true;
+}
+
+// The values a facet's dropdown should offer = distinct values of that facet
+// among sprinklers that match ALL THE OTHER active filters. This guarantees any
+// option you pick still yields >=1 result (no dead-end / null combinations), and
+// the current selection is always among them, in any order.
+function matcatFacetOptions(facetField, key) {
+  const vals = new Set();
+  state.catalog.forEach((i) => {
+    if (i.category !== "Sprinklers") return;
+    const f = matcatSprinklerFacets(i);
+    if (!matcatFacetPass(f, key)) return;
+    f[facetField].forEach((v) => { if (v) vals.add(v); });
+  });
+  return vals;
+}
+
+function matcatSprinklerFiltersActive() {
+  return matcatState.category === "Sprinklers"
+    && (matcatState.manufacturer !== "All" || matcatState.type !== "All" || matcatState.orientation !== "All"
+      || matcatState.kfactor !== "All" || matcatState.temperature !== "All" || matcatState.response !== "All");
+}
+
+function matcatResetSprinklerFilters() {
+  matcatState.manufacturer = "All"; matcatState.type = "All"; matcatState.orientation = "All";
+  matcatState.kfactor = "All"; matcatState.temperature = "All"; matcatState.response = "All";
+}
+
+function matcatFillSelect(id, allLabel, values, current, labelFn) {
+  const sel = document.getElementById(id);
+  if (!sel) return;
+  const wanted = ["All", ...values];
+  const have = [...sel.options].map((o) => o.value);
+  if (have.length !== wanted.length || !have.every((v, i) => v === wanted[i])) {
+    sel.innerHTML = `<option value="All">${escapeHtml(allLabel)}</option>`
+      + values.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(labelFn ? labelFn(v) : v)}</option>`).join("");
+  }
+  sel.value = wanted.includes(current) ? current : "All";
+}
+
+// Show + populate the sprinkler filter row only when the Sprinklers category is
+// active; hide (and reset) it for other categories.
+function matcatSyncSprinklerFilters() {
+  const box = document.getElementById("matcatSprinklerFilters");
+  if (!box) return;
+  const show = matcatState.category === "Sprinklers";
+  box.hidden = !show;
+  if (!show) return;
+  const kNum = (a, b) => (parseFloat(a.replace(/[^0-9.]/g, "")) || 0) - (parseFloat(b.replace(/[^0-9.]/g, "")) || 0);
+  matcatFillSelect("matcatManufacturer", "All manufacturers", [...matcatFacetOptions("manufacturers", "manufacturer")].sort(), matcatState.manufacturer);
+  const typeSet = matcatFacetOptions("types", "type");
+  const orderedTypes = MATCAT_TYPE_ORDER.filter((t) => typeSet.has(t))
+    .concat([...typeSet].filter((t) => !MATCAT_TYPE_ORDER.includes(t)).sort());
+  matcatFillSelect("matcatType", "All types", orderedTypes, matcatState.type);
+  matcatFillSelect("matcatOrientation", "All orientations", [...matcatFacetOptions("orientations", "orientation")].sort(), matcatState.orientation);
+  matcatFillSelect("matcatKfactor", "All K-factors", [...matcatFacetOptions("kfactors", "kfactor")].sort(kNum), matcatState.kfactor);
+  const tempSet = matcatFacetOptions("temps", "temperature");
+  const orderedTemps = MATCAT_TEMP_CLASSES.map(([c]) => c).filter((c) => tempSet.has(c));
+  matcatFillSelect("matcatTemp", "All temperatures", orderedTemps, matcatState.temperature, (c) => {
+    const m = MATCAT_TEMP_CLASSES.find(([n]) => n === c);
+    return m ? `${c} · ${m[1]}` : c;
+  });
+  matcatFillSelect("matcatResponse", "All responses", [...matcatFacetOptions("responses", "response")].sort(), matcatState.response);
+  const clear = document.getElementById("matcatClearFilters");
+  if (clear) clear.hidden = !matcatSprinklerFiltersActive();
+  // let the user know some heads have no temp data (so they know why a temp
+  // filter can hide them) — only when it's relevant
+  const note = document.getElementById("matcatTempNote");
+  if (note) {
+    const unknown = state.catalog.filter((i) => i.category === "Sprinklers" && !(i.temperatureClasses && i.temperatureClasses.length)).length;
+    const show = unknown > 0 && matcatState.temperature !== "All";
+    note.hidden = !show;
+    if (show) note.textContent = `${unknown} head${unknown === 1 ? "" : "s"} have no temperature on file (hidden by this filter)`;
+  }
+}
+
+function matcatSortItems(items) {
+  const by = matcatState.sort;
+  return items.sort((a, b) => {
+    if (by === "category") return (a.category || "").localeCompare(b.category || "") || (a.manufacturer || "").localeCompare(b.manufacturer || "");
+    if (by === "name") return catalogProductLabel(a).localeCompare(catalogProductLabel(b));
+    return (a.manufacturer || "").localeCompare(b.manufacturer || "") || catalogProductLabel(a).localeCompare(catalogProductLabel(b));
+  });
+}
+
+function matcatFiltered() {
+  let items = state.catalog.slice();
+  if (matcatState.category !== "All") items = items.filter((i) => (i.category || "") === matcatState.category);
+  const tokens = searchTokens(matcatState.search);
+  if (tokens.length) items = items.filter((i) => itemMatchesSearch(i, tokens));
+  if (matcatSprinklerFiltersActive()) {
+    items = items.filter((i) => matcatFacetPass(matcatSprinklerFacets(i), null));
+  }
+  return matcatSortItems(items);
+}
+
+function matcatEnsureCategories() {
+  const sel = document.getElementById("matcatCategory");
+  if (!sel) return;
+  const cats = Array.from(new Set(state.catalog.map((i) => i.category).filter(Boolean))).sort();
+  const wanted = ["All", ...cats];
+  const have = [...sel.options].map((o) => o.value);
+  if (have.length === wanted.length && have.every((v, i) => v === wanted[i])) return;
+  const cur = matcatState.category;
+  sel.innerHTML = wanted.map((c) => `<option value="${escapeHtml(c)}">${c === "All" ? "All categories" : escapeHtml(c)}</option>`).join("");
+  sel.value = wanted.includes(cur) ? cur : "All";
+  matcatState.category = sel.value;
+}
+
+function matcatRow(item) {
+  const id = escapeHtml(item.id);
+  const remote = isRemoteCatalogItem(item);
+  const local = isLocalCatalogItem(item);
+  const editable = item.source === "database" && local;
+  const checked = matcatSel.has(item.id);
+  const mfr = escapeHtml((item.manufacturer || "").trim() || "—");
+  const name = escapeHtml(catalogProductLabel(item));
+  const cat = escapeHtml(item.category || "—");
+  const details = escapeHtml(catalogRowDetails(item));
+  const verified = isVerifiedSourceItem(item) ? '<span class="row-verified-icon" title="Verified manufacturer source">✓</span>' : "";
+  const flag = remote ? '<span class="row-flag muted">Remote</span>' : "";
+  let actions;
+  if (remote) {
+    const link = item.sourceUrl || item.datasheetUrl || item.productPage;
+    const src = link ? `<a class="small-button ghost" href="${escapeHtml(link)}" target="_blank" rel="noopener">Source ↗</a>` : "";
+    actions = `<button class="small-button" type="button" data-mc-action="import" data-mc-id="${id}">Import</button>${src}`;
+  } else {
+    actions = `<button class="small-button" type="button" data-mc-action="preview" data-mc-id="${id}">View</button>`
+      + `<button class="small-button ghost" type="button" data-mc-action="download" data-mc-id="${id}">Download</button>`
+      + (editable
+        ? `<button class="small-button ghost" type="button" data-mc-action="rename" data-mc-id="${id}" title="Rename in catalog">✎</button>`
+          + `<button class="small-button ghost row-menu-danger" type="button" data-mc-action="delete" data-mc-id="${id}" title="Delete from catalog">✕</button>`
+        : "");
+  }
+  return `<div class="matcat-row ${checked ? "is-selected" : ""} ${remote ? "is-remote" : ""}" role="row">
+    <label class="row-check"><input type="checkbox" data-mc-select="${id}" ${checked ? "checked" : ""} ${remote ? "disabled" : ""} aria-label="Select ${name}" /></label>
+    <div class="row-mfr" title="${mfr}">${mfr}</div>
+    <div class="row-productcell"><span class="row-product-name" title="${escapeHtml(tocDisplayName(item))}">${name}</span>${verified}${flag}</div>
+    <div class="matcat-cat">${cat}</div>
+    <div class="row-details" title="${details}">${details}</div>
+    <div class="matcat-actions">${actions}</div>
+  </div>`;
+}
+
+function renderMaterialCatalog() {
+  const list = document.getElementById("materialCatalogList");
+  if (!list) return;
+  matcatEnsureCategories();
+  matcatSyncSprinklerFilters();
+  [...matcatSel].forEach((id) => { if (!state.catalog.some((i) => i.id === id)) matcatSel.delete(id); });
+  if (!state.catalog.length) {
+    list.innerHTML = '<p class="hydreport-note matcat-empty">Your catalog is empty. Drop PDF cut sheets above to add them.</p>';
+    matcatUpdateBulk(); return;
+  }
+  const items = matcatFiltered();
+  if (!items.length) {
+    list.innerHTML = '<p class="hydreport-note matcat-empty">No datasheets match your search or filter. <button class="link-button" id="matcatResetFilters" type="button">Clear</button></p>';
+    document.getElementById("matcatResetFilters")?.addEventListener("click", () => {
+      matcatState.search = ""; matcatState.category = "All";
+      const s = document.getElementById("matcatSearch"); if (s) s.value = "";
+      const c = document.getElementById("matcatCategory"); if (c) c.value = "All";
+      renderMaterialCatalog();
+    });
+    matcatUpdateBulk(); return;
+  }
+  list.innerHTML =
+    '<div class="matcat-headrow"><span></span><span>Manufacturer</span><span>Product</span><span>Category</span><span>Details</span><span>Actions</span></div>'
+    + `<div class="matcat-rows">${items.map(matcatRow).join("")}</div>`
+    + `<p class="matcat-total">Showing ${items.length} of ${state.catalog.length} datasheets</p>`;
+  matcatUpdateBulk();
+}
+
+function matcatSelectedItems(pred) {
+  return [...matcatSel].map((id) => state.catalog.find((i) => i.id === id)).filter((i) => i && (!pred || pred(i)));
+}
+
+function matcatUpdateBulk() {
+  const c = document.getElementById("matcatSelCount");
+  if (c) c.textContent = `${matcatSel.size} selected`;
+  const downloadable = matcatSelectedItems((i) => isLocalCatalogItem(i)).length;
+  const deletable = matcatSelectedItems((i) => i.source === "database" && isLocalCatalogItem(i)).length;
+  const down = document.getElementById("matcatDownloadSel");
+  if (down) { down.disabled = downloadable === 0; down.textContent = downloadable ? `⭳ Download selected (${downloadable})` : "⭳ Download selected"; }
+  const del = document.getElementById("matcatDeleteSel");
+  if (del) { del.disabled = deletable === 0; del.textContent = deletable ? `Delete selected (${deletable})` : "Delete selected"; }
+  const shown = matcatFiltered().filter((i) => !isRemoteCatalogItem(i));
+  const sa = document.getElementById("matcatSelectAll");
+  if (sa) {
+    const selShown = shown.filter((i) => matcatSel.has(i.id)).length;
+    sa.checked = shown.length > 0 && selShown === shown.length;
+    sa.indeterminate = selShown > 0 && selShown < shown.length;
+  }
+}
+
+async function matcatDownload(id) {
+  const item = state.catalog.find((i) => i.id === id);
+  const st = document.getElementById("matcatStatus");
+  if (!item) return;
+  if (isRemoteCatalogItem(item)) { await matcatImportRemote(id); return; }
+  try {
+    const params = new URLSearchParams({ id: item.id, relativePath: item.relativePath || "" });
+    const resp = await fetch("./api/catalog/pdf?" + params.toString());
+    if (!resp.ok) throw new Error("not found");
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = String(item.fileName || catalogProductLabel(item) || "datasheet").replace(/\.pdf$/i, "") + ".pdf";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    if (st) st.textContent = `Downloaded ${a.download}`;
+  } catch (e) {
+    if (st) st.textContent = "Couldn't download that datasheet — try Refresh.";
+  }
+}
+
+async function matcatDownloadSelected() {
+  const items = matcatSelectedItems((i) => isLocalCatalogItem(i));
+  const st = document.getElementById("matcatStatus");
+  if (!items.length) return;
+  if (st) st.textContent = `Downloading ${items.length} datasheet${items.length === 1 ? "" : "s"}…`;
+  for (const item of items) { await matcatDownload(item.id); await new Promise((r) => setTimeout(r, 350)); }
+  if (st) st.textContent = `Downloaded ${items.length} datasheet${items.length === 1 ? "" : "s"}.`;
+}
+
+async function matcatDeleteSelected() {
+  const items = matcatSelectedItems((i) => i.source === "database" && isLocalCatalogItem(i));
+  const st = document.getElementById("matcatStatus");
+  if (!items.length) return;
+  if (!window.confirm(`Delete ${items.length} datasheet${items.length === 1 ? "" : "s"} from the catalog? The file${items.length === 1 ? "" : "s"} will be removed.`)) return;
+  if (st) st.textContent = `Deleting ${items.length}…`;
+  for (const item of items) {
+    try { await postCatalogAction("./api/catalog/delete", { id: item.id, relativePath: item.relativePath || "" }); matcatSel.delete(item.id); } catch (e) { /* keep going */ }
+  }
+  await refreshCatalog();
+  if (st) st.textContent = `Deleted ${items.length} datasheet${items.length === 1 ? "" : "s"}.`;
+}
+
+async function matcatImportRemote(id) {
+  const st = document.getElementById("matcatStatus");
+  if (st) st.textContent = "Importing datasheet from the manufacturer source…";
+  try {
+    await postCatalogAction("./api/catalog/download", { id });
+    await refreshCatalog();
+    if (st) st.textContent = "Imported to your catalog.";
+  } catch (e) {
+    if (st) st.textContent = e.message || "Import failed — check your connection.";
+  }
+}
+
+function matcatSelectAllShown(checked) {
+  const shown = matcatFiltered().filter((i) => !isRemoteCatalogItem(i));
+  shown.forEach((i) => { if (checked) matcatSel.add(i.id); else matcatSel.delete(i.id); });
+  renderMaterialCatalog();
+}
+
+function matcatWire() {
+  const list = document.getElementById("materialCatalogList");
+  if (!list || matcatState.wired) return;
+  matcatState.wired = true;
+  const s = document.getElementById("matcatSearch");
+  s?.addEventListener("input", () => { matcatState.search = s.value; renderMaterialCatalog(); });
+  const cat = document.getElementById("matcatCategory");
+  cat?.addEventListener("change", () => {
+    matcatState.category = cat.value;
+    if (cat.value !== "Sprinklers") matcatResetSprinklerFilters();
+    renderMaterialCatalog();
+  });
+  const sort = document.getElementById("matcatSort");
+  sort?.addEventListener("change", () => { matcatState.sort = sort.value; renderMaterialCatalog(); });
+  [["matcatManufacturer", "manufacturer"], ["matcatType", "type"], ["matcatOrientation", "orientation"], ["matcatKfactor", "kfactor"], ["matcatTemp", "temperature"], ["matcatResponse", "response"]].forEach(([elId, key]) => {
+    document.getElementById(elId)?.addEventListener("change", (e) => { matcatState[key] = e.target.value; renderMaterialCatalog(); });
+  });
+  document.getElementById("matcatClearFilters")?.addEventListener("click", () => { matcatResetSprinklerFilters(); renderMaterialCatalog(); });
+  document.getElementById("matcatRefresh")?.addEventListener("click", () => refreshCatalog());
+  const fileInput = document.getElementById("matcatFileInput");
+  document.getElementById("matcatImport")?.addEventListener("click", () => fileInput?.click());
+  fileInput?.addEventListener("change", () => { if (fileInput.files?.length) importDatasheets([...fileInput.files]); fileInput.value = ""; });
+  const drop = document.getElementById("matcatDrop");
+  if (drop) {
+    ["dragenter", "dragover"].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.add("is-hot"); }));
+    ["dragleave", "drop"].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.remove("is-hot"); }));
+    drop.addEventListener("drop", (ev) => { const f = [...(ev.dataTransfer?.files || [])]; if (f.length) importDatasheets(f); });
+  }
+  const aiQuery = document.getElementById("matcatAiQuery");
+  const runAiFind = () => findDatasheetWithAI(aiQuery?.value, "matcatAiResult");
+  document.getElementById("matcatAiFind")?.addEventListener("click", runAiFind);
+  aiQuery?.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); runAiFind(); } });
+  document.getElementById("matcatAiResult")?.addEventListener("click", (e) => {
+    if (e.target.closest("[data-ai-import]")) { importFetchedDatasheet(); return; }
+    const open = e.target.closest("[data-ai-open]");
+    if (open?.dataset.aiOpen) window.open(open.dataset.aiOpen, "_blank", "noopener");
+  });
+  document.getElementById("matcatSelectAll")?.addEventListener("change", (e) => matcatSelectAllShown(e.target.checked));
+  document.getElementById("matcatDownloadSel")?.addEventListener("click", matcatDownloadSelected);
+  document.getElementById("matcatDeleteSel")?.addEventListener("click", matcatDeleteSelected);
+  document.getElementById("matcatClearSel")?.addEventListener("click", () => { matcatSel.clear(); renderMaterialCatalog(); });
+  list.addEventListener("change", (e) => {
+    const cb = e.target.closest("[data-mc-select]");
+    if (!cb) return;
+    const id = cb.getAttribute("data-mc-select");
+    if (cb.checked) matcatSel.add(id); else matcatSel.delete(id);
+    cb.closest(".matcat-row")?.classList.toggle("is-selected", cb.checked);
+    matcatUpdateBulk();
+  });
+  list.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-mc-action]");
+    if (!btn) return;
+    const id = btn.getAttribute("data-mc-id");
+    const action = btn.getAttribute("data-mc-action");
+    if (action === "preview") previewCatalogItem(id);
+    else if (action === "download") matcatDownload(id);
+    else if (action === "rename") renameCatalogItem(id);
+    else if (action === "delete") deleteCatalogItem(id);
+    else if (action === "import") matcatImportRemote(id);
+  });
+}
+
+function setViewMode(mode) {
+  state.viewMode = mode === "simple" ? "simple" : "standard";
+  if (state.viewMode === "simple") {
+    state.simpleStep = "intake";
+    activateTool("submittal");
+  }
+  updateViewModeUI();
+  updatePreviewScale();
+  saveState();
+}
+
+function setTheme(theme) {
+  state.theme = theme === "plain-light" ? "plain-light" : "default";
+  updateThemeUI();
+  saveState();
+}
+
+function updateThemeUI() {
+  document.body.dataset.theme = state.theme;
+  if (dom.themeSelect) dom.themeSelect.value = state.theme;
+  const themeColor = state.theme === "plain-light" ? "#f4f7fb" : "#111820";
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", themeColor);
+  updateEmbeddedToolThemes();
+}
+
+function updateEmbeddedToolThemes() {
+  const theme = state.theme === "plain-light" ? "plain-light" : "default";
+
+  // Hanger Detail iframe: postMessage the theme (works cross-origin and does NOT
+  // reload the frame, so the in-progress drawing is preserved). hanger.html applies
+  // it to <html data-theme>.
+  const hangerFrame = dom.hangerDetailFrame;
+  if (hangerFrame) {
+    try { hangerFrame.contentWindow?.postMessage({ type: "sprinkflow-theme", theme }, "*"); } catch (error) { /* not loaded yet */ }
+  }
+
+  const frame = dom.storageHazardFrame;
+  if (!frame) return;
+
+  try {
+    const url = new URL(frame.getAttribute("src") || frame.src, window.location.href);
+    if (url.searchParams.get("theme") !== theme) {
+      url.searchParams.set("theme", theme);
+      frame.src = `./storage-hazard.html${url.search}${url.hash}`;
+      return;
+    }
+  } catch (error) {
+    console.warn("Could not update embedded storage theme URL", error);
+  }
+
+  try {
+    frame.contentWindow?.postMessage({ type: "sprinkflow-theme", theme }, window.location.origin);
+  } catch (error) {
+    console.warn("Could not post embedded storage theme", error);
+  }
+}
+
+function setSimpleStep(step) {
+  if (!SIMPLE_STEPS.includes(step)) return;
+  state.simpleStep = step;
+  syncStateFromInputs();
+  updateViewModeUI();
+  renderPreview();
+  updatePreviewScale();
+  saveState();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function currentActiveTool() {
+  return document.querySelector("[data-tool-panel].active")?.dataset.toolPanel || "submittal";
+}
+
+function placeProjectDetails() {
+  // The project details box is a single instance (unique input IDs). In the wizard
+  // it lives at the top of the My Submittal Package cart; in Legacy it goes back into
+  // the Project Intake card. Relocate it (real DOM move — keeps IDs/listeners) on mode change.
+  const box = document.getElementById("projectDetailsBox");
+  if (!box) return;
+  if (state.viewMode === "simple") {
+    const cart = document.getElementById("submittalCart");
+    const items = cart?.querySelector(".cart-items");
+    if (cart && items && box.parentElement !== cart) cart.insertBefore(box, items);
+  } else {
+    const intake = document.querySelector(".project-intake-section");
+    if (intake && box.parentElement !== intake) intake.appendChild(box);
+  }
+}
+
+function updateViewModeUI() {
+  updateThemeUI();
+  document.body.dataset.viewMode = state.viewMode;
+  document.body.dataset.simpleStep = state.simpleStep;
+  placeProjectDetails();
+  dom.viewModeButtons?.forEach((button) => {
+    const active = button.dataset.viewMode === state.viewMode;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+
+  const activeTool = currentActiveTool();
+  if (dom.simpleToolChooser) dom.simpleToolChooser.hidden = true;
+  const showSimpleNav = state.viewMode === "simple" && activeTool === "submittal";
+  if (dom.simpleStepNav) dom.simpleStepNav.hidden = !showSimpleNav;
+  if (dom.generateDock) {
+    // The bottom generate bar is Legacy-mode only; the wizard generates from Step 4.
+    dom.generateDock.hidden = activeTool !== "submittal" || state.viewMode === "simple";
+  }
+  renderStepChips();
+  if (dom.simpleBackButton) {
+    dom.simpleBackButton.hidden = state.simpleStep === "intake";
+    dom.simpleBackButton.textContent = "Back";
+  }
+  if (dom.simpleStartOverButton) dom.simpleStartOverButton.hidden = state.simpleStep === "intake";
+  if (dom.simpleContinueButton) {
+    dom.simpleContinueButton.hidden = false;
+    dom.simpleContinueButton.textContent =
+      state.simpleStep === "contractor" ? "Continue to datasheets"
+      : state.simpleStep === "materials" ? "Review submittal"
+      : state.simpleStep === "review" ? "Generate Submittal"
+      : "Continue";
+  }
+  maybeShowSessionBanner();
+}
+
+const STEP_CHIP_LABELS = { intake: "Plans", contractor: "Contractor", materials: "Datasheets", review: "Review" };
+
+// The 4 steps as clickable chips — jump to any step instantly.
+function renderStepChips() {
+  const box = document.getElementById("stepChips");
+  if (!box) return;
+  const current = SIMPLE_STEPS.indexOf(state.simpleStep);
+  box.innerHTML = SIMPLE_STEPS.map((step, i) => {
+    const active = i === current;
+    return `<button class="step-chip ${active ? "active" : ""}${i < current ? " visited" : ""}" type="button"
+      role="tab" aria-selected="${active ? "true" : "false"}" data-step-chip="${step}"
+      title="Step ${i + 1}: ${STEP_CHIP_LABELS[step] || step}" ${active ? 'aria-current="step"' : ""}>
+      <span class="step-chip-n">${i + 1}</span><span class="step-chip-label">${STEP_CHIP_LABELS[step] || step}</span>
+    </button>`;
+  }).join("");
+  box.querySelectorAll("[data-step-chip]").forEach((chip) => {
+    chip.addEventListener("click", () => setSimpleStep(chip.dataset.stepChip));
+  });
+}
+
+function handleSimpleBack() {
+  const currentIndex = SIMPLE_STEPS.indexOf(state.simpleStep);
+  setSimpleStep(SIMPLE_STEPS[Math.max(0, currentIndex - 1)] || "intake");
+}
+
+function handleSimpleContinue() {
+  if (state.simpleStep === "review") {
+    generateMaterialDataSubmittal();
+    return;
+  }
+  const currentIndex = SIMPLE_STEPS.indexOf(state.simpleStep);
+  const nextStep = SIMPLE_STEPS[Math.min(SIMPLE_STEPS.length - 1, currentIndex + 1)] || "intake";
+  setSimpleStep(nextStep);
+}
+
+function handleSimpleToolChoice(toolId) {
+  activateTool(toolId || "submittal");
+  if ((toolId || "submittal") === "submittal") {
+    setSimpleStep("intake");
+  }
+}
+
+function parseSpacingDimension(value) {
+  const text = String(value || "").trim().toLowerCase();
+  if (!text) return 0;
+  if (text.includes("-") && !/[a-z]/i.test(text.replaceAll(".", ""))) {
+    const [feetText, inchesText = "0"] = text.split("-");
+    const feet = Number.parseFloat(feetText);
+    const inches = Number.parseFloat(inchesText);
+    if (!Number.isFinite(feet) || !Number.isFinite(inches)) return 0;
+    return feet + inches / 12;
+  }
+  const footMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:ft|feet|')/);
+  const inchMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:in|inches|")/);
+  if (footMatch || inchMatch) {
+    const feet = footMatch ? Number.parseFloat(footMatch[1]) : 0;
+    const inches = inchMatch ? Number.parseFloat(inchMatch[1]) : 0;
+    return feet + inches / 12;
+  }
+  const feet = Number.parseFloat(text);
+  return Number.isFinite(feet) ? feet : 0;
+}
+
+function decimalToFeetInches(decimalFeet) {
+  const feetValue = Number.parseFloat(decimalFeet);
+  if (!Number.isFinite(feetValue) || feetValue <= 0) return "0'";
+  const totalHalfInches = Math.round(feetValue * 24);
+  const feet = Math.floor(totalHalfInches / 24);
+  const halfInches = totalHalfInches - feet * 24;
+  const wholeInches = Math.floor(halfInches / 2);
+  const hasHalf = halfInches % 2 === 1;
+  if (!wholeInches && !hasHalf) return `${feet}'-0"`;
+  return `${feet}'-${wholeInches}${hasHalf ? " 1/2" : ""}"`;
+}
+
+function spacingCoverageArea(values) {
+  const xEffective = values.xWall ? parseSpacingDimension(values.xWall) * 2 : parseSpacingDimension(values.xBetween);
+  const yEffective = values.yWall ? parseSpacingDimension(values.yWall) * 2 : parseSpacingDimension(values.yBetween);
+  return xEffective * yEffective;
+}
+
+function spacingFlowCalculation({ mode, kFactor, flow, pressure }) {
+  const k = Number.parseFloat(kFactor);
+  if (!Number.isFinite(k) || k <= 0) return null;
+  if (mode === "P") {
+    const q = Number.parseFloat(flow);
+    if (!Number.isFinite(q) || q < 0) return null;
+    return { value: (q / k) ** 2, unit: "PSI" };
+  }
+  const p = Number.parseFloat(pressure);
+  if (!Number.isFinite(p) || p < 0) return null;
+  return { value: k * Math.sqrt(p), unit: "GPM" };
+}
+
+function selectedSpacingPressureHazard() {
+  const selected = dom.spacingPressureHazardSelect?.value || SPACING_HAZARDS[0].name;
+  if (selected === "Custom") {
+    const customDensity = Number.parseFloat(dom.spacingCustomDensityInput?.value);
+    return {
+      name: "Custom Density",
+      density: Number.isFinite(customDensity) && customDensity > 0 ? customDensity : null,
+    };
+  }
+  return SPACING_HAZARDS.find((hazard) => hazard.name === selected) || SPACING_HAZARDS[0];
+}
+
+function pressureForFlow(flow, kFactor) {
+  const rawPressure = (flow / kFactor) ** 2;
+  const pressure = Math.max(7, rawPressure);
+  return {
+    rawPressure,
+    pressure,
+    isMinimum: rawPressure < 7,
+  };
+}
+
+function pressureGradientColor(pressure) {
+  const stops = [
+    { psi: 7, color: [40, 167, 98] },
+    { psi: 50, color: [232, 71, 47] },
+    { psi: 100, color: [96, 12, 18] },
+  ];
+  const clamped = Math.max(7, Math.min(100, pressure));
+  const start = clamped <= 50 ? stops[0] : stops[1];
+  const end = clamped <= 50 ? stops[1] : stops[2];
+  const ratio = (clamped - start.psi) / (end.psi - start.psi);
+  const channels = start.color.map((value, index) => Math.round(value + (end.color[index] - value) * ratio));
+  return `rgb(${channels.join(", ")})`;
+}
+
+function renderSpacingPressureRequirements(area) {
+  if (!dom.spacingPressureSection || !dom.spacingPressureTableBody) return;
+  const hasArea = Number.isFinite(area) && area > 0;
+  dom.spacingPressureSection.classList.toggle("is-locked", !hasArea);
+  dom.spacingPressureSection.classList.toggle("is-awake", hasArea);
+  if (dom.spacingPressureHazardSelect) dom.spacingPressureHazardSelect.disabled = !hasArea;
+
+  if (!hasArea) {
+    if (dom.spacingPressureFlow) dom.spacingPressureFlow.textContent = "- GPM";
+    if (dom.spacingPressureStatus) dom.spacingPressureStatus.textContent = "Waiting for coverage area.";
+    dom.spacingPressureTableBody.innerHTML = `
+      <tr>
+        <td colspan="2">Enter X and Y coverage dimensions to activate.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  const hazard = selectedSpacingPressureHazard();
+  if (!Number.isFinite(hazard.density) || hazard.density <= 0) {
+    if (dom.spacingPressureFlow) dom.spacingPressureFlow.textContent = "- GPM";
+    if (dom.spacingPressureStatus) dom.spacingPressureStatus.textContent = "Enter a custom density above to calculate custom pressure.";
+    dom.spacingPressureTableBody.innerHTML = `
+      <tr>
+        <td colspan="2">Custom density is required.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  const flow = area * hazard.density;
+  if (dom.spacingPressureFlow) dom.spacingPressureFlow.textContent = `${flow.toFixed(2)} GPM`;
+  if (dom.spacingPressureStatus) dom.spacingPressureStatus.textContent = `${hazard.name} at ${hazard.density.toFixed(3)} gpm/sq ft.`;
+  dom.spacingPressureTableBody.innerHTML = COMMON_K_FACTORS.map((kFactor) => {
+    const result = pressureForFlow(flow, kFactor.value);
+    const color = pressureGradientColor(result.pressure);
+    return `
+      <tr>
+        <td>K${kFactor.label}</td>
+        <td>
+          <span class="pressure-pill" style="--pressure-color: ${color};">
+            ${result.pressure.toFixed(2)} PSI${result.isMinimum ? " (Min)" : ""}
+          </span>
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function updateSpacingDimensionLocks() {
+  const pairs = [
+    [dom.spacingXWallInput, dom.spacingXBetweenInput],
+    [dom.spacingYWallInput, dom.spacingYBetweenInput],
+  ];
+  for (const [wall, between] of pairs) {
+    if (!wall || !between) continue;
+    wall.disabled = Boolean(between.value.trim());
+    between.disabled = Boolean(wall.value.trim());
+  }
+}
+
+function updateSpacingCalculator() {
+  if (!dom.spacingAreaResult || !dom.spacingHazardTableBody) return;
+  updateSpacingDimensionLocks();
+  const area = spacingCoverageArea({
+    xWall: dom.spacingXWallInput?.value,
+    xBetween: dom.spacingXBetweenInput?.value,
+    yWall: dom.spacingYWallInput?.value,
+    yBetween: dom.spacingYBetweenInput?.value,
+  });
+  dom.spacingAreaResult.textContent = area > 0 ? `${area.toFixed(2)} sq ft` : "- sq ft -";
+
+  const customDensity = Number.parseFloat(dom.spacingCustomDensityInput?.value);
+  const rows = SPACING_HAZARDS.map((hazard) => ({
+    name: hazard.name,
+    density: hazard.density,
+    gpm: area > 0 ? area * hazard.density : null,
+  }));
+  if (Number.isFinite(customDensity) && customDensity > 0) {
+    rows.push({ name: "Custom", density: customDensity, gpm: area > 0 ? area * customDensity : null, custom: true });
+  } else {
+    rows.push({ name: "Custom", density: null, gpm: null, custom: true });
+  }
+  dom.spacingHazardTableBody.innerHTML = rows.map((row) => `
+    <tr class="${row.custom ? "custom-row" : ""}">
+      <td>${escapeHtml(row.name)}</td>
+      <td>${row.density === null ? "-" : row.density.toFixed(row.custom ? 3 : 2)}</td>
+      <td>${row.gpm === null ? "-" : `<button class="copy-gpm-button" type="button" data-copy-gpm="${row.gpm.toFixed(2)}" title="Copy ${row.gpm.toFixed(2)} GPM">${row.gpm.toFixed(2)}</button>`}</td>
+    </tr>
+  `).join("");
+  renderSpacingPressureRequirements(area);
+}
+
+async function copyTextToClipboard(text) {
+  let clipboardError = null;
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch (error) {
+      clipboardError = error;
+    }
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  textarea.remove();
+  if (copied) return;
+  const response = await fetch("/api/clipboard-copy", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.ok) throw clipboardError || new Error(payload.error || "Clipboard copy failed.");
+}
+
+async function handleNfpaCopy(button) {
+  const type = button?.dataset?.nfpaCopy;
+  const edition = button?.dataset?.nfpaEdition;
+  const code = button?.dataset?.nfpaCode;
+  if (!type || !edition || !code) return;
+  let text = "";
+  if (type === "section") {
+    text = copyLabelForCode(code);
+  }
+  if (!text) throw new Error("No code reference is available to copy.");
+  await copyTextToClipboard(text);
+  if (dom.codeConverterStatus) {
+    dom.codeConverterStatus.textContent = `Copied ${copyLabelForCode(code)}.`;
+    dom.codeConverterStatus.dataset.status = "success";
+  }
+}
+
+async function copyRequiredFlow(gpm) {
+  if (!gpm) return;
+  try {
+    await copyTextToClipboard(gpm);
+    if (dom.spacingCopyStatus) dom.spacingCopyStatus.textContent = `Copied ${gpm} GPM`;
+  } catch {
+    if (dom.spacingCopyStatus) dom.spacingCopyStatus.textContent = `Could not copy ${gpm} GPM`;
+  }
+}
+
+function spacingFlowMode() {
+  return document.querySelector("input[name='spacingFlowMode']:checked")?.value || "Q";
+}
+
+function updateFlowCalculator() {
+  if (!dom.spacingFlowResult) return;
+  const mode = spacingFlowMode();
+  if (dom.spacingFlowInput) dom.spacingFlowInput.disabled = mode === "Q";
+  if (dom.spacingPressureInput) dom.spacingPressureInput.disabled = mode === "P";
+  if (dom.spacingFlowResultLabel) {
+    dom.spacingFlowResultLabel.textContent = mode === "Q" ? "Calculated Flow" : "Calculated Pressure";
+  }
+  const result = spacingFlowCalculation({
+    mode,
+    kFactor: dom.spacingKFactorInput?.value,
+    flow: dom.spacingFlowInput?.value,
+    pressure: dom.spacingPressureInput?.value,
+  });
+  if (!result) {
+    dom.spacingFlowResult.textContent = "-";
+    if (dom.spacingFlowStatus) dom.spacingFlowStatus.textContent = "Enter valid values";
+    return;
+  }
+  dom.spacingFlowResult.textContent = `${result.value.toFixed(result.unit === "GPM" ? 3 : 2)} ${result.unit}`;
+  if (dom.spacingFlowStatus) dom.spacingFlowStatus.textContent = "";
+}
+
+function clearSpacingCalculator() {
+  [
+    dom.spacingXWallInput,
+    dom.spacingXBetweenInput,
+    dom.spacingYWallInput,
+    dom.spacingYBetweenInput,
+    dom.spacingCustomDensityInput,
+    dom.spacingKFactorInput,
+    dom.spacingFlowInput,
+    dom.spacingPressureInput,
+  ].filter(Boolean).forEach((input) => {
+    input.disabled = false;
+    input.value = "";
+  });
+  const flowMode = document.querySelector("input[name='spacingFlowMode'][value='Q']");
+  if (flowMode) flowMode.checked = true;
+  updateSpacingCalculator();
+  updateFlowCalculator();
+}
+
+window.sprinklerCalculator = {
+  parseDimension: parseSpacingDimension,
+  coverageArea: spacingCoverageArea,
+  flowCalculation: spacingFlowCalculation,
+};
+
+function getLayoutCoverageValue() {
+  if (dom.layoutCoverageSelect?.value === "custom") {
+    return Number.parseFloat(dom.layoutCustomCoverageInput?.value);
+  }
+  return Number.parseFloat(dom.layoutCoverageSelect?.value);
+}
+
+function calculateHeadLayout(values) {
+  let length = parseSpacingDimension(values.length);
+  let width = parseSpacingDimension(values.width);
+  const sqPerHead = Number.parseFloat(values.sqPerHead);
+  const maxSpacing = parseSpacingDimension(values.maxSpacing);
+  if (length <= 0 || width <= 0) throw new Error("Enter a valid area length and width.");
+  if (!Number.isFinite(sqPerHead) || sqPerHead <= 0) throw new Error("Enter a valid coverage area per head.");
+  if (maxSpacing <= 0) throw new Error("Enter a valid maximum head spacing.");
+  if (width > length) [length, width] = [width, length];
+
+  const area = length * width;
+  let rows = width <= maxSpacing ? 1 : Math.max(2, Math.ceil(width / maxSpacing));
+  const baseTotal = Math.ceil(area / sqPerHead);
+  let headsPerRow = Math.max(1, Math.ceil(baseTotal / rows));
+  const halfMax = maxSpacing / 2;
+
+  while (headsPerRow <= 100) {
+    const spacing = length / headsPerRow;
+    const wallToFirst = spacing / 2;
+    if (spacing <= maxSpacing && wallToFirst <= halfMax + 0.01) break;
+    headsPerRow += 1;
+  }
+
+  const spacingAlong = length / headsPerRow;
+  const wallToFirst = spacingAlong / 2;
+  const rowSpacing = rows > 1 ? width / rows : width;
+  const totalHeads = headsPerRow * rows;
+  const actualCoverage = spacingAlong * (rows > 1 ? rowSpacing : width);
+
+  return {
+    length,
+    width,
+    area,
+    rows,
+    headsPerRow,
+    totalHeads,
+    spacingAlong,
+    wallToFirst,
+    rowSpacing,
+    sqPerHead,
+    maxSpacing,
+    actualCoverage,
+    layoutDescription: rows === 1 ? "1 centered row" : `${rows} rows of ${headsPerRow} heads each`,
+  };
+}
+
+function renderHeadLayoutResults(layout) {
+  if (!dom.layoutResults) return;
+  const betweenRows = layout.rows > 1 ? `
+    <div class="layout-result-line">
+      <span>Spacing Between Rows</span>
+      <strong>${decimalToFeetInches(layout.rowSpacing)}</strong>
+    </div>
+    <div class="layout-result-line">
+      <span>Outer Row to Edge</span>
+      <strong>${decimalToFeetInches(layout.rowSpacing / 2)}</strong>
+    </div>
+  ` : "";
+  dom.layoutResults.innerHTML = `
+    <div class="calculator-result-card">
+      <span>Total Sprinklers</span>
+      <strong>${layout.totalHeads}</strong>
+    </div>
+    <div class="calculator-result-card">
+      <span>Layout</span>
+      <strong>${escapeHtml(layout.layoutDescription)}</strong>
+    </div>
+    <div class="layout-result-lines">
+      <div class="layout-result-line">
+        <span>Area</span>
+        <strong>${layout.area.toFixed(1)} sq ft (${decimalToFeetInches(layout.length)} x ${decimalToFeetInches(layout.width)})</strong>
+      </div>
+      <div class="layout-result-line">
+        <span>Target Coverage</span>
+        <strong>${layout.sqPerHead.toFixed(0)} sq ft/head</strong>
+      </div>
+      <div class="layout-result-line">
+        <span>Max Spacing</span>
+        <strong>${decimalToFeetInches(layout.maxSpacing)}</strong>
+      </div>
+      <div class="layout-result-line">
+        <span>Wall to First Sprinkler</span>
+        <strong>${decimalToFeetInches(layout.wallToFirst)}</strong>
+      </div>
+      <div class="layout-result-line">
+        <span>Center-to-Center Along Length</span>
+        <strong>${decimalToFeetInches(layout.spacingAlong)}</strong>
+      </div>
+      ${betweenRows}
+      <div class="layout-result-line highlight">
+        <span>Actual Coverage per Sprinkler</span>
+        <strong>${layout.actualCoverage.toFixed(1)} sq ft</strong>
+      </div>
+    </div>
+  `;
+}
+
+function renderHeadLayoutDiagram(layout) {
+  if (!dom.layoutDiagram) return;
+  const svgWidth = 900;
+  const svgHeight = 620;
+  const usableWidth = 560;
+  const usableHeight = 360;
+  const scale = Math.min(usableWidth / Math.max(layout.length, 1), usableHeight / Math.max(layout.width, 1));
+  const rectWidth = layout.length * scale;
+  const rectHeight = layout.width * scale;
+  const offsetX = (svgWidth - rectWidth) / 2 + 55;
+  const offsetY = (svgHeight - rectHeight) / 2 + 12;
+  const rowCenters = Array.from({ length: layout.rows }, (_, row) => offsetY + (row + 0.5) * (rectHeight / layout.rows));
+  const headRadius = 7;
+  const topY = offsetY - 58;
+  const leftX = offsetX - 118;
+  const headDots = [];
+  const topDims = [];
+  const rowDims = [];
+
+  for (let row = 0; row < layout.rows; row += 1) {
+    for (let head = 0; head < layout.headsPerRow; head += 1) {
+      const x = offsetX + layout.wallToFirst * scale + head * layout.spacingAlong * scale;
+      const y = rowCenters[row];
+      headDots.push(`<circle class="layout-head-dot" cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${headRadius}" />`);
+    }
+  }
+
+  const addHorizontalDim = (x1, x2, label) => {
+    topDims.push(`
+      <line class="layout-dim-line" x1="${x1.toFixed(2)}" y1="${topY}" x2="${x2.toFixed(2)}" y2="${topY}" marker-start="url(#layoutArrow)" marker-end="url(#layoutArrow)" />
+      <text class="layout-dim-label" x="${((x1 + x2) / 2).toFixed(2)}" y="${topY - 15}" text-anchor="middle">${escapeHtml(label)}</text>
+    `);
+  };
+  addHorizontalDim(offsetX, offsetX + layout.wallToFirst * scale, decimalToFeetInches(layout.wallToFirst));
+  const alongBays = layout.headsPerRow - 1;
+  if (alongBays > 0 && alongBays <= 2) {
+    // Few bays: label each one individually — they fit.
+    for (let head = 0; head < alongBays; head += 1) {
+      const x1 = offsetX + (layout.wallToFirst + head * layout.spacingAlong) * scale;
+      addHorizontalDim(x1, x1 + layout.spacingAlong * scale, decimalToFeetInches(layout.spacingAlong));
+    }
+  } else if (alongBays > 2) {
+    // Uniform spacing: one grouped dimension, drafting-style, instead of N crammed labels.
+    const firstX = offsetX + layout.wallToFirst * scale;
+    const lastX = firstX + alongBays * layout.spacingAlong * scale;
+    addHorizontalDim(firstX, lastX,
+      `${alongBays} SPA @ ${decimalToFeetInches(layout.spacingAlong)} = ${decimalToFeetInches(alongBays * layout.spacingAlong)}`);
+  }
+  addHorizontalDim(offsetX + rectWidth - layout.wallToFirst * scale, offsetX + rectWidth, decimalToFeetInches(layout.wallToFirst));
+
+  const addVerticalDim = (y1, y2, label) => {
+    rowDims.push(`
+      <line class="layout-dim-line" x1="${leftX}" y1="${y1.toFixed(2)}" x2="${leftX}" y2="${y2.toFixed(2)}" marker-start="url(#layoutArrow)" marker-end="url(#layoutArrow)" />
+      <text class="layout-dim-label" x="${leftX - 17}" y="${((y1 + y2) / 2).toFixed(2)}" text-anchor="middle" transform="rotate(-90 ${leftX - 17} ${((y1 + y2) / 2).toFixed(2)})">${escapeHtml(label)}</text>
+    `);
+  };
+  const edgeDistance = layout.rows > 1 ? layout.rowSpacing / 2 : layout.width / 2;
+  addVerticalDim(offsetY, rowCenters[0], decimalToFeetInches(edgeDistance));
+  const rowBays = layout.rows - 1;
+  if (rowBays > 0 && rowBays <= 2) {
+    for (let row = 0; row < rowBays; row += 1) {
+      addVerticalDim(rowCenters[row], rowCenters[row + 1], decimalToFeetInches(layout.rowSpacing));
+    }
+  } else if (rowBays > 2) {
+    addVerticalDim(rowCenters[0], rowCenters[rowCenters.length - 1],
+      `${rowBays} SPA @ ${decimalToFeetInches(layout.rowSpacing)} = ${decimalToFeetInches(rowBays * layout.rowSpacing)}`);
+  }
+  addVerticalDim(rowCenters[rowCenters.length - 1], offsetY + rectHeight, decimalToFeetInches(edgeDistance));
+
+  dom.layoutDiagram.innerHTML = `
+    <defs>
+      <marker id="layoutArrow" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+        <path d="M0,0 L8,4 L0,8 Z" class="layout-arrow" />
+      </marker>
+    </defs>
+    <rect class="layout-stage" x="0" y="0" width="${svgWidth}" height="${svgHeight}" rx="16" />
+    <circle class="layout-head-dot" cx="58" cy="38" r="7" />
+    <text class="layout-legend" x="75" y="43">Sprinkler Head</text>
+    <text class="layout-axis-title" x="${(offsetX + rectWidth / 2).toFixed(2)}" y="${topY - 40}" text-anchor="middle">LENGTH: ${escapeHtml(decimalToFeetInches(layout.length))}</text>
+    <text class="layout-axis-title" x="${leftX - 82}" y="${(offsetY + rectHeight / 2).toFixed(2)}" text-anchor="middle" transform="rotate(-90 ${leftX - 82} ${(offsetY + rectHeight / 2).toFixed(2)})">WIDTH: ${escapeHtml(decimalToFeetInches(layout.width))}</text>
+    <rect class="layout-area-rect" x="${offsetX.toFixed(2)}" y="${offsetY.toFixed(2)}" width="${rectWidth.toFixed(2)}" height="${rectHeight.toFixed(2)}" />
+    ${headDots.join("")}
+    ${topDims.join("")}
+    ${rowDims.join("")}
+  `;
+}
+
+function updateLayoutCoverageLock() {
+  if (!dom.layoutCoverageSelect || !dom.layoutCustomCoverageInput) return;
+  const isCustom = dom.layoutCoverageSelect.value === "custom";
+  dom.layoutCustomCoverageInput.disabled = !isCustom;
+  if (!isCustom) dom.layoutCustomCoverageInput.value = "";
+}
+
+let lastHeadLayout = null;
+
+function calculateAndRenderHeadLayout() {
+  try {
+    const layout = calculateHeadLayout({
+      length: dom.layoutLengthInput?.value,
+      width: dom.layoutWidthInput?.value,
+      sqPerHead: getLayoutCoverageValue(),
+      maxSpacing: dom.layoutMaxSpacingInput?.value,
+    });
+    renderHeadLayoutResults(layout);
+    renderHeadLayoutDiagram(layout);
+    lastHeadLayout = layout;
+    if (dom.layoutStatus) dom.layoutStatus.textContent = "";
+    if (dom.layoutDxfStatus) dom.layoutDxfStatus.textContent = "";
+  } catch (error) {
+    lastHeadLayout = null;
+    if (dom.layoutStatus) dom.layoutStatus.textContent = error.message || "Please check your inputs.";
+  }
+}
+
+// Build a DXF (R12 ASCII) of the head layout: each head is an 8"-diameter CIRCLE, with the
+// lower-left wall corner as the origin (0,0) so it imports anchored to that corner.
+// Units are inches ($INSUNITS = 1). The area boundary is included as reference lines.
+function buildHeadLayoutDxf(layout) {
+  const IN = 12;                                  // feet -> inches
+  const lengthIn = layout.length * IN;            // X extent (along length)
+  const widthIn = layout.width * IN;              // Y extent (across width)
+  const radius = 4;                               // 8" diameter symbol
+  const out = [];
+  const p = (code, val) => { out.push(String(code)); out.push(String(val)); };
+  const n = (v) => Number(v).toFixed(4);
+
+  p(0, "SECTION"); p(2, "HEADER");
+  p(9, "$ACADVER"); p(1, "AC1009");               // R12 — broadly importable
+  p(9, "$INSUNITS"); p(70, 1);                    // 1 = inches
+  p(9, "$EXTMIN"); p(10, n(0)); p(20, n(0)); p(30, n(0));
+  p(9, "$EXTMAX"); p(10, n(lengthIn)); p(20, n(widthIn)); p(30, n(0));
+  p(0, "ENDSEC");
+
+  p(0, "SECTION"); p(2, "TABLES");
+  p(0, "TABLE"); p(2, "LAYER"); p(70, 2);
+  p(0, "LAYER"); p(2, "SPRINKLERS"); p(70, 0); p(62, 1); p(6, "CONTINUOUS");
+  p(0, "LAYER"); p(2, "AREA-BOUNDARY"); p(70, 0); p(62, 8); p(6, "CONTINUOUS");
+  p(0, "ENDTAB"); p(0, "ENDSEC");
+
+  p(0, "SECTION"); p(2, "ENTITIES");
+  const line = (x1, y1, x2, y2) => {
+    p(0, "LINE"); p(8, "AREA-BOUNDARY");
+    p(10, n(x1)); p(20, n(y1)); p(30, n(0)); p(11, n(x2)); p(21, n(y2)); p(31, n(0));
+  };
+  line(0, 0, lengthIn, 0);
+  line(lengthIn, 0, lengthIn, widthIn);
+  line(lengthIn, widthIn, 0, widthIn);
+  line(0, widthIn, 0, 0);
+  for (let r = 0; r < layout.rows; r += 1) {
+    const yc = (r + 0.5) * (layout.width / layout.rows) * IN;
+    for (let h = 0; h < layout.headsPerRow; h += 1) {
+      const xc = (h + 0.5) * (layout.length / layout.headsPerRow) * IN;
+      p(0, "CIRCLE"); p(8, "SPRINKLERS"); p(10, n(xc)); p(20, n(yc)); p(30, n(0)); p(40, n(radius));
+    }
+  }
+  p(0, "ENDSEC"); p(0, "EOF");
+  return out.join("\r\n") + "\r\n";
+}
+
+async function exportHeadLayoutDxf() {
+  if (!lastHeadLayout) {
+    if (dom.layoutDxfStatus) dom.layoutDxfStatus.textContent = "Calculate a layout first, then export.";
+    return;
+  }
+  const filename = `head-layout-${Math.round(lastHeadLayout.length)}x${Math.round(lastHeadLayout.width)}ft-${lastHeadLayout.totalHeads}heads.dxf`;
+  const savedMsg = `Saved ${lastHeadLayout.totalHeads} heads (8" dia) in inches — origin (0,0) is the lower-left wall corner.`;
+  let dxf;
+  try {
+    dxf = buildHeadLayoutDxf(lastHeadLayout);
+  } catch (error) {
+    if (dom.layoutDxfStatus) dom.layoutDxfStatus.textContent = error.message || "Could not build the DXF.";
+    return;
+  }
+  // Preferred: native "Save As" dialog so the user picks the folder (File System Access API; Chromium/Edge over localhost)
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: [{ description: "DXF drawing", accept: { "application/dxf": [".dxf"], "image/vnd.dxf": [".dxf"] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(dxf);
+      await writable.close();
+      if (dom.layoutDxfStatus) dom.layoutDxfStatus.textContent = savedMsg;
+      return;
+    } catch (err) {
+      if (err && err.name === "AbortError") {
+        if (dom.layoutDxfStatus) dom.layoutDxfStatus.textContent = "Export canceled.";
+        return;
+      }
+      // any other failure (unsupported, etc.) → fall through to the download fallback
+    }
+  }
+  // Fallback: download to the browser's default folder
+  try {
+    const blob = new Blob([dxf], { type: "application/dxf" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    if (dom.layoutDxfStatus) dom.layoutDxfStatus.textContent = savedMsg;
+  } catch (error) {
+    if (dom.layoutDxfStatus) dom.layoutDxfStatus.textContent = error.message || "Could not save the DXF.";
+  }
+}
+
+function clearHeadLayoutGenerator() {
+  [
+    dom.layoutLengthInput,
+    dom.layoutWidthInput,
+    dom.layoutCustomCoverageInput,
+  ].filter(Boolean).forEach((input) => {
+    input.value = "";
+  });
+  if (dom.layoutCoverageSelect) dom.layoutCoverageSelect.value = "130";
+  if (dom.layoutMaxSpacingInput) dom.layoutMaxSpacingInput.value = "15";
+  updateLayoutCoverageLock();
+  lastHeadLayout = null;
+  if (dom.layoutStatus) dom.layoutStatus.textContent = "";
+  if (dom.layoutDxfStatus) dom.layoutDxfStatus.textContent = "";
+  if (dom.layoutResults) {
+    dom.layoutResults.innerHTML = `
+      <div class="calculator-result-card">
+        <span>Total Sprinklers</span>
+        <strong>-</strong>
+      </div>
+      <div class="calculator-result-card">
+        <span>Layout</span>
+        <strong>-</strong>
+      </div>
+    `;
+  }
+  if (dom.layoutDiagram) dom.layoutDiagram.innerHTML = "";
+}
+
+window.headLayoutGenerator = {
+  calculate: calculateHeadLayout,
+  decimalToFeetInches,
+};
+
+function bracingType() {
+  return document.querySelector("input[name='bracingType']:checked")?.value || "longitudinal";
+}
+
+function parseBracingLength(value) {
+  const text = String(value || "").trim().toLowerCase();
+  if (!text) return 0;
+  if (text.includes("-") && !/[a-z]/i.test(text.replaceAll(".", ""))) {
+    const parts = text.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/);
+    if (!parts) throw new Error(`Invalid length format: ${value}. Use 90 or 8-6.`);
+    const feet = Number.parseFloat(parts[1]);
+    const inches = Number.parseFloat(parts[2]);
+    if (!Number.isFinite(feet) || !Number.isFinite(inches) || inches < 0 || inches >= 12) {
+      throw new Error(`Invalid length format: ${value}. Use 90 or 8-6.`);
+    }
+    return feet + inches / 12;
+  }
+  const parsed = parseSpacingDimension(text);
+  if (!Number.isFinite(parsed)) throw new Error(`Invalid length format: ${value}. Use 90 or 8-6.`);
+  return parsed;
+}
+
+function calculateBracing(values) {
+  const length = parseBracingLength(values.length);
+  const spacing = parseBracingLength(values.spacing);
+  const type = values.type || "longitudinal";
+  if (length <= 0 || spacing <= 0) throw new Error("Length and spacing must be positive.");
+
+  if (type === "lateral") {
+    if (length <= 12) {
+      const center = length / 2;
+      return {
+        type,
+        length,
+        spacing,
+        totalBraces: 1,
+        effectiveSpacing: null,
+        positions: [center],
+        lines: [
+          { label: "Pipe condition", value: "Short pipe, 12 ft or less" },
+          { label: "Placement", value: `One lateral brace at center: ${decimalToFeetInches(center)}` },
+          { label: "Rule check", value: "Satisfies the 6 ft rule from both ends" },
+        ],
+      };
+    }
+
+    // NFPA 13 lateral end rule: a brace within 6 ft of each end. Use 6 ft as a
+    // MAX, not a target. Pick the fewest braces so the interior stays <= max
+    // (ends held at 6), then pull the end braces IN toward the pipe ends in
+    // proportion to how much slack the interior has:
+    //   e = 6 * (interior_at_6 / max)
+    // When the interior would sit exactly at the max, e = 6 (pinned at the
+    // limit). When there is slack, e < 6 and the interior evens out. This is
+    // provably <= max for every case, so no gap is ever slammed.
+    const endLimit = 6;      // NFPA 13 lateral end rule: brace within 6 ft
+    const endFloor = 1;      // 12" min setback to clear end fittings
+    // Suggested setback: pull the end braces in from 6 ft in proportion to how
+    // much slack the interior has (e = 6 * interior_at_6 / max), then never
+    // closer than the 12" fitting-clearance floor.
+    const gApprox = Math.max(1, Math.ceil((length - 2 * endLimit) / spacing));
+    const interiorAt6 = (length - 2 * endLimit) / gApprox;
+    let suggestedEnd = endLimit * (interiorAt6 / spacing);
+    suggestedEnd = Math.min(endLimit, Math.max(endFloor, suggestedEnd));
+    // The end distance actually used: the slider override (12"–6') if the user
+    // set one, otherwise the suggestion. Either way, re-derive the gap count so
+    // the interior stays at or below the max no matter where the ends sit.
+    let endDistance = suggestedEnd;
+    if (Number.isFinite(values.endOverride)) {
+      endDistance = Math.min(endLimit, Math.max(endFloor, values.endOverride));
+    }
+    const middleGaps = Math.max(1, Math.ceil((length - 2 * endDistance) / spacing));
+    const evenMiddleSpacing = (length - 2 * endDistance) / middleGaps;
+    const positions = Array.from({ length: middleGaps + 1 }, (_, i) => endDistance + i * evenMiddleSpacing);
+    const pinnedAtLimit = endDistance >= endLimit - 1e-6;
+    const atFloor = endDistance <= endFloor + 1e-6;
+    const endNote = pinnedAtLimit ? " (at the 6 ft limit)" : atFloor ? " (at the 12\" fitting-clearance floor)" : "";
+    return {
+      type,
+      length,
+      spacing,
+      totalBraces: positions.length,
+      effectiveSpacing: evenMiddleSpacing,
+      positions,
+      endDistance,
+      suggestedEnd,
+      endFloor,
+      endLimit,
+      lines: [
+        { label: "End braces", value: `${decimalToFeetInches(endDistance)} from each end${endNote}` },
+        { label: "Spacing between braces", value: `${decimalToFeetInches(evenMiddleSpacing)} even (≤ ${decimalToFeetInches(spacing)} max)` },
+        { label: "Middle gaps", value: String(middleGaps) },
+      ],
+    };
+  }
+
+  const braceCount = Math.ceil(length / spacing);
+  const evenSpacing = length / braceCount;
+  const positions = Array.from({ length: braceCount }, (_, index) => evenSpacing / 2 + index * evenSpacing);
+  return {
+    type,
+    length,
+    spacing,
+    totalBraces: braceCount,
+    effectiveSpacing: evenSpacing,
+    positions,
+    lines: [
+      { label: "Even spacing", value: decimalToFeetInches(evenSpacing) },
+      { label: "End gaps", value: `${decimalToFeetInches(evenSpacing / 2)} each` },
+      { label: "Rule check", value: `All inter-brace distances at or below ${decimalToFeetInches(spacing)}` },
+    ],
+  };
+}
+
+function renderBracingResults(result) {
+  if (!dom.bracingResults) return;
+  const positionRows = result.positions.map((position, index) => `
+    <tr>
+      <td>${index + 1}</td>
+      <td>${decimalToFeetInches(position)}</td>
+      <td>${position.toFixed(2)} ft</td>
+    </tr>
+  `).join("");
+  dom.bracingResults.innerHTML = `
+    <div class="hb-metrics">
+      <div class="metric-tile"><span>Braces needed</span><strong>${result.totalBraces}</strong></div>
+      <div class="metric-tile"><span>Brace type</span><strong>${result.type === "lateral" ? "Lateral" : "Longitudinal"}</strong></div>
+    </div>
+    <div class="layout-result-lines">
+      <div class="layout-result-line"><span>Pipe length</span><strong>${decimalToFeetInches(result.length)} (${result.length.toFixed(2)} ft)</strong></div>
+      <div class="layout-result-line"><span>Max spacing</span><strong>${decimalToFeetInches(result.spacing)} (${result.spacing.toFixed(2)} ft)</strong></div>
+      ${result.lines.map((line) => `<div class="layout-result-line"><span>${escapeHtml(line.label)}</span><strong>${escapeHtml(line.value)}</strong></div>`).join("")}
+    </div>
+    <details class="hb-positions"><summary>Show brace positions (${result.totalBraces})</summary>
+      <div class="bracing-position-table-wrap">
+        <table class="hazard-table bracing-position-table">
+          <thead><tr><th>Brace</th><th>Position</th><th>Decimal Feet</th></tr></thead>
+          <tbody>${positionRows}</tbody>
+        </table>
+      </div>
+    </details>
+  `;
+}
+
+function renderBracingDiagram(result) {
+  if (!dom.bracingDiagram) return;
+  const svgWidth = 900;
+  const svgHeight = 360;
+  const pipeX = 85;
+  const pipeY = 165;
+  const pipeWidth = 730;
+  const scale = pipeWidth / result.length;
+  const braceMarkers = result.positions.map((position, index) => {
+    const x = pipeX + position * scale;
+    return `
+      <g class="brace-marker">
+        <line x1="${x.toFixed(2)}" y1="${pipeY - 70}" x2="${x.toFixed(2)}" y2="${pipeY + 70}" />
+        <path d="M${(x - 16).toFixed(2)} ${pipeY + 70} L${x.toFixed(2)} ${pipeY + 42} L${(x + 16).toFixed(2)} ${pipeY + 70}" />
+        <circle cx="${x.toFixed(2)}" cy="${pipeY}" r="8" />
+        <text x="${x.toFixed(2)}" y="${pipeY - 84}" text-anchor="middle">${index + 1}</text>
+        <text x="${x.toFixed(2)}" y="${pipeY + 105}" text-anchor="middle">${escapeHtml(decimalToFeetInches(position))}</text>
+      </g>
+    `;
+  }).join("");
+  dom.bracingDiagram.innerHTML = `
+    <defs>
+      <linearGradient id="pipeGradient" x1="0" x2="1">
+        <stop offset="0%" stop-color="#37b7e4" stop-opacity="0.35" />
+        <stop offset="48%" stop-color="#e8f8ff" stop-opacity="0.98" />
+        <stop offset="100%" stop-color="#ff5a2f" stop-opacity="0.4" />
+      </linearGradient>
+    </defs>
+    <rect class="layout-stage" x="0" y="0" width="${svgWidth}" height="${svgHeight}" rx="16" />
+    <text class="layout-axis-title" x="${svgWidth / 2}" y="48" text-anchor="middle">${result.type === "lateral" ? "LATERAL BRACING" : "LONGITUDINAL BRACING"} - ${escapeHtml(decimalToFeetInches(result.length))} PIPE RUN</text>
+    <line class="bracing-pipe" x1="${pipeX}" y1="${pipeY}" x2="${pipeX + pipeWidth}" y2="${pipeY}" />
+    <line class="bracing-end-line" x1="${pipeX}" y1="${pipeY - 44}" x2="${pipeX}" y2="${pipeY + 44}" />
+    <line class="bracing-end-line" x1="${pipeX + pipeWidth}" y1="${pipeY - 44}" x2="${pipeX + pipeWidth}" y2="${pipeY + 44}" />
+    <text class="layout-legend" x="${pipeX}" y="${pipeY + 145}" text-anchor="middle">0'</text>
+    <text class="layout-legend" x="${pipeX + pipeWidth}" y="${pipeY + 145}" text-anchor="middle">${escapeHtml(decimalToFeetInches(result.length))}</text>
+    ${braceMarkers}
+  `;
+}
+
+// Tracks whether the user has grabbed the lateral end-setback slider. While
+// false the slider mirrors the suggested setback; changing the pipe/spacing/type
+// resets it so a fresh suggestion is shown.
+let bracingEndUserSet = false;
+
+function onBracingBaseChange() {
+  bracingEndUserSet = false;
+  calculateAndRenderBracing();
+}
+
+function syncBracingTuner(result, type) {
+  const tuner = dom.bracingEndTuner;
+  if (!tuner) return;
+  const show = type === "lateral" && result.totalBraces > 1 && Number.isFinite(result.suggestedEnd);
+  tuner.hidden = !show;
+  if (!show) return;
+  const slider = dom.bracingEndSlider;
+  if (slider && !bracingEndUserSet) slider.value = String(result.endDistance);
+  if (dom.bracingEndValue) dom.bracingEndValue.textContent = decimalToFeetInches(result.endDistance);
+  if (dom.bracingEndLive) {
+    dom.bracingEndLive.textContent =
+      `${result.totalBraces} braces · ${decimalToFeetInches(result.effectiveSpacing)} between braces (≤ ${decimalToFeetInches(result.spacing)} max)`
+      + (bracingEndUserSet ? "" : ` · suggested ${decimalToFeetInches(result.suggestedEnd)}`);
+  }
+}
+
+function calculateAndRenderBracing() {
+  try {
+    const type = bracingType();
+    let endOverride;
+    if (type === "lateral" && bracingEndUserSet && dom.bracingEndSlider) {
+      const v = parseFloat(dom.bracingEndSlider.value);
+      if (Number.isFinite(v)) endOverride = v;
+    }
+    const result = calculateBracing({
+      length: dom.bracingLengthInput?.value,
+      spacing: dom.bracingSpacingInput?.value,
+      type,
+      endOverride,
+    });
+    renderBracingResults(result);
+    renderBracingDiagram(result);
+    syncBracingTuner(result, type);
+    if (dom.bracingStatus) dom.bracingStatus.textContent = "";
+  } catch (error) {
+    if (dom.bracingStatus) dom.bracingStatus.textContent = error.message || "Please check your inputs.";
+  }
+}
+
+// ---- branch line restraint (BLR) spacing -----------------------------------
+// NFPA 13 (2025) Table 18.6.4 - maximum spacing (ft) of pipe restraints by
+// size and seismic coefficient Cp. (a) steel, (b) CPVC/copper/red brass.
+// Cp columns: <=0.50 | 0.50-0.71 | 0.71-1.40 | >1.40.
+const BLR_CP_COLS = ["Cp ≤ 0.50", "0.50 < Cp ≤ 0.71", "0.71 < Cp ≤ 1.40", "Cp > 1.40"];
+const BLR_TABLES = {
+  steel: {
+    title: "Maximum Spacing (ft) of Steel Pipe Restraints",
+    rows: [["1/2\"", [26, 23, 16, 14]], ["3/4\"", [30, 25, 18, 16]], ["1\"", [33, 28, 20, 17]],
+           ["1-1/4\"", [36, 30, 21, 19]], ["1-1/2\"", [38, 32, 23, 19]], ["2\"", [41, 35, 24, 21]]],
+  },
+  other: {
+    title: "Maximum Spacing (ft) of CPVC, Copper & Red Brass Pipe Restraints",
+    rows: [["1/2\"", [20, 17, 12, 10]], ["3/4\"", [24, 20, 14, 12]], ["1\"", [26, 22, 16, 13]],
+           ["1-1/4\"", [29, 24, 17, 15]], ["1-1/2\"", [31, 26, 19, 16]], ["2\"", [35, 30, 21, 18]]],
+  },
+};
+
+function blrMaterial() {
+  return document.querySelector("input[name='blrMaterial']:checked")?.value || "steel";
+}
+
+function blrSize() {
+  return dom.blrSizeSelect?.value || "1\"";
+}
+
+// NFPA 13 18.6.3.1 - max distance of the end restraint from the end of the
+// line: 36 in. (3 ft) for 1 in., 48 in. (4 ft) for 1-1/4 in., 60 in. (5 ft)
+// for 1-1/2 in. and larger. Smaller-than-1 in. sizes use the tightest (3 ft).
+const BLR_END_MAX_FT = { "1/2\"": 3, "3/4\"": 3, "1\"": 3, "1-1/4\"": 4, "1-1/2\"": 5, "2\"": 5 };
+
+function renderBlrTable() {
+  const table = document.getElementById("blrTable");
+  if (!table) return;
+  const data = BLR_TABLES[blrMaterial()];
+  const active = blrSize();
+  table.innerHTML = `
+    <thead>
+      <tr><th rowspan="2">Pipe (in)</th><th colspan="4">Seismic Coefficient, Cp</th></tr>
+      <tr>${BLR_CP_COLS.map((c) => `<th>${escapeHtml(c)}</th>`).join("")}</tr>
+    </thead>
+    <tbody>${data.rows.map(([size, vals]) => `
+      <tr${size === active ? ' class="blr-active-row"' : ""}><th>${escapeHtml(size)}</th>${vals.map((v) =>
+        `<td class="blr-cell" data-blr-val="${v}" title="Use ${v} ft as the max spacing">${v}</td>`).join("")}</tr>`).join("")}
+    </tbody>`;
+  table.querySelectorAll(".blr-cell").forEach((cell) => cell.addEventListener("click", () => {
+    if (dom.blrSpacingInput) { dom.blrSpacingInput.value = cell.dataset.blrVal; calculateAndRenderBlr(); }
+  }));
+}
+
+function calculateBlr(values) {
+  const length = parseBracingLength(values.length);
+  const maxSpacing = parseBracingLength(values.spacing);
+  const endMax = BLR_END_MAX_FT[values.size] || 3;
+  if (length <= 0 || maxSpacing <= 0) throw new Error("Length and spacing must be positive.");
+
+  let positions, evenSpacing, gaps, endGap, lines;
+  if (length <= 2 * endMax) {
+    // short line: a single restraint at center is within the end limit of both ends
+    positions = [length / 2];
+    evenSpacing = null; gaps = 0; endGap = length / 2;
+    lines = [
+      { label: "Placement", value: `One restraint at center: ${decimalToFeetInches(length / 2)}` },
+      { label: "End distance", value: `${decimalToFeetInches(length / 2)} (≤ ${decimalToFeetInches(endMax)} limit)` },
+    ];
+  } else {
+    // end restraints within the 18.6.3.1 limit; interior divided EVENLY so the
+    // gaps land under the table max rather than being slammed against it
+    endGap = endMax;
+    const interior = length - 2 * endMax;
+    gaps = Math.max(1, Math.ceil(interior / maxSpacing));
+    evenSpacing = interior / gaps;
+    positions = Array.from({ length: gaps + 1 }, (_, i) => endMax + i * evenSpacing);
+    lines = [
+      { label: "End restraints", value: `${decimalToFeetInches(endGap)} from each end (≤ ${decimalToFeetInches(endMax)} per 18.6.3.1)` },
+      { label: "Interior spacing", value: `${decimalToFeetInches(evenSpacing)} even (≤ ${decimalToFeetInches(maxSpacing)} max)` },
+      { label: "Interior gaps", value: String(gaps) },
+    ];
+  }
+  return {
+    length, spacing: maxSpacing, endMax, evenSpacing, endGap,
+    totalRestraints: positions.length, gaps, positions, size: values.size, lines,
+  };
+}
+
+function renderBlrResults(result) {
+  const box = document.getElementById("blrResults");
+  if (!box) return;
+  const rows = result.positions.map((p, i) =>
+    `<tr><td>${i + 1}</td><td>${decimalToFeetInches(p)}</td><td>${p.toFixed(2)} ft</td></tr>`).join("");
+  box.innerHTML = `
+    <div class="hb-metrics">
+      <div class="metric-tile"><span>Restraints needed</span><strong>${result.totalRestraints}</strong></div>
+      <div class="metric-tile"><span>${result.evenSpacing ? "Even spacing" : "Placement"}</span><strong>${result.evenSpacing ? decimalToFeetInches(result.evenSpacing) : "Center"}</strong></div>
+    </div>
+    <div class="layout-result-lines">
+      <div class="layout-result-line"><span>Branch line length</span><strong>${decimalToFeetInches(result.length)} (${result.length.toFixed(2)} ft)</strong></div>
+      <div class="layout-result-line"><span>Pipe size</span><strong>${escapeHtml(result.size)}</strong></div>
+      <div class="layout-result-line"><span>Max spacing</span><strong>${decimalToFeetInches(result.spacing)} (${result.spacing.toFixed(2)} ft)</strong></div>
+      ${result.lines.map((l) => `<div class="layout-result-line"><span>${escapeHtml(l.label)}</span><strong>${escapeHtml(l.value)}</strong></div>`).join("")}
+    </div>
+    <details class="hb-positions"><summary>Show restraint positions (${result.totalRestraints})</summary>
+      <div class="bracing-position-table-wrap">
+        <table class="hazard-table bracing-position-table">
+          <thead><tr><th>Restraint</th><th>Position</th><th>Decimal Feet</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </details>`;
+}
+
+function renderBlrDiagram(result) {
+  const svg = document.getElementById("blrDiagram");
+  if (!svg) return;
+  const W = 900, pipeX = 85, pipeY = 165, pipeWidth = 730;
+  const scale = pipeWidth / result.length;
+  const markers = result.positions.map((p, i) => {
+    const x = pipeX + p * scale;
+    return `<g class="brace-marker">
+      <line x1="${x.toFixed(2)}" y1="${pipeY - 55}" x2="${x.toFixed(2)}" y2="${pipeY + 55}" />
+      <circle cx="${x.toFixed(2)}" cy="${pipeY}" r="8" />
+      <text x="${x.toFixed(2)}" y="${pipeY - 68}" text-anchor="middle">${i + 1}</text>
+      <text x="${x.toFixed(2)}" y="${pipeY + 92}" text-anchor="middle">${escapeHtml(decimalToFeetInches(p))}</text></g>`;
+  }).join("");
+  svg.innerHTML = `
+    <rect class="layout-stage" x="0" y="0" width="${W}" height="360" rx="16" />
+    <text class="layout-axis-title" x="${W / 2}" y="48" text-anchor="middle">BRANCH LINE RESTRAINTS - ${escapeHtml(decimalToFeetInches(result.length))} BRANCH LINE</text>
+    <line class="bracing-pipe" x1="${pipeX}" y1="${pipeY}" x2="${pipeX + pipeWidth}" y2="${pipeY}" />
+    <text class="layout-legend" x="${pipeX}" y="${pipeY + 130}" text-anchor="middle">0'</text>
+    <text class="layout-legend" x="${pipeX + pipeWidth}" y="${pipeY + 130}" text-anchor="middle">${escapeHtml(decimalToFeetInches(result.length))}</text>
+    ${markers}`;
+}
+
+function calculateAndRenderBlr() {
+  try {
+    const result = calculateBlr({
+      length: dom.blrLengthInput?.value,
+      spacing: dom.blrSpacingInput?.value,
+      size: blrSize(),
+    });
+    renderBlrResults(result);
+    renderBlrDiagram(result);
+    if (dom.blrStatus) dom.blrStatus.textContent = "";
+  } catch (error) {
+    if (dom.blrStatus) dom.blrStatus.textContent = error.message || "Please check your inputs.";
+  }
+}
+
+function clearBracingSpacer() {
+  bracingEndUserSet = false;
+  if (dom.bracingLengthInput) dom.bracingLengthInput.value = "90";
+  if (dom.bracingSpacingInput) dom.bracingSpacingInput.value = "40";
+  if (dom.bracingEndTuner) dom.bracingEndTuner.hidden = true;
+  const longitudinal = document.querySelector("input[name='bracingType'][value='longitudinal']");
+  if (longitudinal) longitudinal.checked = true;
+  if (dom.bracingStatus) dom.bracingStatus.textContent = "";
+  if (dom.bracingResults) {
+    dom.bracingResults.innerHTML = `
+      <div class="hb-metrics">
+        <div class="metric-tile"><span>Braces needed</span><strong>-</strong></div>
+        <div class="metric-tile"><span>Brace type</span><strong>-</strong></div>
+      </div>
+    `;
+  }
+  if (dom.bracingDiagram) dom.bracingDiagram.innerHTML = "";
+  if (dom.blrSizeSelect) dom.blrSizeSelect.value = "1\"";
+  if (dom.blrLengthInput) dom.blrLengthInput.value = "60";
+  if (dom.blrSpacingInput) dom.blrSpacingInput.value = "20";
+  const steelMat = document.querySelector("input[name='blrMaterial'][value='steel']");
+  if (steelMat) steelMat.checked = true;
+  if (dom.blrStatus) dom.blrStatus.textContent = "";
+  renderBlrTable();
+  calculateAndRenderBlr();
+}
+
+window.bracingSpacer = {
+  calculate: calculateBracing,
+};
+
+// ---- Hanger spacing (NFPA 13 2025 max hanger spacing; defaults are estimates, editable) ----
+const HANGER_SIZES = ['1"', '1-1/4"', '1-1/2"', '2"', '2-1/2"', '3"', '4"', '6"', '8"'];
+const HANGER_TYPES = [
+  ["steel", "Steel pipe (except threaded lightwall)", "Steel"],
+  ["threaded", "Threaded lightwall steel pipe", "Threaded LW"],
+  ["cpvc", "CPVC", "CPVC"],
+];
+const HANGER_SPACING_DEFAULT = {
+  steel: { '1"': 12, '1-1/4"': 12, '1-1/2"': 15, '2"': 15, '2-1/2"': 15, '3"': 15, '4"': 15, '6"': 15, '8"': 15 },
+  threaded: { '1"': 12, '1-1/4"': 12, '1-1/2"': 12, '2"': 12, '2-1/2"': null, '3"': null, '4"': null, '6"': null, '8"': null },
+  cpvc: { '1"': 6, '1-1/4"': 6.5, '1-1/2"': 7, '2"': 8, '2-1/2"': 9, '3"': 10, '4"': null, '6"': null, '8"': null },
+};
+let hangerTableEditMode = false;
+
+function selectedHangerSize() {
+  const idx = Number(dom.hangerSizeSelect?.value);
+  return HANGER_SIZES[Number.isInteger(idx) && idx >= 0 && idx < HANGER_SIZES.length ? idx : 0];
+}
+
+function hangerSpacingTable() {
+  if (!state.hangerSpacing || typeof state.hangerSpacing !== "object") {
+    state.hangerSpacing = JSON.parse(JSON.stringify(HANGER_SPACING_DEFAULT));
+  }
+  return state.hangerSpacing;
+}
+
+function hangerMaxFor(type, size) {
+  const table = hangerSpacingTable();
+  const v = table[type] && table[type][size];
+  return (v == null || !Number.isFinite(Number(v))) ? 0 : Number(v);
+}
+
+function populateHangerSizes() {
+  if (!dom.hangerSizeSelect) return;
+  const currentIdx = Number(dom.hangerSizeSelect.value);
+  dom.hangerSizeSelect.innerHTML = HANGER_SIZES.map((s, i) => `<option value="${i}">${s}</option>`).join("");
+  dom.hangerSizeSelect.value = String(Number.isInteger(currentIdx) && currentIdx >= 0 && currentIdx < HANGER_SIZES.length ? currentIdx : 0);
+}
+
+function syncHangerMaxSpacing() {
+  if (!dom.hangerMaxSpacingInput) return;
+  const type = dom.hangerTypeSelect?.value || "steel";
+  const size = selectedHangerSize();
+  const max = hangerMaxFor(type, size);
+  dom.hangerMaxSpacingInput.value = max ? String(max) : "";
+  const src = document.getElementById("hangerMaxSource");
+  if (src) {
+    const label = (HANGER_TYPES.find(([k]) => k === type) || [, "", ""])[2] || "";
+    src.innerHTML = max
+      ? `NFPA 13 (2025) &middot; ${escapeHtml(label)} ${escapeHtml(size)} = ${max} ft &nbsp;<a class="hb-view-table">view table</a>`
+      : `${escapeHtml(label)} ${escapeHtml(size)} is N/A in NFPA 13 &nbsp;<a class="hb-view-table">view table</a>`;
+  }
+}
+
+// NFPA 13 (2025) 17.4.3.4.1 — unsupported horizontal length between the END
+// SPRINKLER and the LAST HANGER, steel pipe: 36 in for 1", 48 in for 1-1/4",
+// 60 in for 1-1/2" and larger. (17.4.3.4.2 copper: 18/24/30 in — kept here for
+// when a copper type is added.) CPVC end support comes from its listing, not
+// a fixed NFPA number — returns null so the UI shows a verify-listing note.
+function hangerEndLimitFor(type, size) {
+  if (type === "cpvc") return null;
+  const limits = { steel: { '1"': 3, '1-1/4"': 4 }, copper: { '1"': 1.5, '1-1/4"': 2 } };
+  const material = type === "copper" ? "copper" : "steel";
+  const bySize = limits[material];
+  return bySize[size] != null ? bySize[size] : (material === "copper" ? 2.5 : 5);
+}
+
+function calculateHangerSpacing(values) {
+  const length = parseBracingLength(values.length);
+  const maxSpacing = Number(values.maxSpacing);
+  if (length <= 0) throw new Error("Enter a valid pipe run length.");
+  if (!Number.isFinite(maxSpacing) || maxSpacing <= 0) throw new Error("That pipe & size is N/A in NFPA 13 - pick a different size/type, or set a value with Edit.");
+  const endLimit = Number.isFinite(values.endLimit) && values.endLimit > 0 ? values.endLimit : null;
+
+  // Find the minimal hanger count with a compliant layout, preferring the true
+  // centered look (ends = half a space). The only free variable per count is the
+  // end distance e (interior spacing follows as (L - 2e)/(n - 1)); the layout
+  // closest to "even" is e = L/2n, clamped into what the max-spacing and
+  // end-sprinkler limits allow. Ends sit AT the NFPA limit only when the run
+  // truly forces them there.
+  const baseCount = Math.max(1, Math.ceil(length / maxSpacing));
+  let count = baseCount;
+  let endDistance;
+  let evenSpacing;
+  for (;;) {
+    const centeredEnd = length / (2 * count);
+    if (count === 1) {
+      if (!endLimit || centeredEnd <= endLimit) { endDistance = centeredEnd; evenSpacing = 0; break; }
+    } else {
+      const minEnd = Math.max(0, (length - (count - 1) * maxSpacing) / 2);
+      const maxEnd = endLimit == null ? centeredEnd : endLimit;
+      if (minEnd <= maxEnd + 1e-9) {
+        endDistance = Math.min(Math.max(centeredEnd, minEnd), maxEnd);
+        evenSpacing = (length - 2 * endDistance) / (count - 1);
+        break;
+      }
+    }
+    count += 1;
+  }
+  const endGoverned = Boolean(endLimit) && endDistance >= (endLimit - 1e-9) && length / (2 * count) > endLimit;
+  const hangerAdded = count > baseCount;
+
+  const positions = count === 1
+    ? [length / 2]
+    : Array.from({ length: count }, (_, i) => endDistance + i * evenSpacing);
+  return { length, maxSpacing, count, evenSpacing, positions, endDistance, endLimit, endGoverned, hangerAdded };
+}
+
+function renderHangerResults(result) {
+  if (!dom.hangerResults) return;
+  const rows = result.positions.map((p, i) => `<tr><td>${i + 1}</td><td>${decimalToFeetInches(p)}</td><td>${p.toFixed(2)} ft</td></tr>`).join("");
+  dom.hangerResults.innerHTML = `
+    <div class="hb-metrics">
+      <div class="metric-tile"><span>Hangers needed</span><strong>${result.count}</strong></div>
+      <div class="metric-tile"><span>Even spacing</span><strong>${decimalToFeetInches(result.evenSpacing)}</strong></div>
+    </div>
+    <div class="layout-result-lines">
+      <div class="layout-result-line"><span>Pipe run</span><strong>${decimalToFeetInches(result.length)} (${result.length.toFixed(2)} ft)</strong></div>
+      <div class="layout-result-line"><span>Max spacing</span><strong>${decimalToFeetInches(result.maxSpacing)} (${result.maxSpacing.toFixed(2)} ft)</strong></div>
+      <div class="layout-result-line"><span>End to last hanger (each end)</span><strong>${decimalToFeetInches(result.endDistance)}${result.endLimit ? ` — limit ${decimalToFeetInches(result.endLimit)}` : ""}</strong></div>
+    </div>
+    ${result.hangerAdded ? `<p class="hb-end-note">End-sprinkler rule (NFPA 13 17.4.3.4): the ${decimalToFeetInches(result.endLimit)} end limit required one more hanger than max spacing alone — layout re-spaced evenly within the limits.</p>` : (result.endGoverned ? `<p class="hb-end-note">End-sprinkler rule governed (NFPA 13 17.4.3.4): ends held at the ${decimalToFeetInches(result.endLimit)} limit — the only compliant layout at this hanger count; interior spaced evenly.</p>` : "")}
+    ${result.endLimit == null ? `<p class="hb-end-note">CPVC end-of-line support comes from the pipe's listing — verify the manufacturer's requirements for the last hanger at the end sprinkler.</p>` : ""}
+    <details class="hb-positions"><summary>Show hanger positions (${result.count})</summary>
+      <div class="bracing-position-table-wrap">
+        <table class="hazard-table bracing-position-table">
+          <thead><tr><th>Hanger</th><th>Position</th><th>Decimal Feet</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </details>`;
+}
+
+function renderHangerDiagram(result) {
+  if (!dom.hangerDiagram) return;
+  const svgWidth = 900, pipeX = 85, pipeY = 175, pipeWidth = 730;
+  const scale = pipeWidth / result.length;
+  const ticks = result.positions.map((p, i) => {
+    const x = pipeX + p * scale;
+    return `
+      <g class="hanger-marker">
+        <line class="hanger-tick" x1="${(x - 13).toFixed(2)}" y1="${pipeY + 16}" x2="${(x + 13).toFixed(2)}" y2="${pipeY - 16}" />
+        <text x="${x.toFixed(2)}" y="${pipeY - 30}" text-anchor="middle">${i + 1}</text>
+        <text x="${x.toFixed(2)}" y="${pipeY + 48}" text-anchor="middle">${escapeHtml(decimalToFeetInches(p))}</text>
+      </g>`;
+  }).join("");
+  dom.hangerDiagram.innerHTML = `
+    <rect class="layout-stage" x="0" y="0" width="${svgWidth}" height="360" rx="16" />
+    <text class="layout-axis-title" x="${svgWidth / 2}" y="48" text-anchor="middle">HANGER SPACING - ${escapeHtml(decimalToFeetInches(result.length))} PIPE RUN</text>
+    <line class="hanger-pipe" x1="${pipeX}" y1="${pipeY}" x2="${pipeX + pipeWidth}" y2="${pipeY}" />
+    <line class="bracing-end-line" x1="${pipeX}" y1="${pipeY - 30}" x2="${pipeX}" y2="${pipeY + 30}" />
+    <line class="bracing-end-line" x1="${pipeX + pipeWidth}" y1="${pipeY - 30}" x2="${pipeX + pipeWidth}" y2="${pipeY + 30}" />
+    <text class="layout-legend" x="${pipeX}" y="${pipeY + 95}" text-anchor="middle">0'</text>
+    <text class="layout-legend" x="${pipeX + pipeWidth}" y="${pipeY + 95}" text-anchor="middle">${escapeHtml(decimalToFeetInches(result.length))}</text>
+    ${ticks}`;
+}
+
+function renderHangerTable() {
+  if (!dom.hangerTable) return;
+  const table = hangerSpacingTable();
+  const head = `<thead><tr><th>Pipe size</th>${HANGER_TYPES.map(([, , label]) => `<th>${label}</th>`).join("")}</tr></thead>`;
+  const body = HANGER_SIZES.map((size, idx) => {
+    const cells = HANGER_TYPES.map(([type]) => {
+      const v = (table[type] && table[type][size] != null) ? table[type][size] : null;
+      return hangerTableEditMode
+        ? `<td><input type="number" min="0" step="0.5" class="hanger-cell-input" data-htype="${type}" data-hidx="${idx}" value="${v == null ? "" : v}" /></td>`
+        : `<td class="${v == null ? "hanger-na" : ""}">${v == null ? "N/A" : v}</td>`;
+    }).join("");
+    return `<tr><th>${escapeHtml(size)}</th>${cells}</tr>`;
+  }).join("");
+  dom.hangerTable.innerHTML = head + `<tbody>${body}</tbody>`;
+  if (dom.hangerTableEditButton) dom.hangerTableEditButton.textContent = hangerTableEditMode ? "Done" : "Edit";
+}
+
+function calculateAndRenderHanger() {
+  try {
+    syncHangerMaxSpacing();
+    const result = calculateHangerSpacing({
+      length: dom.hangerLengthInput?.value,
+      maxSpacing: dom.hangerMaxSpacingInput?.value,
+      endLimit: hangerEndLimitFor(dom.hangerTypeSelect?.value || "steel", selectedHangerSize()),
+    });
+    renderHangerResults(result);
+    renderHangerDiagram(result);
+    if (dom.hangerStatus) dom.hangerStatus.textContent = "";
+  } catch (error) {
+    if (dom.hangerStatus) dom.hangerStatus.textContent = error.message || "Please check your inputs.";
+    if (dom.hangerDiagram) dom.hangerDiagram.innerHTML = "";
+  }
+}
+
+// ===================== Vicinity Map Generator =====================
+// OSM-backed vicinity maps: heavy majors, thin minors, rotated street labels,
+// dashed AREA OF WORK box, north arrow. Click a street to toggle its weight.
+const VICINITY_MAJOR_CLASSES = new Set(["motorway", "trunk", "primary", "secondary", "tertiary",
+  "motorway_link", "trunk_link", "primary_link", "secondary_link", "tertiary_link"]);
+const VICINITY_MINOR_CLASSES = new Set(["residential", "unclassified", "living_street"]);
+const VICINITY_SVG_W = 1200;
+const VICINITY_SVG_H = 1015;
+const vicinityState = { point: null, label: "", ways: [], overrides: {}, suggestTimer: null,
+  workOffset: { dx: 0, dy: 0 },   // AREA OF WORK rectangle, dragged (SVG px from the address point)
+  labelOffset: { dx: 0, dy: 0 },  // AREA OF WORK label box, dragged independently (SVG px from its default spot)
+  labelHidden: {},                // street-name keys hidden via the right-click menu
+  labelText: {},                  // street-name key -> custom label text (right-click Edit)
+  labelPos: {},                   // street-name key -> {dx,dy} drag offset from auto-placement (SVG px)
+  drag: null };
+const VICINITY_LABEL_W = 238;
+const VICINITY_LABEL_H = 40;
+
+// Single source of truth for the AREA OF WORK rectangle + label + leader, in SVG
+// px. Both the rectangle and the label are independently draggable; the leader
+// always reconnects the two. Used by render, the live drag updater, and DXF.
+function vicinityWorkGeometry(project) {
+  const c = vicinityState.center || vicinityState.point;   // AREA OF WORK sits at the frame center, so panning lands it on the site
+  const [ax, ay] = project.toSvg(c.lat, c.lon);
+  const workFt = Number(dom.vicinityWorkSizeSelect?.value) || 220;
+  const box = (workFt / 3.28084) * project.scale;
+  const rot = Number(dom.vicinityWorkRotationInput?.value) || 0;
+  const rectCx = ax + vicinityState.workOffset.dx;
+  const rectCy = ay + vicinityState.workOffset.dy;
+  // Default label sits upper-right of the address (upper-left if near the right edge).
+  const labelLeft = ax > VICINITY_SVG_W - 330;
+  const baseLx = labelLeft ? ax - 150 - VICINITY_LABEL_W / 2 : ax + 150 + VICINITY_LABEL_W / 2;
+  const baseLy = ay - 124;
+  const labelCx = baseLx + vicinityState.labelOffset.dx;
+  const labelCy = baseLy + vicinityState.labelOffset.dy;
+  // Leader: from just outside the rectangle toward the label, to just outside the label box.
+  let dirX = labelCx - rectCx, dirY = labelCy - rectCy;
+  const dist = Math.hypot(dirX, dirY) || 1;
+  dirX /= dist; dirY /= dist;
+  const x1 = rectCx + dirX * box * 0.6;
+  const y1 = rectCy + dirY * box * 0.6;
+  const x2 = labelCx - dirX * (VICINITY_LABEL_W / 2 + 6);
+  const y2 = labelCy - dirY * (VICINITY_LABEL_H / 2 + 6);
+  return { ax, ay, box, rot, workFt, rectCx, rectCy, labelCx, labelCy, leader: { x1, y1, x2, y2 } };
+}
+
+function vicinityWayKey(way) {
+  return way.name ? `n:${way.name}` : `w:${way.id}`;
+}
+
+function vicinityIsMajor(way) {
+  const key = vicinityWayKey(way);
+  if (key in vicinityState.overrides) return vicinityState.overrides[key];
+  return VICINITY_MAJOR_CLASSES.has(way.highway);
+}
+
+function vicinityHalfExtents() {
+  const miles = Number(dom.vicinityCoverageSelect?.value) || 0.75;
+  const halfWidthM = (miles * 1609.34) / 2;
+  return { halfWidthM, halfHeightM: halfWidthM * (VICINITY_SVG_H / VICINITY_SVG_W) };
+}
+
+function vicinityProjector() {
+  const { halfWidthM } = vicinityHalfExtents();
+  const { lat, lon } = vicinityState.center || vicinityState.point;   // pan moves center off the typed address
+  const mPerDegLat = 111320;
+  const mPerDegLon = 111320 * Math.cos(lat * Math.PI / 180);
+  const scale = VICINITY_SVG_W / (2 * halfWidthM);   // px per meter
+  return {
+    scale,
+    toSvg: (la, lo) => [
+      (lo - lon) * mPerDegLon * scale + VICINITY_SVG_W / 2,
+      VICINITY_SVG_H / 2 - (la - lat) * mPerDegLat * scale,
+    ],
+    toFeet: (la, lo) => [
+      (lo - lon) * mPerDegLon * 3.28084,
+      (la - lat) * mPerDegLat * 3.28084,
+    ],
+  };
+}
+
+function vicinityLabelSpots(majorWays, project) {
+  const spots = [];
+  const placed = [];
+  const byName = new Map();
+  for (const way of majorWays) {
+    if (!way.name) continue;
+    const pts = way.pts.map(([la, lo]) => project.toSvg(la, lo));
+    const inView = pts.filter(([x, y]) => x >= 30 && x <= VICINITY_SVG_W - 30 && y >= 40 && y <= VICINITY_SVG_H - 40);
+    if (inView.length < 2) continue;
+    let length = 0;
+    for (let i = 0; i < inView.length - 1; i += 1) length += Math.hypot(inView[i + 1][0] - inView[i][0], inView[i + 1][1] - inView[i][1]);
+    const existing = byName.get(way.name.toUpperCase());
+    if (!existing || length > existing.length) byName.set(way.name.toUpperCase(), { length, pts: inView });
+  }
+  for (const [key, run] of [...byName.entries()].sort((a, b) => b[1].length - a[1].length)) {
+    if (vicinityState.labelHidden[key]) continue;                  // removed via right-click menu
+    const text = vicinityState.labelText[key] ?? key;              // custom text via right-click menu
+    const pts = run.pts;
+    let target = 0;
+    for (let i = 0; i < pts.length - 1; i += 1) target += Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]);
+    target /= 2;
+    let acc = 0, mx = pts[0][0], my = pts[0][1], ang = 0;
+    for (let i = 0; i < pts.length - 1; i += 1) {
+      const d = Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]);
+      if (acc + d >= target && d > 0) {
+        const t = (target - acc) / d;
+        mx = pts[i][0] + (pts[i + 1][0] - pts[i][0]) * t;
+        my = pts[i][1] + (pts[i + 1][1] - pts[i][1]) * t;
+        ang = Math.atan2(pts[i + 1][1] - pts[i][1], pts[i + 1][0] - pts[i][0]) * 180 / Math.PI;
+        break;
+      }
+      acc += d;
+    }
+    if (ang > 90) ang -= 180;
+    if (ang < -90) ang += 180;
+    // coarse collision: axis-aligned box around the label midpoint
+    const w = text.length * 12 + 26, h = 34;
+    const box = { x1: mx - w / 2, y1: my - h, x2: mx + w / 2, y2: my + h };
+    if (placed.some((b) => box.x1 < b.x2 && box.x2 > b.x1 && box.y1 < b.y2 && box.y2 > b.y1)) continue;
+    placed.push(box);
+    const off = vicinityState.labelPos[key] || { dx: 0, dy: 0 };  // dragged offset
+    spots.push({ text, key, bx: mx, by: my, mx: mx + off.dx, my: my + off.dy, ang });
+  }
+  return spots;
+}
+
+function renderVicinityMap() {
+  if (!dom.vicinitySvg || !vicinityState.point || !vicinityState.ways.length) return;
+  const project = vicinityProjector();
+  const majors = [], minors = [];
+  for (const way of vicinityState.ways) {
+    const known = VICINITY_MAJOR_CLASSES.has(way.highway) || VICINITY_MINOR_CLASSES.has(way.highway);
+    if (!known && !(vicinityWayKey(way) in vicinityState.overrides)) continue;
+    (vicinityIsMajor(way) ? majors : minors).push(way);
+  }
+  const path = (way) => "M" + way.pts.map(([la, lo]) => {
+    const [x, y] = project.toSvg(la, lo);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" L");
+  const parts = [];
+  parts.push(`<rect width="${VICINITY_SVG_W}" height="${VICINITY_SVG_H}" fill="white"/>`);
+  for (const way of minors) {
+    parts.push(`<path class="vmap-street" data-vic-key="${escapeHtml(vicinityWayKey(way))}" d="${path(way)}" fill="none" stroke="#555" stroke-width="1.3"/>`);
+  }
+  for (const way of majors) {
+    parts.push(`<path class="vmap-street" data-vic-key="${escapeHtml(vicinityWayKey(way))}" d="${path(way)}" fill="none" stroke="black" stroke-width="7" stroke-linecap="round"/>`);
+  }
+  if (dom.vicinityLabelsToggle?.checked !== false) {
+    for (const { text, key, mx, my, ang, bx, by } of vicinityLabelSpots(majors, project)) {
+      parts.push(`<text class="vmap-label-street" data-vic-label="${escapeHtml(key)}" data-bx="${bx.toFixed(1)}" data-by="${by.toFixed(1)}" data-ang="${ang.toFixed(1)}" x="${mx.toFixed(1)}" y="${my.toFixed(1)}" transform="rotate(${ang.toFixed(1)} ${mx.toFixed(1)} ${my.toFixed(1)})" dy="-10" text-anchor="middle" font-family="Arial, sans-serif" font-size="21" font-weight="bold" stroke="white" stroke-width="5" paint-order="stroke" fill="black">${escapeHtml(text)}</text>`);
+    }
+  }
+  // AREA OF WORK — rectangle + label are independently draggable; leader reconnects them.
+  const g = vicinityWorkGeometry(project);
+  const half = g.box / 2;
+  const lbx = g.labelCx - VICINITY_LABEL_W / 2;
+  const lby = g.labelCy - VICINITY_LABEL_H / 2;
+  // leader first so the rectangle/label draw over its ends
+  parts.push(`<line id="vmap-leader" x1="${g.leader.x1.toFixed(1)}" y1="${g.leader.y1.toFixed(1)}" x2="${g.leader.x2.toFixed(1)}" y2="${g.leader.y2.toFixed(1)}" stroke="black" stroke-width="1.6"/>`);
+  parts.push(`<g class="vmap-drag" data-drag="work">`
+    + `<rect id="vmap-work-hit" x="${(g.rectCx - half).toFixed(1)}" y="${(g.rectCy - half).toFixed(1)}" width="${g.box.toFixed(1)}" height="${g.box.toFixed(1)}" fill="transparent" pointer-events="all" transform="rotate(${g.rot} ${g.rectCx.toFixed(1)} ${g.rectCy.toFixed(1)})"/>`
+    + `<rect id="vmap-work-rect" x="${(g.rectCx - half).toFixed(1)}" y="${(g.rectCy - half).toFixed(1)}" width="${g.box.toFixed(1)}" height="${g.box.toFixed(1)}" fill="none" stroke="black" stroke-width="2.5" stroke-dasharray="10 6" transform="rotate(${g.rot} ${g.rectCx.toFixed(1)} ${g.rectCy.toFixed(1)})"/>`
+    + `</g>`);
+  parts.push(`<g class="vmap-drag" data-drag="label">`
+    + `<rect id="vmap-label-box" x="${lbx.toFixed(1)}" y="${lby.toFixed(1)}" width="${VICINITY_LABEL_W}" height="${VICINITY_LABEL_H}" fill="white" stroke="black" stroke-width="2.5"/>`
+    + `<text id="vmap-label-text" x="${g.labelCx.toFixed(1)}" y="${(g.labelCy + 9).toFixed(1)}" text-anchor="middle" font-family="Arial, sans-serif" font-size="25" font-weight="bold">AREA OF WORK</text>`
+    + `</g>`);
+  // north arrow + attribution
+  const cx = VICINITY_SVG_W - 95, cy = VICINITY_SVG_H - 105, cr = 52;
+  parts.push(`<circle cx="${cx}" cy="${cy}" r="${cr}" fill="white" stroke="black" stroke-width="2.5"/>`);
+  parts.push(`<line x1="${cx}" y1="${cy + cr - 6}" x2="${cx}" y2="${cy - cr + 6}" stroke="black" stroke-width="3"/>`);
+  parts.push(`<line x1="${cx - cr + 6}" y1="${cy}" x2="${cx + cr - 6}" y2="${cy}" stroke="black" stroke-width="1.4"/>`);
+  parts.push(`<path d="M${cx},${cy - cr + 2} L${cx - 7},${cy - cr + 22} L${cx + 7},${cy - cr + 22} Z" fill="black"/>`);
+  parts.push(`<text x="${cx}" y="${cy - cr - 12}" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="bold">N</text>`);
+  parts.push(`<text x="10" y="${VICINITY_SVG_H - 8}" font-family="Arial, sans-serif" font-size="12" fill="#666">Map data (c) OpenStreetMap contributors</text>`);
+  dom.vicinitySvg.innerHTML = parts.join("");
+  if (dom.vicinityMapEmpty) dom.vicinityMapEmpty.hidden = true;
+  if (dom.vicinityCopyButton) dom.vicinityCopyButton.disabled = false;
+  if (dom.vicinityPngButton) dom.vicinityPngButton.disabled = false;
+  if (dom.vicinityDxfButton) dom.vicinityDxfButton.disabled = false;
+  const pan = document.getElementById("vicinityPan");
+  if (pan) pan.hidden = false;
+}
+
+// Live reposition of the work rectangle, label, and leader during a drag —
+// updates only those elements' attributes (no full street re-render).
+function vicinityPositionWork() {
+  if (!vicinityState.point || !vicinityState.ways.length) return;
+  const g = vicinityWorkGeometry(vicinityProjector());
+  const half = g.box / 2;
+  const set = (id, attrs) => {
+    const el = document.getElementById(id);
+    if (el) for (const k in attrs) el.setAttribute(k, attrs[k]);
+  };
+  const rectAttrs = {
+    x: (g.rectCx - half).toFixed(1), y: (g.rectCy - half).toFixed(1),
+    transform: `rotate(${g.rot} ${g.rectCx.toFixed(1)} ${g.rectCy.toFixed(1)})`,
+  };
+  set("vmap-work-hit", rectAttrs);
+  set("vmap-work-rect", rectAttrs);
+  set("vmap-leader", { x1: g.leader.x1.toFixed(1), y1: g.leader.y1.toFixed(1), x2: g.leader.x2.toFixed(1), y2: g.leader.y2.toFixed(1) });
+  set("vmap-label-box", { x: (g.labelCx - VICINITY_LABEL_W / 2).toFixed(1), y: (g.labelCy - VICINITY_LABEL_H / 2).toFixed(1) });
+  set("vmap-label-text", { x: g.labelCx.toFixed(1), y: (g.labelCy + 9).toFixed(1) });
+}
+
+function vicinitySvgPoint(evt) {
+  const rect = dom.vicinitySvg.getBoundingClientRect();
+  return [
+    (evt.clientX - rect.left) * (VICINITY_SVG_W / rect.width),
+    (evt.clientY - rect.top) * (VICINITY_SVG_H / rect.height),
+  ];
+}
+
+async function vicinityFetchSuggestions() {
+  const query = (dom.vicinityAddressInput?.value || "").trim();
+  if (query.length < 4) { if (dom.vicinitySuggest) dom.vicinitySuggest.hidden = true; return; }
+  try {
+    const payload = await readApiJson("./api/vicinity/geocode", { method: "POST", body: JSON.stringify({ query }) });
+    const results = payload.results || [];
+    if (!dom.vicinitySuggest) return;
+    if (!results.length) { dom.vicinitySuggest.hidden = true; return; }
+    dom.vicinitySuggest.innerHTML = results.map((r, i) =>
+      `<button type="button" data-vic-pick="${i}">${escapeHtml(r.label)}</button>`).join("");
+    dom.vicinitySuggest.hidden = false;
+    dom.vicinitySuggest.querySelectorAll("[data-vic-pick]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const pick = results[Number(btn.dataset.vicPick)];
+        vicinityState.point = { lat: pick.lat, lon: pick.lon };
+        vicinityState.label = pick.label;
+        if (dom.vicinityAddressInput) dom.vicinityAddressInput.value = pick.label;
+        dom.vicinitySuggest.hidden = true;
+      });
+    });
+  } catch (error) {
+    if (dom.vicinitySuggest) dom.vicinitySuggest.hidden = true;
+  }
+}
+
+// Fetch streets around the current view center. resetEdits=true for a fresh
+// Generate; false for a pan (keeps street weights, label edits, box position).
+async function vicinityLoadStreets(resetEdits) {
+  const { halfWidthM, halfHeightM } = vicinityHalfExtents();
+  const payload = await readApiJson("./api/vicinity/streets", {
+    method: "POST",
+    body: JSON.stringify({ lat: vicinityState.center.lat, lon: vicinityState.center.lon, halfWidthM, halfHeightM }),
+  });
+  vicinityState.ways = payload.ways || [];
+  if (resetEdits) {
+    vicinityState.overrides = {};
+    vicinityState.labelHidden = {};
+    vicinityState.labelText = {};
+    vicinityState.labelPos = {};
+    vicinityState.workOffset = { dx: 0, dy: 0 };
+    vicinityState.labelOffset = { dx: 0, dy: 0 };
+  }
+  renderVicinityMap();
+  return vicinityState.ways.length;
+}
+
+async function vicinityGenerate() {
+  if (!vicinityState.point) {
+    if (dom.vicinityStatus) dom.vicinityStatus.textContent = "Pick an address from the suggestions first.";
+    return;
+  }
+  vicinityState.center = { ...vicinityState.point };   // view starts on the typed address
+  if (dom.vicinityStatus) dom.vicinityStatus.textContent = "Fetching streets from OpenStreetMap...";
+  if (dom.vicinityGenerateButton) dom.vicinityGenerateButton.disabled = true;
+  try {
+    const n = await vicinityLoadStreets(true);
+    if (dom.vicinityStatus) dom.vicinityStatus.textContent = `${n} streets loaded. Click a street to toggle heavy/thin, or pan to reframe.`;
+  } catch (error) {
+    if (dom.vicinityStatus) dom.vicinityStatus.textContent = error.message || "Could not fetch streets.";
+  }
+  if (dom.vicinityGenerateButton) dom.vicinityGenerateButton.disabled = false;
+}
+
+// Pan the frame. dx/dy in {-1,0,1}: +x = east, +y = north. Each press shifts
+// ~45% of the frame, then refetches streets around the new center. Use for
+// project sites whose address isn't geocodable yet — enter a nearby address
+// and pan onto the actual site (the AREA OF WORK box rides the frame center).
+async function vicinityPan(dx, dy) {
+  if (!vicinityState.center || !vicinityState.ways.length) return;
+  const { halfWidthM, halfHeightM } = vicinityHalfExtents();
+  const mPerDegLat = 111320;
+  const mPerDegLon = 111320 * Math.cos(vicinityState.center.lat * Math.PI / 180);
+  vicinityState.center = {
+    lat: vicinityState.center.lat + (dy * halfHeightM * 0.9) / mPerDegLat,
+    lon: vicinityState.center.lon + (dx * halfWidthM * 0.9) / mPerDegLon,
+  };
+  const pan = document.getElementById("vicinityPan");
+  if (pan) pan.querySelectorAll("button").forEach((b) => (b.disabled = true));
+  if (dom.vicinityStatus) dom.vicinityStatus.textContent = "Panning...";
+  try {
+    await vicinityLoadStreets(false);
+    if (dom.vicinityStatus) dom.vicinityStatus.textContent = "Panned. Keep panning to reach your site, then drop the Area of Work on it.";
+  } catch (error) {
+    if (dom.vicinityStatus) dom.vicinityStatus.textContent = error.message || "Could not pan.";
+  }
+  if (pan) pan.querySelectorAll("button").forEach((b) => (b.disabled = false));
+}
+
+function vicinityRecenter() {
+  if (!vicinityState.point) return;
+  vicinityState.center = { ...vicinityState.point };
+  vicinityLoadStreets(false).catch(() => {});
+}
+
+function vicinitySvgDocument() {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VICINITY_SVG_W} ${VICINITY_SVG_H}">${dom.vicinitySvg.innerHTML}</svg>`;
+}
+
+async function vicinityExportPng() {
+  try {
+    if (dom.vicinityStatus) dom.vicinityStatus.textContent = "Rendering PNG...";
+    const blob = await waterSvgToPngBlob(vicinitySvgDocument(), VICINITY_SVG_W * 2, VICINITY_SVG_H * 2);
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(",")[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    await readApiJson("./api/save-generated-file", {
+      method: "POST",
+      body: JSON.stringify({ outputType: "png", defaultName: "vicinity-map.png", encoding: "base64", content: base64 }),
+    });
+    if (dom.vicinityStatus) dom.vicinityStatus.textContent = "PNG saved.";
+  } catch (error) {
+    if (dom.vicinityStatus) dom.vicinityStatus.textContent = error.message || "PNG export failed.";
+  }
+}
+
+// Copy the rendered map straight to the clipboard so it can be pasted into a
+// plan set / CAD without saving a file first.
+async function vicinityCopyImage() {
+  try {
+    if (dom.vicinityStatus) dom.vicinityStatus.textContent = "Copying image...";
+    const blob = await waterSvgToPngBlob(vicinitySvgDocument(), VICINITY_SVG_W * 2, VICINITY_SVG_H * 2);
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+    if (dom.vicinityStatus) dom.vicinityStatus.textContent = "Image copied - paste it into your plan set.";
+  } catch (error) {
+    if (dom.vicinityStatus) dom.vicinityStatus.textContent = "Couldn't copy to the clipboard. Use Export PNG instead.";
+  }
+}
+
+// R12 DXF: feet, origin at the project address, X = east / Y = north. Layers:
+// VMAP-MAJOR (wide polylines), VMAP-MINOR, VMAP-TEXT, VMAP-WORK (dashed), VMAP-NORTH.
+function buildVicinityDxf() {
+  const project = vicinityProjector();
+  const out = [];
+  const p = (code, val) => { out.push(String(code)); out.push(String(val)); };
+  const n = (v) => Number(v).toFixed(3);
+  p(0, "SECTION"); p(2, "HEADER");
+  p(9, "$ACADVER"); p(1, "AC1009");
+  p(9, "$INSUNITS"); p(70, 2);
+  p(0, "ENDSEC");
+  p(0, "SECTION"); p(2, "TABLES");
+  p(0, "TABLE"); p(2, "LTYPE"); p(70, 2);
+  p(0, "LTYPE"); p(2, "CONTINUOUS"); p(70, 0); p(3, "Solid line"); p(72, 65); p(73, 0); p(40, 0);
+  p(0, "LTYPE"); p(2, "DASHED"); p(70, 0); p(3, "Dashed"); p(72, 65); p(73, 2); p(40, 45); p(49, 30); p(49, -15);
+  p(0, "ENDTAB");
+  p(0, "TABLE"); p(2, "LAYER"); p(70, 5);
+  for (const [name, ltype] of [["VMAP-MAJOR", "CONTINUOUS"], ["VMAP-MINOR", "CONTINUOUS"], ["VMAP-TEXT", "CONTINUOUS"], ["VMAP-WORK", "DASHED"], ["VMAP-NORTH", "CONTINUOUS"]]) {
+    p(0, "LAYER"); p(2, name); p(70, 0); p(62, 7); p(6, ltype);
+  }
+  p(0, "ENDTAB"); p(0, "ENDSEC");
+  p(0, "SECTION"); p(2, "ENTITIES");
+
+  const mapWidthFt = (vicinityHalfExtents().halfWidthM * 2) * 3.28084;
+  const majorWidth = mapWidthFt * 0.006;   // matches the preview's visual weight
+  const textH = mapWidthFt * 0.0165;
+  const emitPolyline = (ptsFt, layer, width) => {
+    p(0, "POLYLINE"); p(8, layer); p(66, 1); p(70, 0);
+    if (width) { p(40, n(width)); p(41, n(width)); }
+    for (const [x, y] of ptsFt) { p(0, "VERTEX"); p(8, layer); p(10, n(x)); p(20, n(y)); p(30, 0); }
+    p(0, "SEQEND");
+  };
+  const emitText = (x, y, h, rot, value, layer) => {
+    p(0, "TEXT"); p(8, layer); p(10, n(x)); p(20, n(y)); p(30, 0); p(40, n(h)); p(1, value);
+    if (rot) p(50, n(rot));
+    p(72, 1); p(11, n(x)); p(21, n(y)); p(31, 0);
+  };
+
+  const majors = [], minors = [];
+  for (const way of vicinityState.ways) {
+    const known = VICINITY_MAJOR_CLASSES.has(way.highway) || VICINITY_MINOR_CLASSES.has(way.highway);
+    if (!known && !(vicinityWayKey(way) in vicinityState.overrides)) continue;
+    (vicinityIsMajor(way) ? majors : minors).push(way);
+  }
+  for (const way of minors) emitPolyline(way.pts.map(([la, lo]) => project.toFeet(la, lo)), "VMAP-MINOR", 0);
+  for (const way of majors) emitPolyline(way.pts.map(([la, lo]) => project.toFeet(la, lo)), "VMAP-MAJOR", majorWidth);
+
+  if (dom.vicinityLabelsToggle?.checked !== false) {
+    for (const { text, mx, my, ang } of vicinityLabelSpots(majors, project)) {
+      // svg px -> feet (svg y is south-positive; CAD rotation is CCW)
+      const fx = (mx - VICINITY_SVG_W / 2) / project.scale * 3.28084;
+      const fy = (VICINITY_SVG_H / 2 - my) / project.scale * 3.28084;
+      emitText(fx, fy + textH * 0.6, textH, -ang, text, "VMAP-TEXT");
+    }
+  }
+  // Work box + label honor their dragged positions (shared geometry, px -> feet).
+  const gg = vicinityWorkGeometry(project);
+  const pxToFt = 3.28084 / project.scale;
+  const workCxFt = (gg.rectCx - gg.ax) * pxToFt;
+  const workCyFt = (gg.ay - gg.rectCy) * pxToFt;
+  const labelCxFt = (gg.labelCx - gg.ax) * pxToFt;
+  const labelCyFt = (gg.ay - gg.labelCy) * pxToFt;
+  const workFt = Number(dom.vicinityWorkSizeSelect?.value) || 220;
+  const rotRad = -(Number(dom.vicinityWorkRotationInput?.value) || 0) * Math.PI / 180;
+  const half = workFt / 2;
+  const corners = [[-half, -half], [half, -half], [half, half], [-half, half], [-half, -half]]
+    .map(([x, y]) => [workCxFt + x * Math.cos(rotRad) - y * Math.sin(rotRad), workCyFt + x * Math.sin(rotRad) + y * Math.cos(rotRad)]);
+  emitPolyline(corners, "VMAP-WORK", 0);
+  emitPolyline([[(gg.leader.x1 - gg.ax) * pxToFt, (gg.ay - gg.leader.y1) * pxToFt],
+                [(gg.leader.x2 - gg.ax) * pxToFt, (gg.ay - gg.leader.y2) * pxToFt]], "VMAP-WORK", 0);
+  emitText(labelCxFt, labelCyFt, textH, 0, "AREA OF WORK", "VMAP-TEXT");
+  // north arrow: simple circle + needle at the NE corner of the map extents
+  const mapHalfWFt = mapWidthFt / 2, mapHalfHFt = mapHalfWFt * (VICINITY_SVG_H / VICINITY_SVG_W);
+  const ncx = mapHalfWFt * 0.86, ncy = -mapHalfHFt * 0.82, ncr = mapWidthFt * 0.03;
+  p(0, "CIRCLE"); p(8, "VMAP-NORTH"); p(10, n(ncx)); p(20, n(ncy)); p(30, 0); p(40, n(ncr));
+  emitPolyline([[ncx, ncy - ncr], [ncx, ncy + ncr]], "VMAP-NORTH", 0);
+  emitText(ncx, ncy + ncr * 1.35, textH, 0, "N", "VMAP-NORTH");
+  emitText(-mapHalfWFt * 0.95, -mapHalfHFt * 1.02, textH * 0.4, 0, "Map data (c) OpenStreetMap contributors", "VMAP-TEXT");
+  p(0, "ENDSEC"); p(0, "EOF");
+  return out.join("\n");
+}
+
+async function vicinityExportDxf() {
+  try {
+    if (dom.vicinityStatus) dom.vicinityStatus.textContent = "Building DXF...";
+    await readApiJson("./api/save-generated-file", {
+      method: "POST",
+      body: JSON.stringify({ outputType: "dxf", defaultName: "vicinity-map.dxf", encoding: "text", content: buildVicinityDxf() }),
+    });
+    if (dom.vicinityStatus) dom.vicinityStatus.textContent = "DXF saved (feet, origin at the project address).";
+  } catch (error) {
+    if (dom.vicinityStatus) dom.vicinityStatus.textContent = error.message || "DXF export failed.";
+  }
+}
+
+function vicinityCloseMenu() {
+  const menu = document.getElementById("vicinityMenu");
+  if (menu) menu.remove();
+}
+
+// Right-click menu on a street (or its label) to Edit or Remove the label without
+// touching line weight. WebView2 blocks window.prompt(), so the editor is inline.
+function vicinityOpenMenu(clientX, clientY, opts) {
+  vicinityCloseMenu();
+  const shell = dom.vicinityMapShell;
+  if (!shell) return;
+  const rect = shell.getBoundingClientRect();
+  const { nameKey, streetName, way } = opts;
+  const menu = document.createElement("div");
+  menu.id = "vicinityMenu";
+  menu.className = "vicinity-menu";
+  menu.style.left = Math.min(clientX - rect.left, rect.width - 226) + "px";
+  menu.style.top = Math.min(clientY - rect.top, rect.height - 20) + "px";
+
+  let html = "";
+  if (nameKey) {
+    const hidden = !!vicinityState.labelHidden[nameKey];
+    const current = vicinityState.labelText[nameKey] ?? nameKey;
+    html += `<div class="vic-menu-title">${escapeHtml(streetName || nameKey)}</div>`;
+    if (hidden) {
+      html += `<button type="button" data-vic-menu="show">Show label</button>`;
+    } else {
+      html += `<label class="vic-menu-edit">Label text<input type="text" id="vicMenuInput" value="${escapeHtml(current)}" /></label>`
+        + `<button type="button" data-vic-menu="save">Save label</button>`
+        + `<button type="button" data-vic-menu="remove">Remove label</button>`;
+    }
+    if (nameKey in vicinityState.labelText || hidden) {
+      html += `<button type="button" data-vic-menu="reset">Reset to street name</button>`;
+    }
+  } else {
+    html += `<div class="vic-menu-title">Unnamed street</div>`;
+  }
+  if (way) {
+    html += `<div class="vic-menu-sep"></div>`
+      + `<button type="button" data-vic-menu="weight">Make ${vicinityIsMajor(way) ? "thin" : "heavy"}</button>`;
+  }
+  menu.innerHTML = html;
+  shell.appendChild(menu);
+  const input = menu.querySelector("#vicMenuInput");
+  if (input) { input.focus(); input.select(); }
+
+  const apply = (action) => {
+    if (action === "save" && input) {
+      const val = input.value.trim();
+      if (val && val !== nameKey) vicinityState.labelText[nameKey] = val;
+      else delete vicinityState.labelText[nameKey];
+      delete vicinityState.labelHidden[nameKey];
+    } else if (action === "remove") {
+      vicinityState.labelHidden[nameKey] = true;
+    } else if (action === "show") {
+      delete vicinityState.labelHidden[nameKey];
+    } else if (action === "reset") {
+      delete vicinityState.labelText[nameKey];
+      delete vicinityState.labelHidden[nameKey];
+    } else if (action === "weight" && way) {
+      vicinityState.overrides[vicinityWayKey(way)] = !vicinityIsMajor(way);
+    }
+    vicinityCloseMenu();
+    renderVicinityMap();
+  };
+  menu.querySelectorAll("[data-vic-menu]").forEach((btn) => btn.addEventListener("click", () => apply(btn.dataset.vicMenu)));
+  if (input) input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); apply("save"); } });
+}
+
+// ===================== Hydraulic Analysis Report =====================
+// Enter project design basis -> copy-paste text report for plan sheets.
+// Densities reuse the same NFPA 13 Table 19.2.3.1.1 values as Preliminary Calc.
+const HYDREPORT_HAZARDS = [
+  { id: "light", label: "Light Hazard", density: 0.10, designArea: 1500 },
+  { id: "oh1", label: "Ordinary Hazard, Group 1", density: 0.15, designArea: 1500 },
+  { id: "oh2", label: "Ordinary Hazard, Group 2", density: 0.20, designArea: 1500 },
+  { id: "eh1", label: "Extra Hazard, Group 1", density: 0.30, designArea: 2500 },
+  { id: "eh2", label: "Extra Hazard, Group 2", density: 0.40, designArea: 2500 },
+];
+const HYDREPORT_CUSTOM_HAZ_KEY = "sprinkflow.hydreport.customHazards";
+const HYDREPORT_REPORTS_KEY = "sprinkflow.hydreport.reports";
+let hydreportCustomHazards = [];
+const HYDREPORT_DEFAULT_PIPES = [
+  { desc: "Piping 1\" and smaller", spec: "Schedule 40" },
+  { desc: "Piping 1-1/4\" and larger", spec: "Schedule 10" },
+];
+const hydreportState = {
+  codes: [{ code: "NFPA 13", edition: "2025" }],
+  rooms: [{ name: "", hazard: "light" }],
+  pipes: JSON.parse(JSON.stringify(HYDREPORT_DEFAULT_PIPES)),
+  activeReportId: "",
+};
+
+function hydreportAllHazards() {
+  return HYDREPORT_HAZARDS.concat(hydreportCustomHazards);
+}
+function hydreportHazard(id) {
+  return hydreportAllHazards().find((h) => h.id === id) || HYDREPORT_HAZARDS[0];
+}
+function hydreportLoadCustomHazards() {
+  try { const v = JSON.parse(localStorage.getItem(HYDREPORT_CUSTOM_HAZ_KEY) || "[]"); hydreportCustomHazards = Array.isArray(v) ? v : []; }
+  catch (e) { hydreportCustomHazards = []; }
+}
+function hydreportSaveCustomHazards() {
+  try { localStorage.setItem(HYDREPORT_CUSTOM_HAZ_KEY, JSON.stringify(hydreportCustomHazards)); } catch (e) { /* quota */ }
+}
+function hydreportLoadReports() {
+  try { const v = JSON.parse(localStorage.getItem(HYDREPORT_REPORTS_KEY) || "[]"); return Array.isArray(v) ? v : []; }
+  catch (e) { return []; }
+}
+function hydreportSaveReports(list) {
+  try { localStorage.setItem(HYDREPORT_REPORTS_KEY, JSON.stringify(list)); } catch (e) { /* quota */ }
+}
+
+// Accept plain feet ("15") or feet-inches ("15-2" = 15'-2"); NaN on partial/invalid input.
+function hydreportParseFeet(value) {
+  const text = String(value || "").trim();
+  if (!text) return NaN;
+  try { const ft = parseBracingLength(text); return Number.isFinite(ft) && ft > 0 ? ft : NaN; }
+  catch (e) { return NaN; }
+}
+
+// NFPA 13 quick-response design-area reduction (wet-pipe, Light/Ordinary Hazard):
+// up to 40% at ceilings <= 10 ft, scaling linearly to 20% at 20 ft; not permitted above 20 ft.
+function hydreportQrReduction(ceilingFt) {
+  if (!Number.isFinite(ceilingFt) || ceilingFt <= 0) return null;
+  if (ceilingFt > 20) return { permitted: false, pct: 0 };
+  const pct = ceilingFt <= 10 ? 40 : Math.round(60 - 2 * ceilingFt);
+  return { permitted: true, pct: Math.max(20, Math.min(40, pct)) };
+}
+
+function renderHydreportCodes() {
+  const box = document.getElementById("hydreportCodesList");
+  if (!box) return;
+  box.innerHTML = hydreportState.codes.map((c, i) => `
+    <div class="hydreport-row code-row">
+      <input type="text" data-hr-code="${i}" value="${escapeHtml(c.code)}" placeholder="Code / standard" />
+      <input type="text" data-hr-edition="${i}" value="${escapeHtml(c.edition)}" placeholder="Edition" />
+      <button type="button" class="hydreport-remove" data-hr-code-remove="${i}" title="Remove">&times;</button>
+    </div>`).join("");
+  box.querySelectorAll("[data-hr-code]").forEach((el) => el.addEventListener("input", () => { hydreportState.codes[+el.dataset.hrCode].code = el.value; generateHydreport(); }));
+  box.querySelectorAll("[data-hr-edition]").forEach((el) => el.addEventListener("input", () => { hydreportState.codes[+el.dataset.hrEdition].edition = el.value; generateHydreport(); }));
+  box.querySelectorAll("[data-hr-code-remove]").forEach((el) => el.addEventListener("click", () => { hydreportState.codes.splice(+el.dataset.hrCodeRemove, 1); renderHydreportCodes(); generateHydreport(); }));
+}
+
+function renderHydreportRooms() {
+  const box = document.getElementById("hydreportRoomsList");
+  if (!box) return;
+  box.innerHTML = hydreportState.rooms.map((r, i) => {
+    const opts = hydreportAllHazards().map((h) => `<option value="${h.id}"${h.id === r.hazard ? " selected" : ""}>${escapeHtml(h.label)}</option>`).join("");
+    const d = hydreportHazard(r.hazard).density.toFixed(2);
+    return `<div class="hydreport-row room-row">
+      <input type="text" data-hr-room="${i}" value="${escapeHtml(r.name)}" placeholder="Room / area name" />
+      <select data-hr-hazard="${i}">${opts}</select>
+      <span class="hydreport-density">${d} gpm/ft&sup2;</span>
+      <button type="button" class="hydreport-remove" data-hr-room-remove="${i}" title="Remove">&times;</button>
+    </div>`;
+  }).join("");
+  box.querySelectorAll(".room-row").forEach((row) => { row.style.gridTemplateColumns = "1.3fr 1fr auto auto"; });
+  box.querySelectorAll("[data-hr-room]").forEach((el) => el.addEventListener("input", () => { hydreportState.rooms[+el.dataset.hrRoom].name = el.value; generateHydreport(); }));
+  box.querySelectorAll("[data-hr-hazard]").forEach((el) => el.addEventListener("change", () => { hydreportState.rooms[+el.dataset.hrHazard].hazard = el.value; renderHydreportRooms(); generateHydreport(); }));
+  box.querySelectorAll("[data-hr-room-remove]").forEach((el) => el.addEventListener("click", () => { hydreportState.rooms.splice(+el.dataset.hrRoomRemove, 1); renderHydreportRooms(); generateHydreport(); }));
+}
+
+function renderHydreportPipes() {
+  const box = document.getElementById("hydreportPipesList");
+  if (!box) return;
+  box.innerHTML = hydreportState.pipes.map((pipe, i) => `
+    <div class="hydreport-row pipe-row">
+      <input type="text" list="hydreportPipeDescs" data-hr-pipe-desc="${i}" value="${escapeHtml(pipe.desc)}" placeholder="Size range / application" />
+      <input type="text" list="hydreportPipeSpecs" data-hr-pipe-spec="${i}" value="${escapeHtml(pipe.spec)}" placeholder="Schedule / type" />
+      <button type="button" class="hydreport-remove" data-hr-pipe-remove="${i}" title="Remove">&times;</button>
+    </div>`).join("");
+  box.querySelectorAll("[data-hr-pipe-desc]").forEach((el) => el.addEventListener("input", () => { hydreportState.pipes[+el.dataset.hrPipeDesc].desc = el.value; generateHydreport(); }));
+  box.querySelectorAll("[data-hr-pipe-spec]").forEach((el) => el.addEventListener("input", () => { hydreportState.pipes[+el.dataset.hrPipeSpec].spec = el.value; generateHydreport(); }));
+  box.querySelectorAll("[data-hr-pipe-remove]").forEach((el) => el.addEventListener("click", () => { hydreportState.pipes.splice(+el.dataset.hrPipeRemove, 1); renderHydreportPipes(); generateHydreport(); }));
+}
+
+function generateHydreport() {
+  const v = (id) => (document.getElementById(id)?.value || "").trim();
+  const project = v("hydreportProjectInput");
+  const lines = [];
+  lines.push("HYDRAULIC DESIGN ANALYSIS");
+  if (project) lines.push(project.toUpperCase());
+  lines.push("");
+
+  lines.push("APPLICABLE CODES:");
+  const codes = hydreportState.codes.filter((c) => c.code.trim());
+  if (codes.length) codes.forEach((c) => lines.push(`  - ${c.code.trim()}${c.edition.trim() ? `, ${c.edition.trim()} Edition` : ""}`));
+  else lines.push("  - (none entered)");
+  lines.push("");
+
+  lines.push("OCCUPANCY HAZARD CLASSIFICATION:");
+  const rooms = hydreportState.rooms.filter((r) => r.name.trim());
+  if (rooms.length) {
+    // Group room names under each hazard (built-in Light->Extra, then custom).
+    hydreportAllHazards().forEach((h) => {
+      const names = rooms.filter((r) => r.hazard === h.id).map((r) => r.name.trim());
+      if (names.length) lines.push(`  - ${names.join(", ")}: ${h.label} (design density ${h.density.toFixed(2)} gpm/ft2)`);
+    });
+  } else lines.push("  - (add rooms above)");
+  lines.push("");
+
+  // Design area of operation: base -> QR reduction -> dry/slope increases, in that order.
+  const base = parseFloat(v("hydreportBaseAreaInput"));
+  const qrOn = document.getElementById("hydreportQrToggle")?.checked;
+  const dryOn = document.getElementById("hydreportDryToggle")?.checked;
+  const slopeOn = document.getElementById("hydreportSlopeToggle")?.checked;
+  const ceiling = hydreportParseFeet(v("hydreportCeilingInput"));
+  const ceilingText = Number.isFinite(ceiling) ? decimalToFeetInches(ceiling) : "";
+  const fmtArea = (n) => Math.round(n).toLocaleString("en-US");
+  const fmtLen = (n) => (Math.round(n * 10) / 10).toString();
+  lines.push("DESIGN AREA OF OPERATION:");
+  if (Number.isFinite(base) && base > 0) {
+    let area = base;
+    const steps = [`  - Base design area: ${fmtArea(base)} ft2`];
+    if (qrOn) {
+      const qr = hydreportQrReduction(ceiling);
+      if (qr && qr.permitted) { area *= 1 - qr.pct / 100; steps.push(`  - Quick-response reduction (${qr.pct}% @ ${ceilingText} ceiling): x${(1 - qr.pct / 100).toFixed(2)} = ${fmtArea(area)} ft2`); }
+      else if (qr && !qr.permitted) steps.push(`  - Quick-response reduction NOT permitted (ceiling ${ceilingText} exceeds 20 ft)`);
+    }
+    if (dryOn) { area *= 1.3; steps.push(`  - Dry pipe / preaction increase (30%): x1.30 = ${fmtArea(area)} ft2`); }
+    if (slopeOn) { area *= 1.3; steps.push(`  - Ceiling slope >2 in 12 increase (30%): x1.30 = ${fmtArea(area)} ft2`); }
+    steps.forEach((s) => lines.push(s));
+    lines.push(`  Design area of operation: ${fmtArea(area)} ft2`);
+    // Minimum length of the remote area along the branch lines: 1.2 x sqrt(A).
+    const minLen = 1.2 * Math.sqrt(area);
+    lines.push(`  Minimum remote-area length (1.2 x sqrt of A): ${fmtLen(minLen)} ft along the branch lines`);
+  } else {
+    lines.push("  - (enter a base design area above)");
+  }
+  lines.push("");
+
+  const storage = v("hydreportStorageInput");
+  lines.push(`MAXIMUM STORAGE HEIGHT: ${storage ? storage + " ft" : "N/A"}`);
+  lines.push("");
+  lines.push("PIPING SPECIFICATIONS:");
+  const pipes = hydreportState.pipes.filter((pp) => pp.desc.trim() || pp.spec.trim());
+  if (pipes.length) pipes.forEach((pp) => lines.push(`  - ${pp.desc.trim() || "(all piping)"}: ${pp.spec.trim() || "(spec not set)"}`));
+  else lines.push("  - (add piping specs above)");
+
+  const out = document.getElementById("hydreportOutput");
+  if (out) out.value = lines.join("\n");
+
+  // live QR readout under the ceiling input
+  const note = document.getElementById("hydreportQrResult");
+  if (note) {
+    if (!qrOn) { note.textContent = "Enable quick-response above to calculate the design area reduction."; note.className = "hydreport-note"; }
+    else if (!Number.isFinite(ceiling) || ceiling <= 0) { note.textContent = "Enter a ceiling height to calculate the reduction."; note.className = "hydreport-note"; }
+    else {
+      const qr = hydreportQrReduction(ceiling);
+      if (qr.permitted) { note.textContent = `Quick-response design area reduction: ${qr.pct}%`; note.className = "hydreport-note ok"; }
+      else { note.textContent = "Not permitted - ceiling exceeds 20 ft."; note.className = "hydreport-note warn"; }
+    }
+  }
+
+  // live minimum remote-area length readout (1.2 x sqrt of the final design area)
+  const minLenNote = document.getElementById("hydreportMinLengthResult");
+  if (minLenNote) {
+    let finalArea = base;
+    if (Number.isFinite(base) && base > 0) {
+      if (qrOn) { const qr = hydreportQrReduction(ceiling); if (qr && qr.permitted) finalArea *= 1 - qr.pct / 100; }
+      if (dryOn) finalArea *= 1.3;
+      if (slopeOn) finalArea *= 1.3;
+      const minLen = 1.2 * Math.sqrt(finalArea);
+      minLenNote.textContent = `Minimum remote-area length: ${fmtLen(minLen)} ft along the branch lines (1.2 x sqrt of ${fmtArea(finalArea)} ft2).`;
+      minLenNote.className = "hydreport-note ok";
+    } else {
+      minLenNote.textContent = "Enter a base design area to calculate the minimum remote-area length.";
+      minLenNote.className = "hydreport-note";
+    }
+  }
+}
+
+function renderHydreportCustomList() {
+  const box = document.getElementById("hydreportCustomHazardList");
+  if (!box) return;
+  box.innerHTML = hydreportCustomHazards.map((h) => `
+    <div class="hydreport-custom-item">
+      <span><strong>${escapeHtml(h.label)}</strong> — ${h.density.toFixed(2)} gpm/ft&sup2;${h.designArea ? ` / ${Math.round(h.designArea).toLocaleString("en-US")} ft&sup2;` : ""}</span>
+      <button type="button" data-hr-haz-remove="${escapeHtml(h.id)}" title="Delete custom hazard">&times;</button>
+    </div>`).join("");
+  box.querySelectorAll("[data-hr-haz-remove]").forEach((el) => el.addEventListener("click", () => {
+    const id = el.dataset.hrHazRemove;
+    hydreportCustomHazards = hydreportCustomHazards.filter((h) => h.id !== id);
+    // any room using it falls back to Light Hazard
+    hydreportState.rooms.forEach((r) => { if (r.hazard === id) r.hazard = "light"; });
+    hydreportSaveCustomHazards();
+    renderHydreportCustomList(); renderHydreportRooms(); generateHydreport();
+  }));
+}
+
+// Serialize the whole report for save/load.
+function hydreportCollectState() {
+  const v = (id) => document.getElementById(id)?.value ?? "";
+  return {
+    project: v("hydreportProjectInput"),
+    linkedProjectId: v("hydreportLinkProjectSelect"),
+    codes: JSON.parse(JSON.stringify(hydreportState.codes)),
+    rooms: JSON.parse(JSON.stringify(hydreportState.rooms)),
+    pipes: JSON.parse(JSON.stringify(hydreportState.pipes)),
+    baseArea: v("hydreportBaseAreaInput"),
+    qr: !!document.getElementById("hydreportQrToggle")?.checked,
+    ceiling: v("hydreportCeilingInput"),
+    dry: !!document.getElementById("hydreportDryToggle")?.checked,
+    slope: !!document.getElementById("hydreportSlopeToggle")?.checked,
+    storage: v("hydreportStorageInput"),
+  };
+}
+function hydreportApplyState(d) {
+  d = d || {};
+  hydreportState.codes = Array.isArray(d.codes) && d.codes.length ? JSON.parse(JSON.stringify(d.codes)) : [{ code: "NFPA 13", edition: "2025" }];
+  hydreportState.rooms = Array.isArray(d.rooms) && d.rooms.length ? JSON.parse(JSON.stringify(d.rooms)) : [{ name: "", hazard: "light" }];
+  hydreportState.pipes = Array.isArray(d.pipes) && d.pipes.length ? JSON.parse(JSON.stringify(d.pipes)) : JSON.parse(JSON.stringify(HYDREPORT_DEFAULT_PIPES));
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ""; };
+  set("hydreportProjectInput", d.project);
+  set("hydreportBaseAreaInput", d.baseArea || "1500");
+  set("hydreportCeilingInput", d.ceiling);
+  set("hydreportStorageInput", d.storage || "12");
+  const qr = document.getElementById("hydreportQrToggle"); if (qr) qr.checked = !!d.qr;
+  const dry = document.getElementById("hydreportDryToggle"); if (dry) dry.checked = !!d.dry;
+  const slope = document.getElementById("hydreportSlopeToggle"); if (slope) slope.checked = !!d.slope;
+  renderHydreportProjectLink();
+  const link = document.getElementById("hydreportLinkProjectSelect"); if (link) link.value = d.linkedProjectId || "";
+  renderHydreportCodes(); renderHydreportRooms(); renderHydreportPipes();
+}
+function renderHydreportReportSelect() {
+  const sel = document.getElementById("hydreportReportSelect");
+  if (!sel) return;
+  const reports = hydreportLoadReports();
+  sel.innerHTML = ['<option value="">New report</option>']
+    .concat(reports.map((r) => `<option value="${escapeHtml(r.id)}">${escapeHtml(r.name || "Untitled report")}</option>`)).join("");
+  sel.value = hydreportState.activeReportId || "";
+}
+function renderHydreportProjectLink() {
+  const sel = document.getElementById("hydreportLinkProjectSelect");
+  if (!sel) return;
+  const current = sel.value;
+  const projects = (typeof loadProjects === "function" ? loadProjects() : []) || [];
+  sel.innerHTML = ['<option value="">(not linked)</option>']
+    .concat(projects.map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name || "Untitled Project")}</option>`)).join("");
+  sel.value = current;
+}
+
+// ===================== Convert PDF to CAD =====================
+const pdfcadState = { token: null, pageCount: 0, page: 0, groups: [], fileName: "", dims: null, textLines: 0, observer: null };
+
+// lazy thumbnail loader — a few in flight at a time (the server serializes
+// renders anyway; this just keeps the request queue orderly and prioritized).
+const pdfcadThumbQueue = [];
+let pdfcadThumbActive = 0;
+const PDFCAD_THUMB_MAX = 3;
+function pdfcadQueueThumb(fn) { pdfcadThumbQueue.push(fn); pdfcadPumpThumbs(); }
+function pdfcadPumpThumbs() {
+  while (pdfcadThumbActive < PDFCAD_THUMB_MAX && pdfcadThumbQueue.length) {
+    const fn = pdfcadThumbQueue.shift();
+    pdfcadThumbActive++;
+    Promise.resolve().then(fn).finally(() => { pdfcadThumbActive--; pdfcadPumpThumbs(); });
+  }
+}
+
+// Pick a PDF with the native Open dialog: the server reads it straight off
+// disk, so nothing is base64'd through the web view. This is the reliable path
+// for big drawing sets (a 100 MB+ PDF can't survive readAsDataURL + stringify).
+async function pdfcadPickFile() {
+  const status = document.getElementById("pdfcadFileStatus");
+  if (status) status.textContent = "Choose a PDF in the dialog...";
+  try {
+    const picked = await readApiJson("./api/pdf-to-cad/pick", { method: "POST", body: JSON.stringify({}) });
+    pdfcadState.token = picked.token;
+    pdfcadState.fileName = picked.fileName || "";
+    if (status) status.textContent =
+      `Reading ${picked.fileName} — sheet 1 of ${picked.pageCount}. A dense drawing can take up to a minute...`;
+    await pdfcadAnalyze(null, picked.fileName, 0, true);
+  } catch (error) {
+    if (status) status.textContent = /cancel/i.test(error.message || "") ? "" : (error.message || "Could not read that PDF.");
+  }
+}
+
+async function pdfcadAnalyze(fileDataUrl, fileName, page, freshOverride) {
+  const status = document.getElementById("pdfcadFileStatus");
+  // the native-pick path already set a more informative message
+  if (status && freshOverride !== true) status.textContent = fileDataUrl ? "Reading PDF..." : "Reading sheet...";
+  try {
+    const body = fileDataUrl
+      ? { file: { name: fileName, dataUrl: fileDataUrl }, page: page || 0 }
+      : { token: pdfcadState.token, page: page || 0 };
+    const payload = await readApiJson("./api/pdf-to-cad/analyze", { method: "POST", body: JSON.stringify(body) });
+    pdfcadApplyAnalyze(payload, fileName, freshOverride === true || !!fileDataUrl);
+  } catch (error) {
+    if (status) status.textContent = error.message || "Could not read that PDF.";
+  }
+}
+
+function pdfcadApplyAnalyze(payload, fileName, isFreshImport) {
+  const status = document.getElementById("pdfcadFileStatus");
+  {
+    /* shared by the upload, native-pick and page-change paths */
+    pdfcadState.token = payload.token;
+    pdfcadState.pageCount = payload.pageCount || 1;
+    pdfcadState.page = payload.page || 0;
+    pdfcadState.groups = payload.groups || [];
+    pdfcadState.dims = { w: payload.pageWidthIn, h: payload.pageHeightIn };
+    pdfcadState.textLines = payload.textLines || 0;
+    pdfcadState.layerMode = !!payload.layerMode;
+    if (payload.dwgCapable !== undefined) pdfcadState.dwgCapable = !!payload.dwgCapable;
+    if (fileName) pdfcadState.fileName = fileName;
+    const convBtn = document.getElementById("pdfcadConvertButton");
+    if (convBtn) convBtn.textContent = pdfcadState.dwgCapable ? "Convert & Save DWG" : "Convert & Save DXF";
+    const odaNote = document.getElementById("pdfcadOdaNote");
+    if (odaNote) odaNote.hidden = pdfcadState.dwgCapable !== false;
+    const layerNote = document.getElementById("pdfcadLayerNote");
+    if (layerNote) layerNote.textContent = pdfcadState.layerMode
+      ? "This PDF carries real CAD layer data - each layer imports under its original name (like PDFIMPORT)."
+      : "Each color becomes its own CAD layer.";
+    renderPdfcadGroups();
+    renderPdfcadSummary();
+    if (isFreshImport) pdfcadBuildCards();    // fresh import — (re)build the sheet grid
+    pdfcadUpdatePageLabel();
+    const hasVector = pdfcadState.groups.some((g) => g.count > 0);
+    document.getElementById("pdfcadConvertButton").disabled = !hasVector;
+    if (status) status.textContent = hasVector
+      ? `${pdfcadState.fileName} loaded (${pdfcadState.pageCount} sheet${pdfcadState.pageCount === 1 ? "" : "s"}).`
+      : "This sheet has no linework - it looks like a scanned/raster PDF, which can't be converted.";
+  }
+}
+
+// ---- DWG / DXF viewer -------------------------------------------------------
+const ODA_DOWNLOAD_URL = "https://www.opendesign.com/guestfiles/oda_file_converter";
+const cadviewState = { token: null, fileName: "" };
+
+async function cadviewOpen() {
+  const status = document.getElementById("cadviewStatus");
+  const oda = document.getElementById("cadviewOdaNote");
+  if (oda) oda.hidden = true;
+  if (status) status.textContent = "Choose a DWG or DXF in the dialog...";
+  try {
+    const width = Number(document.getElementById("cadviewZoomSelect")?.value) || 1600;
+    // status flips once the dialog closes; the render itself can take a few seconds
+    const payload = await readApiJson("./api/cad-viewer/pick", { method: "POST", body: JSON.stringify({ width }) });
+    cadviewState.token = payload.token;
+    cadviewState.fileName = payload.fileName || "";
+    cadviewApply(payload);
+  } catch (error) {
+    if (/cancel/i.test(error.message || "")) { if (status) status.textContent = ""; return; }
+    if (status) status.textContent = error.message || "Could not open that drawing.";
+    // the server flags a DWG pick without the ODA converter installed
+    if (oda && /ODA File Converter/i.test(error.message || "")) oda.hidden = false;
+  }
+}
+
+function cadviewApply(payload) {
+  const pane = document.getElementById("cadviewPane");
+  const status = document.getElementById("cadviewStatus");
+  const meta = document.getElementById("cadviewMeta");
+  if (!pane) return;
+  const img = document.createElement("img");
+  img.className = "cadview-img";
+  img.alt = `${cadviewState.fileName} rendered preview`;
+  img.src = payload.dataUrl;
+  pane.innerHTML = "";
+  pane.appendChild(img);
+  if (meta) meta.textContent =
+    `${cadviewState.fileName} — ${Number(payload.entities).toLocaleString()} entities · ${payload.layers.length} layers`;
+  if (status) status.textContent = "";
+}
+
+async function cadviewRerender() {
+  if (!cadviewState.token) return;
+  const status = document.getElementById("cadviewStatus");
+  if (status) status.textContent = "Re-rendering at higher detail...";
+  try {
+    const width = Number(document.getElementById("cadviewZoomSelect")?.value) || 1600;
+    const payload = await readApiJson("./api/cad-viewer/render", {
+      method: "POST", body: JSON.stringify({ token: cadviewState.token, width }),
+    });
+    cadviewApply(payload);
+  } catch (error) {
+    if (status) status.textContent = error.message || "Render failed.";
+  }
+}
+
+function cadviewClear() {
+  cadviewState.token = null;
+  cadviewState.fileName = "";
+  const pane = document.getElementById("cadviewPane");
+  if (pane) pane.innerHTML = '<p class="cadview-empty">Open a DWG or DXF and it renders here like a plotted sheet — scroll to pan, and bump Detail to re-render sharper. Great for a quick look at what a customer sent without launching CAD.</p>';
+  const meta = document.getElementById("cadviewMeta");
+  if (meta) meta.textContent = "";
+  const status = document.getElementById("cadviewStatus");
+  if (status) status.textContent = "";
+  const oda = document.getElementById("cadviewOdaNote");
+  if (oda) oda.hidden = true;
+}
+
+function pdfcadUpdatePageLabel() {
+  const lbl = document.getElementById("pdfcadPageLabel");
+  if (!lbl) return;
+  lbl.textContent = pdfcadState.token
+    ? `Sheet ${pdfcadState.page + 1} of ${pdfcadState.pageCount} selected`
+    : "Import a PDF to browse its sheets";
+}
+
+function pdfcadBuildCards() {
+  const wrap = document.getElementById("pdfcadCards");
+  if (!wrap) return;
+  pdfcadThumbQueue.length = 0;
+  wrap.innerHTML = "";
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < pdfcadState.pageCount; i++) {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "pdfcad-card" + (i === pdfcadState.page ? " is-selected" : "");
+    card.dataset.page = String(i);
+    card.setAttribute("aria-label", `Select sheet ${i + 1}`);
+    card.innerHTML = `<span class="pdfcad-card-thumb"><span class="pdfcad-card-spin" aria-hidden="true"></span></span><span class="pdfcad-card-label">Page ${i + 1}</span>`;
+    card.addEventListener("click", () => pdfcadSelectPage(i));
+    frag.appendChild(card);
+  }
+  wrap.appendChild(frag);
+  // load thumbnails for whatever is on screen, then more as the user scrolls
+  pdfcadLoadVisibleThumbs();
+  setTimeout(() => pdfcadLoadVisibleThumbs(), 150);   // safety net if layout wasn't settled
+}
+
+// Queue thumbnail renders for cards in (or near) the scroll viewport. Rect-based
+// rather than IntersectionObserver, whose initial callback is unreliable in the
+// embedded webview.
+function pdfcadLoadVisibleThumbs() {
+  const wrap = document.getElementById("pdfcadCards");
+  if (!wrap || !pdfcadState.token) return;
+  const token = pdfcadState.token;
+  const wrapRect = wrap.getBoundingClientRect();
+  const top = wrapRect.top - 300, bottom = wrapRect.bottom + 300;
+  wrap.querySelectorAll(".pdfcad-card").forEach((card) => {
+    if (card.dataset.loading) return;
+    const r = card.getBoundingClientRect();
+    if (r.bottom >= top && r.top <= bottom) {
+      card.dataset.loading = "1";
+      pdfcadQueueThumb(() => pdfcadLoadThumb(+card.dataset.page, card, token));
+    }
+  });
+}
+
+async function pdfcadLoadThumb(page, card, token) {
+  if (token !== pdfcadState.token) return;
+  const thumb = card.querySelector(".pdfcad-card-thumb");
+  try {
+    const payload = await readApiJson("./api/pdf-to-cad/preview", {
+      method: "POST",
+      body: JSON.stringify({ token, page, width: 360 }),
+    });
+    if (token !== pdfcadState.token || !thumb) return;
+    const img = document.createElement("img");
+    img.alt = `Sheet ${page + 1} preview`;
+    img.src = payload.dataUrl;
+    thumb.innerHTML = "";
+    thumb.appendChild(img);
+  } catch (error) {
+    if (token !== pdfcadState.token || !thumb) return;
+    thumb.innerHTML = '<span class="pdfcad-card-err" title="Could not render this sheet">!</span>';
+    delete card.dataset.loading;   // allow a retry when it scrolls back into view
+  }
+}
+
+function pdfcadSelectPage(page) {
+  if (!pdfcadState.token || page === pdfcadState.page) return;
+  pdfcadState.page = page;
+  document.querySelectorAll("#pdfcadCards .pdfcad-card").forEach((c) => {
+    c.classList.toggle("is-selected", +c.dataset.page === page);
+  });
+  pdfcadUpdatePageLabel();
+  pdfcadAnalyze(null, null, page);   // refresh layers/size/scale for the chosen sheet
+}
+
+function renderPdfcadGroups() {
+  const box = document.getElementById("pdfcadGroupsList");
+  if (!box) return;
+  box.innerHTML = pdfcadState.groups.map((g, i) => {
+    const swatch = g.hex || "#000000";
+    return `<label class="pdfcad-group-row">
+      <input type="checkbox" data-pdfcad-group="${i}"${g.defaultOn ? " checked" : ""} />
+      <span class="pdfcad-group-swatch" style="background:${escapeHtml(swatch)}"></span>
+      <span class="pdfcad-group-label">${escapeHtml(g.label)}</span>
+      <span class="pdfcad-group-count">${g.count.toLocaleString()} obj</span>
+    </label>`;
+  }).join("");
+  box.querySelectorAll("[data-pdfcad-group]").forEach((el) => el.addEventListener("change", renderPdfcadSummary));
+}
+
+function pdfcadGroupId(g) {
+  return g.id !== undefined ? g.id : g.hex;
+}
+
+function pdfcadSelectedHexes() {
+  const box = document.getElementById("pdfcadGroupsList");
+  if (!box) return [];
+  const out = [];
+  box.querySelectorAll("[data-pdfcad-group]").forEach((el) => {
+    if (el.checked) { const g = pdfcadState.groups[+el.dataset.pdfcadGroup]; if (g) out.push(pdfcadGroupId(g)); }
+  });
+  return [...new Set(out)];
+}
+
+function renderPdfcadSummary() {
+  const box = document.getElementById("pdfcadSummary");
+  if (!box) return;
+  if (!pdfcadState.dims) return;
+  const scale = Number(document.getElementById("pdfcadScaleSelect")?.value) || 96;
+  const selIds = new Set(pdfcadSelectedHexes());
+  const selObjs = pdfcadState.groups.filter((g) => selIds.has(pdfcadGroupId(g))).reduce((s, g) => s + g.count, 0);
+  const wFt = (pdfcadState.dims.w * scale) / 12, hFt = (pdfcadState.dims.h * scale) / 12;
+  const line = (k, v) => `<div class="layout-result-line"><span>${k}</span><strong>${v}</strong></div>`;
+  box.innerHTML =
+    line("Page size (paper)", `${pdfcadState.dims.w.toFixed(1)}" x ${pdfcadState.dims.h.toFixed(1)}"`) +
+    line("Real-world size", `${wFt.toFixed(0)} ft x ${hFt.toFixed(0)} ft`) +
+    line(pdfcadState.layerMode ? "CAD layers" : "Color groups", `${pdfcadState.groups.length}`) +
+    line("Selected objects", selObjs.toLocaleString()) +
+    line("Text lines", pdfcadState.textLines.toLocaleString());
+}
+
+async function pdfcadConvert() {
+  const status = document.getElementById("pdfcadStatus");
+  const selected = pdfcadSelectedHexes();
+  if (!selected.length) { if (status) status.textContent = "Check at least one color layer to export."; return; }
+  const btn = document.getElementById("pdfcadConvertButton");
+  if (btn) btn.disabled = true;
+  const wantFmt = pdfcadState.dwgCapable ? "dwg" : "dxf";
+  if (status) status.textContent = `Converting... choose where to save the ${wantFmt.toUpperCase()}.`;
+  try {
+    const base = (pdfcadState.fileName || "pdf-import").replace(/\.pdf$/i, "");
+    const payload = await readApiJson("./api/pdf-to-cad/convert", {
+      method: "POST",
+      body: JSON.stringify({
+        token: pdfcadState.token, page: pdfcadState.page,
+        scale: Number(document.getElementById("pdfcadScaleSelect")?.value) || 96,
+        selectedHexes: selected,
+        includeText: !!document.getElementById("pdfcadTextToggle")?.checked,
+        includeFills: !!document.getElementById("pdfcadFillsToggle")?.checked,
+        format: wantFmt,
+        defaultName: `${base}-p${pdfcadState.page + 1}.${wantFmt}`,
+      }),
+    });
+    const savedFmt = (payload.format || "dxf").toUpperCase();
+    const fallbackNote = payload.dwgFallback ? " (DWG needs the free ODA File Converter — saved DXF instead.)" : "";
+    if (status) status.textContent = `Saved ${savedFmt}: ${payload.path} (${payload.weldedPolylines.toLocaleString()} polylines, ${payload.textLines.toLocaleString()} text).${fallbackNote}`;
+  } catch (error) {
+    if (status) status.textContent = (error.message === "Save cancelled." ? "Save cancelled." : (error.message || "Conversion failed."));
+  }
+  if (btn) btn.disabled = false;
+}
+
+// ============================== Seismic Bracing ==============================
+
+const seismicState = { meta: null, timer: null, lastPayload: null, ok: false, conditionAck: {} };
+
+function seismicEl(id) { return document.getElementById(id); }
+
+// Dataset keys carry the standard's typography ('11⁄4', '8*', '3⁄8'). Values
+// sent to the API stay raw; everything the user SEES goes through this.
+function seismicPrettySize(raw) {
+  let s = String(raw).replace(/\*/g, "").trim();
+  s = s.replace(/^(\d+)(\d⁄\d+)/, "$1-$2");   // 11⁄4 -> 1-1⁄4
+  return s.replace(/⁄/g, "/");
+}
+
+function seismicPrettyTableTitle(title) {
+  // 'Maximum Load (Fpw) in Zone of Influence (lb), (Fy = 30 ksi) Schedule 10
+  // Steel Pipe' -> 'Schedule 10 Steel Pipe (Fy = 30 ksi)'
+  let t = String(title);
+  const fy = (t.match(/\(Fy\s*=\s*[^)]+\)/) || [""])[0];
+  t = t.replace(/^Maximum Load[^)]*\)[^)]*\([^)]*\),?\s*/, "").replace(/\(Fy\s*=\s*[^)]+\)\s*/, "").trim();
+  t = t.replace(/^Maximum Load for\s*/i, "");
+  return fy ? `${t} ${fy}` : t;
+}
+
+async function seismicLoadMeta() {
+  if (seismicState.meta) return seismicState.meta;
+  const meta = await readApiJson("./api/seismic/meta", { method: "GET" });
+  seismicState.meta = meta;
+  const edSel = seismicEl("seismicEdition");
+  edSel.innerHTML = meta.editions.map((e) =>
+    `<option value="${escapeHtml(e.edition)}">${escapeHtml(e.label)}</option>`).join("");
+  const cats = [...new Set(meta.members.map((m) => m.category))];
+  seismicEl("seismicMemberCategory").innerHTML = cats.map((c) =>
+    `<option${c === "Pipe Schedule 40" ? " selected" : ""}>${escapeHtml(c)}</option>`).join("");
+  seismicRefreshMemberSizes();
+  seismicEl("seismicBracedTable").innerHTML = meta.bracedPipeTables.map((t) =>
+    `<option value="${escapeHtml(t.id)}">${escapeHtml(seismicPrettyTableTitle(t.title))}</option>`).join("");
+  seismicRefreshBracedSizes();
+  const fastGroup = (t) => {
+    const s = t.title;
+    if (/Metal Deck/i.test(s)) return "Concrete — metal deck inserts";
+    if (/Wood Form/i.test(s)) return "Concrete — wood-form inserts";
+    if (/Wedge Anchors/i.test(s)) return "Concrete — wedge anchors";
+    if (/Steel/i.test(s)) return "Steel";
+    return "Wood";
+  };
+  const groups = {};
+  meta.fastenerTables.forEach((t) => { (groups[fastGroup(t)] = groups[fastGroup(t)] || []).push(t); });
+  seismicEl("seismicFastenerTable").innerHTML = Object.entries(groups).map(([g, ts]) =>
+    `<optgroup label="${escapeHtml(g)}">` + ts.map((t) =>
+      `<option value="${escapeHtml(t.id)}">${escapeHtml(seismicPrettyTableTitle(t.title).slice(0, 60))}</option>`).join("") +
+    `</optgroup>`).join("");
+  seismicRefreshFastenerSizes();
+  seismicEl("seismicOrientation").innerHTML = meta.orientations.map((o) =>
+    `<option>${escapeHtml(o)}</option>`).join("");
+  const rbSel = seismicEl("seismicRbDetail");
+  if (rbSel) {
+    const byMember = {};
+    (meta.redbuiltMembers || []).forEach((d) => { (byMember[d.member] = byMember[d.member] || []).push(d); });
+    rbSel.innerHTML = Object.entries(byMember).map(([mem, list]) =>
+      `<optgroup label="${escapeHtml(mem)}">` + list.map((d) =>
+        `<option value="${escapeHtml(d.id)}">${escapeHtml(d.name)}</option>`).join("") + `</optgroup>`).join("");
+  }
+  const fillPipePair = (sizeId, schedId, noneLabel) => {
+    const sizeSel = seismicEl(sizeId);
+    if (!sizeSel) return;
+    const cat = seismicPipeCatalog();
+    sizeSel.innerHTML = `<option value="">${escapeHtml(noneLabel)}</option>` + cat.sizes.map((s) =>
+      `<option value="${escapeHtml(s)}">${escapeHtml(seismicPrettySize(s))}"</option>`).join("");
+    seismicEl(schedId).innerHTML = cat.scheds.map((s) =>
+      `<option value="${escapeHtml(s)}"${/Schedule\s*40/i.test(s) ? " selected" : ""}>${escapeHtml(seismicSchedShort(s))}</option>`).join("");
+  };
+  fillPipePair("seismicMainSize", "seismicMainSched", "— none —");
+  fillPipePair("seismicOptMainSize", "seismicOptMainSched", "— select —");
+  const dSel = seismicEl("seismicDetailSelect");
+  if (dSel && (meta.detailLibrary || []).length) {
+    dSel.innerHTML = `<option value="generated" selected>Generated schematic (true angle)</option>` +
+      meta.detailLibrary.map((d) => `<option value="${escapeHtml(d.name)}">${escapeHtml(d.name)} (library)</option>`).join("");
+  }
+  const rSel = seismicEl("seismicRestraintTable");
+  if (rSel) {
+    rSel.innerHTML = (meta.restraintTables || []).map((t) =>
+      `<option value="${escapeHtml(t.id)}">${escapeHtml(t.title.replace(/^Maximum Spacing \[ft \(m\)\] of /, ""))}</option>`).join("");
+    seismicRefreshRestraintSizes();
+  }
+  return meta;
+}
+
+function seismicRefreshRestraintSizes() {
+  const t = (seismicState.meta?.restraintTables || []).find((x) => x.id === seismicEl("seismicRestraintTable").value);
+  seismicEl("seismicRestraintSize").innerHTML = (t?.sizes || []).map((s) =>
+    `<option value="${escapeHtml(s)}">${escapeHtml(seismicPrettySize(String(s).split("(")[0]))}"</option>`).join("");
+}
+
+function seismicSeismicBasis() {
+  const mode = seismicEl("seismicCpMode").value;
+  const v = parseFloat(seismicEl("seismicCpValue").value);
+  return v > 0 ? { [mode]: v } : null;
+}
+
+async function seismicRunRestraint() {
+  const out = seismicEl("seismicRestraintResult");
+  const spacing = parseFloat(seismicEl("seismicRestraintSpacing").value);
+  const basis = seismicSeismicBasis();
+  if (!(spacing > 0) || !basis) { out.innerHTML = ""; return; }
+  try {
+    const r = await readApiJson("./api/seismic/restraint", { method: "POST", body: JSON.stringify({
+      edition: seismicEl("seismicEdition").value, seismic: basis,
+      tableId: seismicEl("seismicRestraintTable").value,
+      size: seismicEl("seismicRestraintSize").value, spacingFt: spacing }) });
+    const cls = r.status === "PASS" ? "is-pass" : r.status === "FAIL" ? "is-fail" : "is-unavailable";
+    out.innerHTML = `<div class="seismic-constraint ${cls}">
+      <div class="seismic-constraint-head"><span>Restraint spacing (Cp ${r.cp})</span><span class="seismic-badge">${r.status}</span></div>
+      <div class="seismic-constraint-body">${escapeHtml(r.detail || "")}</div></div>`;
+  } catch (error) {
+    out.innerHTML = `<p class="hydreport-note">${escapeHtml(error.message || "Restraint check failed.")}</p>`;
+  }
+}
+
+async function seismicRunRiserScreen() {
+  const out = seismicEl("seismicRiserResult");
+  const wp = parseFloat(seismicEl("seismicRiserWp").value);
+  const hr = parseFloat(seismicEl("seismicRiserHr").value);
+  const s3 = parseFloat(seismicEl("seismicRiserS").value);
+  const basis = seismicSeismicBasis();
+  if (!(wp > 0) || !(hr > 0) || !(s3 > 0) || !basis) { out.innerHTML = ""; return; }
+  try {
+    const r = await readApiJson("./api/seismic/riser-screen", { method: "POST", body: JSON.stringify({
+      edition: seismicEl("seismicEdition").value, seismic: basis,
+      wpLb: wp, hrIn: hr, sIn3: s3, fyPsi: parseFloat(seismicEl("seismicRiserFy").value) }) });
+    const cls = r.triggered ? "is-fail" : "is-pass";
+    out.innerHTML = `<div class="seismic-constraint ${cls}">
+      <div class="seismic-constraint-head"><span>${(r.value_psi).toLocaleString(undefined, {maximumFractionDigits: 0})} psi vs Fy ${r.fy_psi.toLocaleString()} psi</span>
+      <span class="seismic-badge">${r.triggered ? "BRACING REQUIRED" : "NOT TRIGGERED"}</span></div>
+      <div class="seismic-constraint-body">${escapeHtml((r.acceptance || "").slice(0, 200))}</div></div>`;
+  } catch (error) {
+    out.innerHTML = `<p class="hydreport-note">${escapeHtml(error.message || "Screening failed.")}</p>`;
+  }
+}
+
+function seismicRefreshMemberSizes() {
+  const cat = seismicEl("seismicMemberCategory").value;
+  const sizes = (seismicState.meta?.members || []).filter((m) => m.category === cat);
+  seismicEl("seismicMemberSize").innerHTML = sizes.map((m) =>
+    `<option value="${escapeHtml(m.size)}">${escapeHtml(seismicPrettySize(m.size))} (r=${m.r})</option>`).join("");
+}
+
+function seismicRefreshBracedSizes() {
+  const t = (seismicState.meta?.bracedPipeTables || []).find((x) => x.id === seismicEl("seismicBracedTable").value);
+  seismicEl("seismicBracedSize").innerHTML = (t?.sizes || []).map((s) =>
+    `<option value="${escapeHtml(s)}">${escapeHtml(seismicPrettySize(s))}"</option>`).join("");
+}
+
+function seismicRefreshFastenerSizes() {
+  const t = (seismicState.meta?.fastenerTables || []).find((x) => x.id === seismicEl("seismicFastenerTable").value);
+  const sel = seismicEl("seismicFastenerSize");
+  sel.innerHTML = (t?.sizes || []).map((s) =>
+    `<option value="${escapeHtml(s)}">${escapeHtml(seismicPrettySize(s))}</option>`).join("");
+  // 1/2 in. is the shop-standard default wherever the table publishes it
+  const half = [...sel.options].find((o) => seismicPrettySize(o.value) === "1/2");
+  if (half) sel.value = half.value;
+}
+
+function seismicSizeSortKey(s) {
+  // '11⁄4' -> 1.25, '3' -> 3, '1/2' -> 0.5 (via the pretty form '1-1/4')
+  const pretty = seismicPrettySize(String(s));
+  let m = pretty.match(/^(\d+)-(\d+)\/(\d+)$/);
+  if (m) return parseInt(m[1], 10) + parseInt(m[2], 10) / parseInt(m[3], 10);
+  m = pretty.match(/^(\d+)\/(\d+)$/);
+  if (m) return parseInt(m[1], 10) / parseInt(m[2], 10);
+  return parseFloat(pretty) || 0;
+}
+
+function seismicSchedShort(s) {
+  if (/CPVC/i.test(String(s))) return "CPVC";
+  if (/Mega-?Flow/i.test(String(s))) return "MegaFlow";
+  if (/Mega-?Thread/i.test(String(s))) return "MegaThread";
+  const m = String(s).match(/Schedule\s*(\d+)/i);
+  return m ? `Sch ${m[1]}` : String(s);
+}
+
+function seismicPipeLookup(size, sched) {
+  return (seismicState.meta?.pipeWeights || []).find(
+    (p) => String(p.size) === String(size) && p.schedule === sched) || null;
+}
+
+function seismicPipeCatalog() {
+  const pws = seismicState.meta?.pipeWeights || [];
+  const sizes = [...new Set(pws.map((p) => String(p.size)))]
+    .sort((a, b) => seismicSizeSortKey(a) - seismicSizeSortKey(b));
+  const scheds = [...new Set(pws.map((p) => p.schedule))]
+    .sort((a, b) => (parseInt(String(a).match(/\d+/) || 0, 10)) - (parseInt(String(b).match(/\d+/) || 0, 10)));
+  return { pws, sizes, scheds };
+}
+
+function seismicRefreshPipeRow(row) {
+  // grey out types the datasets don't publish for this size (e.g. 6" Sch 7,
+  // 8" Sch 40), then show the water-filled lb/ft actually used in the calc
+  const size = row.querySelector('[data-f="size"]').value;
+  const schedSel = row.querySelector('[data-f="sched"]');
+  [...schedSel.options].forEach((o) => { o.disabled = !seismicPipeLookup(size, o.value); });
+  if (schedSel.selectedOptions[0]?.disabled) {
+    const ok = [...schedSel.options].find((o) => !o.disabled);
+    if (ok) schedSel.value = ok.value;
+  }
+  const p = seismicPipeLookup(size, schedSel.value);
+  row.querySelector('[data-f="weight"]').value = p ? p.lbPerFt : "";
+}
+
+function seismicMainPipeEntry() {
+  // The selected main + the brace spacing form an automatic ZOI line:
+  // spacing ft of main at the schedule's lb/ft. Branch rows add on top.
+  const size = seismicEl("seismicMainSize")?.value;
+  if (!size) return null;
+  const p = seismicPipeLookup(size, seismicEl("seismicMainSched").value);
+  const spacing = parseFloat(seismicEl("seismicSpacing").value) || 0;
+  if (!p || !(spacing > 0)) return null;
+  return {
+    label: `Main ${seismicPrettySize(p.size)}" ${seismicSchedShort(p.schedule)}`,
+    weightPerFt: p.lbPerFt, lengthFt: spacing, auto: true,
+  };
+}
+
+function seismicRefreshPipePair(sizeId, schedId) {
+  // same rule as the ZOI rows: types without a published weight for the
+  // chosen size are disabled, falling back to the first available
+  const size = seismicEl(sizeId)?.value;
+  const schedSel = seismicEl(schedId);
+  if (!schedSel) return;
+  [...schedSel.options].forEach((o) => { o.disabled = !!size && !seismicPipeLookup(size, o.value); });
+  if (size && schedSel.selectedOptions[0]?.disabled) {
+    const ok = [...schedSel.options].find((o) => !o.disabled);
+    if (ok) schedSel.value = ok.value;
+  }
+}
+
+function seismicRefreshMainPipe() { seismicRefreshPipePair("seismicMainSize", "seismicMainSched"); }
+
+// ---- wizard ----------------------------------------------------------------
+const SEISMIC_STEPS = [
+  ["project", "Project"], ["orientation", "Orientation"], ["main", "Main & Spacing"],
+  ["zoi", "Zone of Influence"], ["member", "Brace Member"], ["attach", "Attachments"],
+  ["fastener", "Fastener"], ["review", "Review"],
+];
+
+function seismicSetStep(step) {
+  if (!SEISMIC_STEPS.some(([k]) => k === step)) step = "project";
+  seismicState.wizStep = step;
+  document.querySelectorAll(".seismic-step").forEach((el) =>
+    el.classList.toggle("active", el.dataset.sstep === step));
+  const idx = SEISMIC_STEPS.findIndex(([k]) => k === step);
+  const chips = seismicEl("seismicStepChips");
+  if (chips) {
+    chips.innerHTML = SEISMIC_STEPS.map(([k, label], i) =>
+      `<button class="step-chip${i === idx ? " active" : ""}${i < idx ? " visited" : ""}" type="button"
+        role="tab" aria-selected="${i === idx}" data-schip="${k}" title="Step ${i + 1}: ${label}">
+        <span class="step-chip-n">${i + 1}</span><span class="step-chip-label">${label}</span></button>`).join("");
+    chips.querySelectorAll("[data-schip]").forEach((c) =>
+      c.addEventListener("click", () => seismicSetStep(c.dataset.schip)));
+  }
+  const back = seismicEl("seismicWizBack");
+  if (back) back.disabled = idx === 0;
+  const next = seismicEl("seismicWizNext");
+  if (next) next.hidden = idx === SEISMIC_STEPS.length - 1;
+  if (step === "orientation") seismicUpdateOrientVisual();
+  if (step === "member") { seismicUpdateAngleBounds(); seismicUpdateAutoLen(); }
+  if (step === "review") { seismicRenderSummary(); seismicToggleQuickLong(); seismicShowSpacingTuner(); }
+}
+
+// ---- orientation (Figure 18.5.12.1 letters) --------------------------------
+const SEISMIC_ORIENT_LETTERS = { overhead: ["A", "B", "C"], perp: ["D", "E", "F"], para: ["G", "H", "I"] };
+const SEISMIC_BAND_RANGES = [[30, 44], [45, 59], [60, 90]];
+const SEISMIC_BAND_DIVISORS = [2.0, 1.414, 1.155];
+
+function seismicAngleBandIdx(a) { return a < 45 ? 0 : a < 60 ? 1 : 2; }
+
+function seismicOrientLetterNow() {
+  const g = seismicEl("seismicOrientGroup")?.value || "overhead";
+  const a = parseFloat(seismicEl("seismicAngle")?.value) || 45;
+  return SEISMIC_ORIENT_LETTERS[g][seismicAngleBandIdx(a)];
+}
+
+function seismicSetAngle(deg) {
+  deg = Math.min(90, Math.max(30, Math.round(deg)));
+  const inp = seismicEl("seismicAngle");
+  if (inp) inp.value = deg;
+  const os = seismicEl("seismicOrientSlider");
+  if (os) os.value = deg;
+  seismicUpdateOrientVisual();
+  seismicUpdateAngleBounds();
+  seismicUpdateAutoLen();
+  seismicUpdateStructMember();
+  seismicScheduleCalc();
+}
+
+function seismicUpdateAngleBounds() {
+  const a = parseFloat(seismicEl("seismicAngle")?.value) || 45;
+  const band = seismicAngleBandIdx(Math.min(90, Math.max(30, a)));
+  const [lo, hi] = SEISMIC_BAND_RANGES[band];
+  const slider = seismicEl("seismicAngleSlider");
+  if (slider) {
+    slider.min = lo; slider.max = hi;
+    slider.value = Math.min(hi, Math.max(lo, a));
+  }
+  const hint = seismicEl("seismicAngleHint");
+  if (hint) hint.textContent = `Angle (°) — ${seismicOrientLetterNow()}: ${lo}° to ${hi}°`;
+}
+
+function seismicUpdateOrientVisual() {
+  const svg = seismicEl("seismicOrientSvg");
+  if (!svg) return;
+  const group = seismicEl("seismicOrientGroup")?.value || "overhead";
+  const a = Math.min(90, Math.max(30, parseFloat(seismicEl("seismicAngle")?.value) || 45));
+  const rad = a * Math.PI / 180;
+  const band = seismicAngleBandIdx(a);
+  const ink = "var(--ink, #ccc)", mut = "var(--muted, #888)", acc = "#e8622c";
+  const wall = group === "perp";
+  const A = wall ? { x: 288, y: 70 } : { x: 244, y: 44 };
+  const L = 168;
+  const E = { x: A.x - Math.sin(rad) * L, y: A.y + Math.cos(rad) * L };
+  const p = [];
+  const ln = (x1, y1, x2, y2, st, w, dash) =>
+    p.push(`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${st}" stroke-width="${w || 1.4}"${dash ? ` stroke-dasharray="${dash}"` : ""}/>`);
+  // structure: hatched ceiling band, or a wall band on the right for D/E/F
+  if (wall) {
+    p.push(`<rect x="288" y="12" width="16" height="226" fill="none" stroke="${ink}" stroke-width="1.6"/>`);
+    for (let y = 16; y < 234; y += 12) ln(304, y, 292, y + 9, mut, 1);
+  } else {
+    p.push(`<rect x="12" y="12" width="316" height="16" fill="none" stroke="${ink}" stroke-width="1.6"/>`);
+    for (let x = 16; x < 324; x += 12) ln(x, 28, x + 9, 12, mut, 1);
+    if (group === "para") {
+      ln(60, 20, 150, 20, acc, 2);
+      p.push(`<polygon points="150,16 160,20 150,24" fill="${acc}"/>`);
+      p.push(`<text x="62" y="42" fill="${mut}" font-size="10">member axis — load parallel</text>`);
+    }
+  }
+  // vertical reference + brace (double line) + pipe at the low end
+  ln(A.x, A.y, A.x, A.y + 96, mut, 1.2, "4 3");
+  const nx = Math.cos(rad), ny = Math.sin(rad), o = 2.6;
+  ln(A.x + nx * o, A.y + ny * o, E.x + nx * o, E.y + ny * o, ink, 1.8);
+  ln(A.x - nx * o, A.y - ny * o, E.x - nx * o, E.y - ny * o, ink, 1.8);
+  const bt = seismicEl("seismicBraceType")?.value || "lateral";
+  if (bt === "longitudinal") {
+    // longitudinal: the braced pipe runs left-right in this view - the brace
+    // resists load ALONG the run, so pipe and brace share the view plane
+    ln(E.x - 52, E.y - 12, E.x + 52, E.y - 12, ink, 2);
+    ln(E.x - 52, E.y + 12, E.x + 52, E.y + 12, ink, 2);
+    ln(E.x - 58, E.y, E.x + 58, E.y, mut, 1, "6 4");
+  } else if (bt === "riser") {
+    // 4-way: the braced pipe is the vertical riser
+    ln(E.x - 12, E.y - 40, E.x - 12, E.y + 46, ink, 2);
+    ln(E.x + 12, E.y - 40, E.x + 12, E.y + 46, ink, 2);
+    ln(E.x, E.y - 46, E.x, E.y + 52, mut, 1, "6 4");
+  } else {
+    // lateral: the run goes into the view - show the pipe section
+    p.push(`<circle cx="${E.x.toFixed(1)}" cy="${E.y.toFixed(1)}" r="13" fill="none" stroke="${ink}" stroke-width="2"/>`);
+    ln(E.x - 17, E.y, E.x + 17, E.y, mut, 1);
+    ln(E.x, E.y - 17, E.x, E.y + 17, mut, 1);
+  }
+  // fastener orientation arrow at the attachment
+  if (wall) { ln(268, A.y - 18, 286, A.y - 18, acc, 2); p.push(`<polygon points="286,${A.y - 22} 296,${A.y - 18} 286,${A.y - 14}" fill="${acc}"/>`); }
+  else { ln(A.x + 22, A.y + 16, A.x + 22, A.y - 2, acc, 2); p.push(`<polygon points="${A.x + 18},${A.y - 2} ${A.x + 22},${A.y - 12} ${A.x + 26},${A.y - 2}" fill="${acc}"/>`); }
+  // angle arc + value
+  const r0 = 46;
+  const p2 = { x: A.x - Math.sin(rad) * r0, y: A.y + Math.cos(rad) * r0 };
+  p.push(`<path d="M ${A.x} ${A.y + r0} A ${r0} ${r0} 0 0 1 ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}" fill="none" stroke="${acc}" stroke-width="1.6"/>`);
+  const tp = { x: A.x - Math.sin(rad / 2) * (r0 + 15), y: A.y + Math.cos(rad / 2) * (r0 + 15) };
+  p.push(`<text x="${tp.x.toFixed(1)}" y="${tp.y.toFixed(1)}" fill="${acc}" font-size="13" font-weight="700" text-anchor="middle">${a}&#176;</text>`);
+  // the three letters of this group, active band highlighted
+  [0, 1, 2].forEach((i) => {
+    const la = [37, 52, 74][i] * Math.PI / 180;
+    const lp = { x: A.x - Math.sin(la) * (r0 + 38), y: A.y + Math.cos(la) * (r0 + 38) };
+    p.push(`<text x="${lp.x.toFixed(1)}" y="${lp.y.toFixed(1)}" fill="${i === band ? acc : mut}" font-size="${i === band ? 15 : 12}" font-weight="${i === band ? 900 : 600}" text-anchor="middle">${SEISMIC_ORIENT_LETTERS[group][i]}</text>`);
+  });
+  svg.innerHTML = p.join("");
+  const letterEl = seismicEl("seismicOrientLetter");
+  if (letterEl) letterEl.textContent = SEISMIC_ORIENT_LETTERS[group][band];
+  const rangeEl = seismicEl("seismicOrientRange");
+  if (rangeEl) rangeEl.textContent = `${SEISMIC_BAND_RANGES[band][0]}° to ${SEISMIC_BAND_RANGES[band][1]}° from vertical`;
+  const stats = seismicEl("seismicOrientStats");
+  if (stats) {
+    stats.innerHTML =
+      `<span>Component ratings &divide; <strong>${SEISMIC_BAND_DIVISORS[band].toFixed(3)}</strong> (Table 18.5.2.3)</span>` +
+      `<span>Brace axial force &approx; <strong>${(1 / Math.sin(rad)).toFixed(2)} &times;</strong> Fpw</span>` +
+      `<span>Vertical reaction &approx; <strong>${(1 / Math.tan(rad)).toFixed(2)} &times;</strong> Fpw</span>`;
+  }
+}
+
+// ---- auto-length (centerline-to-attachment) --------------------------------
+const SEISMIC_NPS_OD = { "3/4": 1.05, "1": 1.315, "1-1/4": 1.66, "1-1/2": 1.9, "2": 2.375, "2-1/2": 2.875,
+  "3": 3.5, "3-1/2": 4.0, "4": 4.5, "5": 5.563, "6": 6.625, "8": 8.625 };
+
+// ---- brace-type-aware guidance ---------------------------------------------
+const SEISMIC_BRACE_TYPE_INFO = {
+  lateral: {
+    max: 40,
+    hint: "Lateral braces resist load ACROSS the run. Zones of influence include the main plus everything hanging off it.",
+    zoi: "Branch lines, armovers, drops, sprigs — footage inside one brace zone. The main is added automatically from Step 3.",
+  },
+  longitudinal: {
+    max: 80,
+    hint: "Longitudinal braces resist load ALONG the run (Fig. 4L-style attachments are typical). Zones normally include the main only.",
+    zoi: "Longitudinal zones normally load the MAIN only — it's added automatically from Step 3 at the brace spacing. Branch lines usually do NOT count; only add rows for piping that truly loads the brace along the run.",
+  },
+  riser: {
+    max: 40,
+    hint: "A 4-way riser brace acts as lateral AND longitudinal at once — its zone takes ALL tributary piping.",
+    zoi: "Include the full tributary zone: the riser plus the mains and branches it restrains. The main from Step 3 is added automatically.",
+  },
+};
+
+function seismicApplyBraceTypeHints() {
+  const info = SEISMIC_BRACE_TYPE_INFO[seismicEl("seismicBraceType")?.value] || SEISMIC_BRACE_TYPE_INFO.lateral;
+  const sl = seismicEl("seismicSpacingLabel");
+  if (sl) sl.textContent = `Brace Spacing (ft) — max ${info.max}`;
+  const zh = seismicEl("seismicZoiHint");
+  if (zh) zh.textContent = info.zoi;
+  const bh = seismicEl("seismicBraceTypeHint");
+  if (bh) bh.textContent = info.hint;
+  seismicUpdateContextBar();
+}
+
+// ---- always-visible brace context bar ---------------------------------------
+function seismicUpdateContextBar() {
+  const bar = seismicEl("seismicContextBar");
+  if (!bar) return;
+  const bt = seismicEl("seismicBraceType")?.value || "lateral";
+  bar.classList.toggle("is-long", bt === "longitudinal");
+  bar.classList.toggle("is-riser", bt === "riser");
+  seismicEl("ctxType").textContent =
+    { lateral: "LATERAL", longitudinal: "LONGITUDINAL", riser: "4-WAY (RISER)" }[bt] || "LATERAL";
+  const angle = parseFloat(seismicEl("seismicAngle")?.value) || 45;
+  seismicEl("ctxOrient").textContent = `${seismicOrientLetterNow()} · ${angle}°`;
+  const size = seismicEl("seismicMainSize")?.value;
+  seismicEl("ctxMain").textContent = size
+    ? `${seismicPrettySize(size)}" ${seismicSchedShort(seismicEl("seismicMainSched")?.value)}`
+    : "not set";
+  const S0 = parseFloat(seismicEl("seismicSpacing")?.value);
+  seismicEl("ctxSpacing").textContent = S0 > 0 ? `${S0} ft o.c.` : "not set";
+}
+
+// ---- Cp attachment-height reduction (18.5.9.3.3/.3.4) -----------------------
+const SEISMIC_HEIGHT_HELP = "A brace low in the building gets a reduced Cp (18.5.9.3.3/.3.4): below 50% of the average roof height ×0.75, 50–75% ×0.875. Applies to the SDS-formula editions (2025 / 2022 post-TIA).";
+
+function seismicHeightFactorInfo() {
+  const z = parseFloat(seismicEl("seismicAttachHeight")?.value);
+  const h = parseFloat(seismicEl("seismicRoofHeight")?.value);
+  if (!(z >= 0 && h > 0)) return { ratio: null, text: "enter both heights", note: null };
+  const r = z / h;
+  const ed = (seismicState.meta?.editions || []).find((e) => e.edition === seismicEl("seismicEdition")?.value);
+  const isFormula = ed?.cp_input === "SDS";
+  let mult = null, why;
+  if (r < 0.50) { mult = 0.75; why = "below 50% of roof height → Cp ×0.75 (18.5.9.3.4)"; }
+  else if (r <= 0.75) { mult = 0.875; why = "50–75% of roof height → Cp ×0.875 (18.5.9.3.3)"; }
+  else { why = "above 75% of roof height → no Cp reduction"; }
+  if (mult && !isFormula) {
+    return { ratio: r, text: `z/h ${r.toFixed(2)} · n/a`,
+      note: `z/h = ${r.toFixed(2)} — the attachment-height reduction applies to the SDS-formula editions (2025 / 2022 post-TIA), not this one.` };
+  }
+  return { ratio: r, text: `z/h ${r.toFixed(2)} · ×${mult || "1.0"}`, note: `z/h = ${r.toFixed(2)} — ${why}.` };
+}
+
+function seismicUpdateHeightFactor() {
+  const fx = seismicHeightFactorInfo();
+  const box = seismicEl("seismicHeightFactor");
+  if (box) box.value = fx.text;
+  const note = seismicEl("seismicHeightNote");
+  if (note) note.textContent = fx.ratio != null ? fx.note : SEISMIC_HEIGHT_HELP;
+}
+
+function seismicUpdateAutoLen() {
+  const out = seismicEl("seismicAutoLen");
+  const btn = seismicEl("seismicApplyLen");
+  if (!out || !btn) return;
+  const rise = parseFloat(seismicEl("seismicRiseIn")?.value);
+  const a = (Math.min(90, Math.max(30, parseFloat(seismicEl("seismicAngle")?.value) || 45))) * Math.PI / 180;
+  const od = SEISMIC_NPS_OD[seismicPrettySize(seismicEl("seismicMainSize")?.value || "")] || 0;
+  if (!(rise > od / 2) || a >= Math.PI / 2 - 0.001) { out.value = ""; btn.disabled = true; return; }
+  const vert = rise - od / 2;                 // brace starts at TOP of pipe
+  const len = vert / Math.cos(a);             // slope length along the brace
+  let ft = Math.floor(len / 12), inch = Math.ceil(len - ft * 12);   // round up = conservative
+  if (inch >= 12) { ft += 1; inch = 0; }
+  out.value = `${ft}'-${inch}"  (${len.toFixed(1)} in.${od ? `, OD/2 = ${(od / 2).toFixed(2)}"` : ""})`;
+  btn.disabled = false;
+  btn.dataset.ftin = `${ft}-${inch}`;
+}
+
+// ---- braced-pipe stress derivation from the main ---------------------------
+function seismicDeriveStress() {
+  const autoBox = seismicEl("seismicStressAuto");
+  if (!autoBox) return;
+  const size = seismicEl("seismicMainSize")?.value;
+  const sched = seismicEl("seismicMainSched")?.value || "";
+  const note = seismicEl("seismicStressNote");
+  const override = seismicEl("seismicStressOverride");
+  let tableId = null, noteTxt = "";
+  if (/Schedule\s*10/i.test(sched)) tableId = "18.5.5.2(a)";
+  else if (/Schedule\s*40/i.test(sched)) tableId = "18.5.5.2(c)";
+  else if (/Schedule\s*30/i.test(sched)) { tableId = "18.5.5.2(c)"; noteTxt = "Schedule 30 has no dedicated stress table — using the Schedule 40 table. "; }
+  else if (/Schedule\s*7/i.test(sched)) { tableId = "18.5.5.2(e)"; noteTxt = "Schedule 7 lightwall has no NFPA stress table — using the thinner-wall Schedule 5 table (conservative). "; }
+  else if (/CPVC/i.test(sched)) tableId = "18.5.5.2(g)";
+  else if (/Mega-?Flow/i.test(sched)) tableId = "MFR:WHEATLAND-MEGAFLOW";
+  else if (/Mega-?Thread/i.test(sched)) { tableId = "MFR:WHEATLAND-MEGAFLOW"; noteTxt = "Mega-Thread has no published stress table — using Wheatland's thinner-wall Mega-Flow engineered table (conservative). "; }
+  let imperfect = Boolean(noteTxt);
+  if (!size) {
+    autoBox.value = "pick the main size in this step";
+  } else if (tableId) {
+    seismicEl("seismicBracedTable").value = tableId;
+    seismicRefreshBracedSizes();
+    const sizeSel = seismicEl("seismicBracedSize");
+    const hit = [...sizeSel.options].find((op) => op.value === size)
+      || [...sizeSel.options].find((op) => seismicPrettySize(op.value) === seismicPrettySize(size));
+    if (hit) {
+      sizeSel.value = hit.value;
+      const t = (seismicState.meta?.bracedPipeTables || []).find((x) => x.id === tableId);
+      autoBox.value = `${seismicPrettySize(size)}" — ${seismicPrettyTableTitle(t?.title || tableId).slice(0, 44)}`;
+    } else {
+      noteTxt += `The stress table has no ${seismicPrettySize(size)}" row (tables stop at 6") — pick the stress basis below.`;
+      autoBox.value = "no published row — set below";
+      imperfect = true;
+    }
+  }
+  if (note) { note.textContent = noteTxt.trim(); note.hidden = !noteTxt; }
+  if (override) override.hidden = !imperfect;
+}
+
+// ---- pipe attachment size follows the main ---------------------------------
+function seismicSyncPipeAttSize() {
+  const size = seismicEl("seismicMainSize")?.value;
+  if (!size) return;
+  const pretty = seismicPrettySize(size);
+  document.querySelectorAll("#seismicComponentRows .seismic-row").forEach((row) => {
+    if (row.querySelector('[data-f="role"]')?.value !== "pipe_attachment") return;
+    const sel = row.querySelector('[data-f="size"]');
+    const hit = [...sel.options].find((op) =>
+      new RegExp(`(^|[^\\d/])${pretty.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*(in\\b|in\\.|")`, "i").test(op.textContent));
+    if (hit) sel.value = hit.value;
+  });
+}
+
+// ---- prying-factor bands ---------------------------------------------------
+function seismicRefreshPrBands() {
+  const wrap = seismicEl("seismicPrWrap");
+  const sel = seismicEl("seismicPrBand");
+  if (!wrap || !sel) return;
+  const t = (seismicState.meta?.fastenerTables || []).find((x) => x.id === seismicEl("seismicFastenerTable").value);
+  const bands = t?.prBands || [];
+  wrap.hidden = !bands.length;
+  sel.innerHTML = bands.map((b, i) => `<option value="${i}">${escapeHtml(b)}</option>`).join("");
+}
+
+function seismicUpdateStructMember() {
+  const on = seismicEl("seismicStructMember")?.value === "redbuilt";
+  const wrap = seismicEl("seismicRbDetailWrap");
+  const note = seismicEl("seismicRbNote");
+  if (wrap) wrap.hidden = !on;
+  if (!note) return;
+  if (!on) { note.hidden = true; return; }
+  const det = (seismicState.meta?.redbuiltMembers || []).find((d) => d.id === seismicEl("seismicRbDetail")?.value);
+  const angle = parseFloat(seismicEl("seismicAngle")?.value) || 45;
+  const band = angle < 45 ? "30" : angle < 60 ? "45" : "60";
+  note.hidden = false;
+  note.textContent = det
+    ? `Allowable horizontal seismic load ${det.loadLb[band]} lb at the ${band}° band (incl. 1.60 duration factor). RedBuilt products only — the brace fastener into the wood block is checked separately. ${det.note || ""}`
+    : "";
+}
+
+// ---- saved contractors (shared with the submittal generator) ---------------
+function seismicLoadContractors() {
+  const sel = seismicEl("seismicFirmPick");
+  if (!sel) return;
+  let list = [];
+  try { list = JSON.parse(localStorage.getItem(CONTRACTORS_KEY)) || []; } catch { /* none saved */ }
+  if (typeof state === "object" && Array.isArray(state?.contractors) && state.contractors.length) list = state.contractors;
+  seismicState.contractors = list;
+  sel.innerHTML = `<option value="">— pick from list —</option>` +
+    list.map((c, i) => `<option value="${i}">${escapeHtml(c.name || "unnamed")}</option>`).join("");
+}
+
+function seismicUpdateFirmLabels() {
+  const eng = seismicEl("seismicFirmRole")?.value === "engineer";
+  const n = seismicEl("seismicFirmNameLabel");
+  const ad = seismicEl("seismicFirmAddressLabel");
+  if (n) n.textContent = eng ? "Engineer Name" : "Contractor Name";
+  if (ad) ad.textContent = eng ? "Engineer Address" : "Contractor Address";
+}
+
+// ---- review summary + auto-fit ---------------------------------------------
+function seismicRenderSummary() {
+  const box = seismicEl("seismicWizSummary");
+  if (!box) return;
+  const p = seismicBuildPayload();
+  const line = (k, v) => `<div class="layout-result-line"><span>${k}</span><strong>${escapeHtml(String(v))}</strong></div>`;
+  const main = seismicMainPipeEntry();
+  const mode = seismicEl("seismicCpMode").value;
+  box.innerHTML =
+    line("Design standard", seismicEl("seismicEdition").selectedOptions[0]?.textContent || p.edition) +
+    line("Seismic load basis", `${{ cp: "Cp", sds: "SDS", ss: "Ss" }[mode]} = ${p.seismic[mode] ?? "—"}`) +
+    line("Brace type / orientation", `${p.braceType} — ${seismicOrientLetterNow()} @ ${p.brace.angleDeg || "—"}°`) +
+    line("Main", main ? main.label.replace(/^Main /, "") + ` @ ${p.spacingFt} ft spacing` : "not set") +
+    line("ZOI", `${p.zoi.length} run${p.zoi.length === 1 ? "" : "s"}, ${Math.round(p.zoi.reduce((s, z) => s + z.lengthFt, 0))} ft total`) +
+    line("Brace member", `${seismicPrettySize(p.brace.memberSize)}" ${p.brace.memberCategory} × ${seismicEl("seismicMemberLength").value}`) +
+    line("Attachments", p.components.map((c) => c.figure).join(" + ") || "none") +
+    line("Fastener", `${seismicPrettySize(p.fastener.size || "")} — ${(seismicEl("seismicFastenerTable").selectedOptions[0]?.textContent || "").slice(0, 40)}`) +
+    `<p class="hydreport-note">Live results stay in the panel alongside — this is just the recap.</p>`;
+}
+
+async function seismicRunSdsLookup() {
+  const st = seismicEl("seismicSdsStatus");
+  const btn = seismicEl("seismicSdsLookup");
+  const address = seismicEl("seismicJobAddress")?.value?.trim();
+  if (!address) {
+    seismicEl("seismicJobAddress")?.focus();
+    if (st) st.textContent = "Enter the Project Address above first.";
+    return;
+  }
+  btn.disabled = true;
+  if (st) st.textContent = "Geocoding the address and querying the USGS design maps…";
+  try {
+    const r = await readApiJson("./api/seismic/sds-lookup", {
+      method: "POST",
+      body: JSON.stringify({ address, asce: seismicEl("seismicAsce").value,
+                             siteClass: seismicEl("seismicSiteClass").value,
+                             riskCategory: seismicEl("seismicRiskCat")?.value || "II" }),
+    });
+    const mode = seismicEl("seismicCpMode").value;
+    const value = mode === "ss" ? r.ss : r.sds;
+    if (value == null) throw new Error("USGS returned no value for the selected basis.");
+    seismicEl("seismicCpValue").value = value;
+    const note = `${mode === "ss" ? "Ss" : "SDS"} ${value} — ${r.asce}, Site Class ${r.siteClass}, `
+      + `${r.latitude}, ${r.longitude} (${r.source})`;
+    seismicState.sdsLookup = { mode, value: parseFloat(value), note };
+    seismicState.sdsDoc = { ...r, basis: mode, addressEntered: address };   // full provenance for the documentation
+    seismicRenderSdsDoc();
+    if (st) st.textContent = `${r.matchedAddress || address}: SDS ${r.sds ?? "—"} · Ss ${r.ss ?? "—"} · S1 ${r.s1 ?? "—"} `
+      + `(${r.asce}, Site Class ${r.siteClass}, RC ${r.riskCategory}). Applied ${mode === "ss" ? "Ss" : "SDS"} to the calc.`;
+    seismicScheduleCalc();
+  } catch (error) {
+    if (st) st.textContent = error.message || "Lookup failed — check the address and your internet connection.";
+  }
+  btn.disabled = false;
+}
+
+// ---- USGS SDS source-documentation panel -----------------------------------
+// After a lookup, show the full ASCE 7 parameter set with the exact,
+// reproducible USGS query URL so the value is independently verifiable, plus a
+// one-click export to a submittal-ready documentation PDF.
+function seismicRenderSdsDoc() {
+  const box = seismicEl("seismicSdsDoc");
+  const d = seismicState.sdsDoc;
+  if (!box || !d) return;
+  const num = (v) => (v == null ? null : (typeof v === "number" ? String(+v.toFixed(3)).replace(/\.?0+$/, "") : v));
+  const rows = [
+    ["Ss", d.ss], ["S1", d.s1], ["Fa", d.fa], ["Fv", d.fv], ["SMS", d.sms], ["SM1", d.sm1],
+    ["SDS", d.sds], ["SD1", d.sd1], ["SDC", d.sdc], ["TL", d.tl],
+  ].filter(([, v]) => v != null);
+  const used = d.basis === "ss" ? "Ss" : "SDS";
+  const cells = rows.map(([k, v]) =>
+    `<span class="sds-cell${k === used ? " is-used" : ""}"><em>${k}</em><b>${escapeHtml(num(v))}</b></span>`).join("");
+  const atc = `https://hazards.atcouncil.org/#/?lat=${d.latitude}&lng=${d.longitude}`;
+  box.hidden = false;
+  box.innerHTML = `
+    <p class="eyebrow">Seismic Design Parameters — verified from USGS</p>
+    <div class="sds-cells">${cells}</div>
+    <p class="sds-loc">${escapeHtml(d.matchedAddress || d.addressEntered || "")} · ${d.latitude}, ${d.longitude}
+      · ${escapeHtml(d.asce)} · Site Class ${escapeHtml(d.siteClass)} · RC ${escapeHtml(d.riskCategory || "II")}
+      · retrieved ${escapeHtml((d.retrievedAt || "").slice(0, 10))}</p>
+    <div class="sds-doc-actions">
+      <button class="secondary-button compact-button" id="seismicSdsDocPdf" type="button">&#128196; Export Documentation PDF</button>
+      <a class="sds-doc-link" href="${escapeHtml(d.usgsUrl || "#")}" target="_blank" rel="noopener" title="Opens the exact USGS query — the same numbers, straight from the source">Verify at USGS &#8599;</a>
+      <a class="sds-doc-link" href="${escapeHtml(atc)}" target="_blank" rel="noopener" title="Official ATC Hazards by Location report for these coordinates">ATC Hazards by Location &#8599;</a>
+    </div>`;
+  seismicEl("seismicSdsDocPdf")?.addEventListener("click", seismicExportSdsDoc);
+}
+
+async function seismicExportSdsDoc() {
+  const d = seismicState.sdsDoc;
+  const st = seismicEl("seismicSdsStatus");
+  if (!d) return;
+  const btn = seismicEl("seismicSdsDocPdf");
+  if (btn) btn.disabled = true;
+  if (st) st.textContent = "Building the Seismic Design Parameters PDF… choose where to save.";
+  try {
+    const r = await readApiJson("./api/seismic/sds-doc", {
+      method: "POST",
+      body: JSON.stringify({ ...d, project: {
+        jobName: seismicEl("seismicJobName")?.value || "",
+        jobNumber: seismicEl("seismicJobNumber")?.value || "",
+        address: d.addressEntered || seismicEl("seismicJobAddress")?.value || "",
+      } }),
+    });
+    if (st) st.textContent = `Saved: ${r.path}`;
+  } catch (error) {
+    if (st) st.textContent = error.message === "Save cancelled." ? "Save cancelled." : (error.message || "PDF export failed.");
+  }
+  if (btn) btn.disabled = false;
+}
+
+// ---- verified fix suggestions -----------------------------------------------
+async function seismicRunSuggest() {
+  const btn = seismicEl("seismicSuggestBtn");
+  const list = seismicEl("seismicSuggestList");
+  if (!list) return;
+  btn.disabled = true;
+  list.innerHTML = '<p class="hydreport-note">Trying verified variations of your inputs…</p>';
+  try {
+    const r = await readApiJson("./api/seismic/suggest", {
+      method: "POST", body: JSON.stringify(seismicBuildPayload()),
+    });
+    if (!(r.suggestions || []).length) {
+      list.innerHTML = '<p class="hydreport-note">No single change gets this passing — reduce the zone (add a brace line) or revisit the layout.</p>';
+    } else {
+      list.innerHTML = r.suggestions.map((s, i) => `
+        <div class="seismic-suggest-item">
+          <span>${escapeHtml(s.label)}${s.minMarginLb != null ? ` <em>(+${s.minMarginLb} lb margin)</em>` : ""}</span>
+          <button class="compact-button" type="button" data-sug="${i}">Apply</button>
+        </div>`).join("") +
+        '<p class="hydreport-note">Every option above was run through the full calc and PASSES as-is.</p>';
+      list.querySelectorAll("[data-sug]").forEach((b) =>
+        b.addEventListener("click", () => seismicApplySuggestion(r.suggestions[parseInt(b.dataset.sug, 10)])));
+    }
+  } catch (error) {
+    list.innerHTML = `<p class="hydreport-note">${escapeHtml(error.message || "Suggestion search failed.")}</p>`;
+  }
+  btn.disabled = false;
+}
+
+function seismicApplySuggestion(s) {
+  const patch = s.patch || {};
+  if (patch.spacingFt != null) {
+    const scale = patch.scaleZoi || 1;
+    seismicEl("seismicSpacing").value = patch.spacingFt;
+    document.querySelectorAll("#seismicZoiRows .seismic-row").forEach((row) => {
+      const li = row.querySelector('[data-f="length"]');
+      const cur = seismicParseLength(li.value);
+      if (cur > 0) li.value = Math.round(cur * scale * 100) / 100;
+    });
+    const conc = seismicEl("seismicConcentrated");
+    if (conc && parseFloat(conc.value) > 0) conc.value = Math.round(parseFloat(conc.value) * scale);
+  }
+  if (patch.brace?.memberSize != null) seismicEl("seismicMemberSize").value = patch.brace.memberSize;
+  if (patch.brace?.angleDeg != null) seismicSetAngle(patch.brace.angleDeg);
+  if (patch.brace?.lengthIn != null) {
+    const li = patch.brace.lengthIn;
+    seismicEl("seismicMemberLength").value = `${Math.floor(li / 12)}-${Math.round(li % 12)}`;
+  }
+  if (patch.fastener?.size != null) seismicEl("seismicFastenerSize").value = patch.fastener.size;
+  if (patch.componentSwap) {
+    const cs = patch.componentSwap;
+    document.querySelectorAll("#seismicComponentRows .seismic-row").forEach((row) => {
+      if (row.querySelector('[data-f="role"]')?.value !== cs.role) return;
+      row.querySelector('[data-f="manufacturer"]').value = cs.manufacturer;
+      seismicRefreshComponentRow(row);
+      row.querySelector('[data-f="figure"]').value = cs.figure;
+      seismicRefreshComponentSizes(row);
+      row.querySelector('[data-f="size"]').value = cs.size;
+    });
+  }
+  const st = seismicEl("seismicStatus");
+  if (st) st.textContent = `Applied: ${s.label}`;
+  seismicScheduleCalc();
+}
+
+// ---- quick longitudinal calc ------------------------------------------------
+function seismicQlRefresh() {
+  const mfrSel = seismicEl("seismicQlMfr");
+  const figSel = seismicEl("seismicQlFig");
+  if (!mfrSel || !figSel) return;
+  const mfrs = Object.keys(seismicState.meta?.components || {});
+  if (!mfrSel.options.length) {
+    mfrSel.innerHTML = mfrs.map((m) => `<option>${escapeHtml(m)}</option>`).join("");
+  }
+  const all = seismicState.meta?.components?.[mfrSel.value] || [];
+  let comps = all.filter((c) => SEISMIC_ROLE_FILTER.pipe_attachment.includes(c.role));
+  if (!comps.length) comps = all;
+  figSel.innerHTML = comps.map((c) =>
+    `<option value="${escapeHtml(c.figure)}">${escapeHtml(`${c.figure} ${c.name}`.slice(0, 44))}</option>`).join("");
+  // Fig. 4L is the typical longitudinal pipe attachment - default to it
+  const fourL = [...figSel.options].find((o) => /\b4L\b/i.test(o.value));
+  if (fourL) figSel.value = fourL.value;
+  seismicQlRefreshSizes();
+}
+
+function seismicQlRefreshSizes() {
+  const sizeSel = seismicEl("seismicQlSize");
+  if (!sizeSel) return;
+  const comp = (seismicState.meta?.components?.[seismicEl("seismicQlMfr").value] || [])
+    .find((c) => c.figure === seismicEl("seismicQlFig").value);
+  sizeSel.innerHTML = (comp?.sizes || []).map((s) => `<option>${escapeHtml(s)}</option>`).join("");
+  const size = seismicEl("seismicMainSize")?.value;
+  if (size) {
+    const pretty = seismicPrettySize(size);
+    const hit = [...sizeSel.options].find((op) =>
+      new RegExp(`(^|[^\\d/])${pretty.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*(in\\b|in\\.|")`, "i").test(op.textContent));
+    if (hit) sizeSel.value = hit.value;
+  }
+}
+
+function seismicToggleQuickLong() {
+  const box = seismicEl("seismicQuickLongBox");
+  if (!box) return;
+  const show = seismicEl("seismicBraceType")?.value === "lateral" && !!seismicState.lastPayload;
+  box.hidden = !show;
+  if (show) seismicQlRefresh();
+}
+
+async function seismicRunQuickLong() {
+  const st = seismicEl("seismicQuickLongStatus");
+  const btn = seismicEl("seismicQuickLongRun");
+  const main = seismicMainPipeEntry();
+  if (!main) { if (st) st.textContent = "Pick the main size in Step 3 first."; return; }
+  const latId = (seismicEl("seismicBraceId")?.value || "").trim();
+  const qlAtt = {
+    role: "pipe_attachment",
+    manufacturer: seismicEl("seismicQlMfr").value,
+    figure: seismicEl("seismicQlFig").value,
+    size: seismicEl("seismicQlSize").value,
+  };
+  if (!qlAtt.figure || !qlAtt.size) { if (st) st.textContent = "Pick the longitudinal pipe attachment first."; return; }
+  btn.disabled = true;
+  if (st) st.textContent = `Saving ${latId || "this brace"} and searching up to 80 ft…`;
+  try {
+    // the lateral brace on the bench is already auto-saved after every calc;
+    // now find the max passing LONGITUDINAL spacing with the swapped attachment
+    const p = seismicBuildPayload();
+    const comps = p.components.filter((c) => c.role !== "pipe_attachment").concat([qlAtt]);
+    const r = await readApiJson("./api/seismic/optimize", {
+      method: "POST",
+      body: JSON.stringify({
+        ...p, braceType: "longitudinal", components: comps, concentratedLb: 0,
+        stretch: [{ label: main.label, weightPerFt: main.weightPerFt,
+                    totalLengthFt: 100, isMain: true }],
+      }),
+    });
+    if (!r.spacingFt) {
+      if (st) st.textContent = `No longitudinal spacing passes with this hardware — governing: ${(r.governing || "see results").slice(0, 100)}.`;
+      btn.disabled = false;
+      return;
+    }
+    // rebuild the bench as the longitudinal brace: same everything, new ID,
+    // max spacing, main-only zone, swapped pipe attachment
+    seismicEl("seismicBraceType").value = "longitudinal";
+    seismicApplyBraceTypeHints();
+    const newId = seismicNextBraceId("longitudinal");
+    seismicEl("seismicBraceId").value = newId;
+    seismicState.activeBraceId = newId;
+    seismicEl("seismicSpacing").value = r.spacingFt;
+    seismicEl("seismicConcentrated").value = 0;
+    seismicEl("seismicZoiRows").innerHTML = "";
+    seismicState.conditionAck = {};
+    document.querySelectorAll("#seismicComponentRows .seismic-row").forEach((row) => {
+      if (row.querySelector('[data-f="role"]')?.value !== "pipe_attachment") return;
+      row.querySelector('[data-f="manufacturer"]').value = qlAtt.manufacturer;
+      seismicRefreshComponentRow(row);
+      row.querySelector('[data-f="figure"]').value = qlAtt.figure;
+      seismicRefreshComponentSizes(row);
+      row.querySelector('[data-f="size"]').value = qlAtt.size;
+    });
+    seismicUpdateMainAuto();
+    seismicRenderRack();
+    if (st) st.textContent = `${latId ? latId + " saved. " : ""}${newId} on the bench @ ${r.spacingFt} ft (max passing longitudinal spacing).`;
+    const bst = seismicEl("seismicBraceStatus");
+    if (bst) bst.textContent = `${newId} — quick longitudinal from ${latId || "the lateral"} @ ${r.spacingFt} ft.`;
+    await seismicRunCalc();
+    seismicSetStep("review");
+  } catch (error) {
+    if (st) st.textContent = error.message || "Quick longitudinal calc failed.";
+  }
+  btn.disabled = false;
+}
+
+// ---- spacing tuner (review step, lateral only) -----------------------------
+// Drag the on-center spacing; the branch ZOI footage scales proportionally
+// from a baseline snapshot (same relationship the optimizer uses). The main
+// auto-line follows the spacing on its own.
+function seismicShowSpacingTuner() {
+  const box = seismicEl("seismicSpacingTuner");
+  if (!box) return;
+  box.hidden = false;
+  const bt = seismicEl("seismicBraceType")?.value || "lateral";
+  const body = seismicEl("seismicTunerBody");
+  const na = seismicEl("seismicTunerNa");
+  const info = SEISMIC_BRACE_TYPE_INFO[bt] || SEISMIC_BRACE_TYPE_INFO.lateral;
+  // spacing tuning is a lateral-only tool - explain, don't just vanish
+  if (bt !== "lateral") {
+    if (body) body.hidden = true;
+    if (na) { na.hidden = false; const t = seismicEl("seismicTunerNaType"); if (t) t.textContent = bt === "riser" ? "4-way (riser)" : "longitudinal"; }
+    seismicState.spacingBaseline = null;
+    return;
+  }
+  if (body) body.hidden = false;
+  if (na) na.hidden = true;
+  const S0 = parseFloat(seismicEl("seismicSpacing").value) || 0;
+  if (!(S0 > 0)) { seismicState.spacingBaseline = null; return; }
+  // snapshot the current spacing + branch lengths as the scaling baseline
+  seismicState.spacingBaseline = {
+    spacing: S0, max: info.max,
+    lengths: [...document.querySelectorAll("#seismicZoiRows .seismic-row")].map((row) =>
+      seismicParseLength(row.querySelector('[data-f="length"]').value)),
+  };
+  const slider = seismicEl("seismicSpacingSlider");
+  slider.max = info.max;
+  slider.value = Math.min(info.max, Math.max(5, Math.round(S0)));
+  seismicEl("seismicSpacingOut").textContent = `${slider.value} ft`;
+  seismicEl("seismicSpacingTunerNote").textContent = "";
+}
+
+function seismicTuneSpacing(v) {
+  const base = seismicState.spacingBaseline;
+  if (!base || !(base.spacing > 0)) return;
+  const s = Math.min(base.max || 40, Math.max(5, v));
+  const factor = s / base.spacing;
+  seismicEl("seismicSpacing").value = s;
+  [...document.querySelectorAll("#seismicZoiRows .seismic-row")].forEach((row, i) => {
+    const li = row.querySelector('[data-f="length"]');
+    const bl = base.lengths[i];
+    if (bl > 0) li.value = Math.round(bl * factor * 100) / 100;
+  });
+  seismicEl("seismicSpacingOut").textContent = `${s} ft`;
+  const note = seismicEl("seismicSpacingTunerNote");
+  if (note) note.textContent = s === base.spacing
+    ? `${s} ft on center (baseline).`
+    : `${s} ft on center — branch ZOI scaled ×${factor.toFixed(2)} from ${base.spacing} ft.`;
+  seismicScheduleCalc();
+}
+
+async function seismicRunAutoFit() {
+  const st = seismicEl("seismicAutoFitStatus");
+  const btn = seismicEl("seismicAutoFit");
+  const p = seismicBuildPayload();
+  const main = seismicMainPipeEntry();
+  if (!main) { if (st) st.textContent = "Pick the main size in Step 3 first."; return; }
+  const S0 = p.spacingFt;
+  if (!(S0 > 0)) { if (st) st.textContent = "Enter a brace spacing in Step 3 first."; return; }
+  const stretch = [{
+    label: main.label, size: seismicEl("seismicMainSize").value,
+    schedule: seismicEl("seismicMainSched").value,
+    weightPerFt: main.weightPerFt, totalLengthFt: S0, isMain: true,
+  }, ...p.zoi.filter((z) => !z.auto).map((z) => ({
+    label: z.label, size: z.size, schedule: z.schedule,
+    weightPerFt: z.weightPerFt, totalLengthFt: z.lengthFt, isMain: false,
+  }))];
+  if (btn) btn.disabled = true;
+  if (st) st.textContent = "Searching for the largest passing spacing…";
+  try {
+    const r = await readApiJson("./api/seismic/optimize", { method: "POST", body: JSON.stringify({ ...p, stretch }) });
+    if (!r.spacingFt) {
+      if (st) st.textContent = `No spacing passes — governing: ${(r.governing || "see results").slice(0, 110)}. Upsize the member, fastener, or components.`;
+    } else {
+      const s = Math.min(r.spacingFt, S0);
+      seismicEl("seismicSpacing").value = s;
+      document.querySelectorAll("#seismicZoiRows .seismic-row").forEach((row) => {
+        const li = row.querySelector('[data-f="length"]');
+        const cur = seismicParseLength(li.value);
+        if (cur > 0) li.value = Math.round(cur * s / S0 * 100) / 100;
+      });
+      if (st) st.textContent = s < S0
+        ? `Spacing stepped down to ${s} ft (was ${S0} ft); branch ZOI scaled by ${(s / S0).toFixed(2)}. Verify the real footage per zone.`
+        : `Already passes at ${S0} ft — nothing to change.`;
+      seismicScheduleCalc();
+    }
+  } catch (error) {
+    if (st) st.textContent = error.message || "Auto-fit failed.";
+  }
+  if (btn) btn.disabled = false;
+}
+
+function seismicUpdateMainAuto() {
+  const box = seismicEl("seismicMainAuto");
+  if (!box) return;
+  const m = seismicMainPipeEntry();
+  box.value = m
+    ? `${m.lengthFt} ft × ${m.weightPerFt} lb/ft = ${Math.round(m.lengthFt * m.weightPerFt * 10) / 10} lb`
+    : "";
+}
+
+function seismicAddRow(containerId, kind, fixedRole) {
+  const wrap = seismicEl(containerId);
+  const row = document.createElement("div");
+  row.className = "seismic-row";
+  if (kind === "zoi") {
+    const cat = seismicPipeCatalog();
+    row.innerHTML = `
+      <select data-f="size" title="Pipe size">${cat.sizes.map((s) =>
+        `<option value="${escapeHtml(s)}">${escapeHtml(seismicPrettySize(s))}"</option>`).join("")}</select>
+      <select data-f="sched" title="Pipe type">${cat.scheds.map((s) =>
+        `<option value="${escapeHtml(s)}">${escapeHtml(seismicSchedShort(s))}</option>`).join("")}</select>
+      <input data-f="weight" type="text" readonly tabindex="-1" title="Water-filled weight used in the calc" />
+      <input data-f="length" type="text" placeholder="ft or 15+25+8" title="Total feet, or an itemized sum like 15+25+8" />
+      <button type="button" class="ghost-button seismic-remove" title="Remove">&times;</button>`;
+    row.classList.add("is-pipe");
+    const sch40 = cat.scheds.find((s) => /Schedule\s*40/i.test(s));
+    if (sch40) row.querySelector('[data-f="sched"]').value = sch40;
+  } else if (kind === "component") {
+    const mfrs = Object.keys(seismicState.meta?.components || {});
+    const role = fixedRole || "structure_attachment";
+    row.innerHTML = `
+      <span class="seismic-attach-label">${role === "pipe_attachment" ? "Pipe Att." : "Structural"}</span>
+      <select data-f="role" hidden><option value="${escapeHtml(role)}" selected>${escapeHtml(role)}</option></select>
+      <select data-f="manufacturer">${mfrs.map((m) => `<option>${escapeHtml(m)}</option>`).join("")}</select>
+      <select data-f="figure"></select>
+      <select data-f="size"></select>`;
+  }
+  row.querySelectorAll("select,input").forEach((el) => el.addEventListener("change", () => {
+    if (el.dataset.f === "manufacturer" || el.dataset.f === "role") seismicRefreshComponentRow(row);
+    if (el.dataset.f === "figure") seismicRefreshComponentSizes(row);
+    // component rows have a data-f="size" too - only pipe rows carry sched
+    if (kind === "zoi" && (el.dataset.f === "size" || el.dataset.f === "sched")) seismicRefreshPipeRow(row);
+    seismicScheduleCalc();
+  }));
+  row.querySelector(".seismic-remove")?.addEventListener("click", () => { row.remove(); seismicScheduleCalc(); });
+  wrap.appendChild(row);
+  if (kind === "component") seismicRefreshComponentRow(row);
+  if (kind === "zoi") seismicRefreshPipeRow(row);
+  return row;
+}
+
+// Figures shown per slot role - structure slots shouldn't scroll past 20 pipe
+// clamps. Falls back to the full list when a manufacturer has no match.
+const SEISMIC_ROLE_FILTER = {
+  // fittings are consolidated into the Structural Attachment slot
+  structure_attachment: ["structure_attachment", "adapter", "brace_fitting"],
+  pipe_attachment: ["pipe_attachment"],
+  brace_fitting: ["brace_fitting", "adapter", "structure_attachment"],
+};
+
+function seismicRefreshComponentRow(row) {
+  const mfr = row.querySelector('[data-f="manufacturer"]').value;
+  const role = row.querySelector('[data-f="role"]')?.value;
+  const all = seismicState.meta?.components?.[mfr] || [];
+  const wanted = SEISMIC_ROLE_FILTER[role];
+  let comps = wanted ? all.filter((c) => wanted.includes(c.role)) : all;
+  if (!comps.length) comps = all;
+  row.querySelector('[data-f="figure"]').innerHTML = comps.map((c) =>
+    `<option value="${escapeHtml(c.figure)}">${escapeHtml(`${c.figure} ${c.name}`.slice(0, 44))}</option>`).join("");
+  seismicRefreshComponentSizes(row);
+}
+
+function seismicRefreshComponentSizes(row) {
+  const mfr = row.querySelector('[data-f="manufacturer"]').value;
+  const fig = row.querySelector('[data-f="figure"]').value;
+  const comp = (seismicState.meta?.components?.[mfr] || []).find((c) => c.figure === fig);
+  const sizeSel = row.querySelector('[data-f="size"]');
+  sizeSel.innerHTML = (comp?.sizes || []).map((s) =>
+    `<option>${escapeHtml(s)}</option>`).join("");
+  const role = row.querySelector('[data-f="role"]')?.value;
+  if (role === "structure_attachment") {
+    // 1/2 in. hardware is the shop-standard default
+    const half = [...sizeSel.options].find((o) => /(^|[^\d\/])1\/2|½|1⁄2/.test(seismicPrettySize(o.value)));
+    if (half) sizeSel.value = half.value;
+  }
+  // the pipe attachment size follows the main pipe size
+  if (role === "pipe_attachment") seismicSyncPipeAttSize();
+}
+
+function seismicMemberLengthInches() {
+  const feet = hydreportParseFeet(seismicEl("seismicMemberLength").value);
+  return feet === null ? null : feet * 12;
+}
+
+function seismicParseLength(raw) {
+  // '23.58' or itemized '15+25+8+22' -> total feet (NaN when malformed)
+  const parts = String(raw || "").split("+").map((p) => parseFloat(p.trim()));
+  if (!parts.length || parts.some((p) => !(p >= 0))) return NaN;
+  return parts.reduce((a, b) => a + b, 0);
+}
+
+function seismicBuildPayload() {
+  const zoi = [...seismicEl("seismicZoiRows").querySelectorAll(".seismic-row")].map((row) => {
+    const rawLen = row.querySelector('[data-f="length"]').value;
+    const size = row.querySelector('[data-f="size"]').value;
+    const sched = row.querySelector('[data-f="sched"]').value;
+    return {
+      label: `${seismicPrettySize(size)}" ${seismicSchedShort(sched)}`,
+      size, schedule: sched,
+      weightPerFt: parseFloat(row.querySelector('[data-f="weight"]').value),
+      lengthFt: seismicParseLength(rawLen),
+      lengthsText: rawLen.includes("+") ? rawLen.split("+").map((s) => s.trim() + " ft").join(" + ") : null,
+    };
+  }).filter((r) => r.weightPerFt > 0 && r.lengthFt > 0);
+  const mainEntry = seismicMainPipeEntry();
+  if (mainEntry) zoi.unshift(mainEntry);
+  const components = [...seismicEl("seismicComponentRows").querySelectorAll(".seismic-row")].map((row) => ({
+    role: row.querySelector('[data-f="role"]').value,
+    manufacturer: row.querySelector('[data-f="manufacturer"]').value,
+    figure: row.querySelector('[data-f="figure"]').value,
+    size: row.querySelector('[data-f="size"]').value,
+  })).filter((c) => c.figure && c.size);
+  const lengthIn = seismicMemberLengthInches();
+  const mode = seismicEl("seismicCpMode").value;
+  const seismic = {};
+  seismic[mode] = parseFloat(seismicEl("seismicCpValue").value);
+  // carry the USGS provenance onto the calc sheet while the looked-up value
+  // is still the one in the box
+  const lk = seismicState.sdsLookup;
+  if (lk && lk.mode === mode && Math.abs((seismic[mode] || 0) - lk.value) < 1e-9) {
+    seismic.lookupNote = lk.note;
+  }
+  // attachment / roof height drive the Cp reduction (18.5.9.3.3/.3.4)
+  const zVal = parseFloat(seismicEl("seismicAttachHeight")?.value);
+  const hVal = parseFloat(seismicEl("seismicRoofHeight")?.value);
+  if (zVal >= 0) seismic.attachHeightFt = zVal;
+  if (hVal > 0) seismic.roofHeightFt = hVal;
+  return {
+    edition: seismicEl("seismicEdition").value,
+    braceType: seismicEl("seismicBraceType").value,
+    seismic,
+    zoi,
+    mainPipe: seismicEl("seismicMainSize")?.value
+      ? `${seismicEl("seismicMainSize").value}|${seismicEl("seismicMainSched").value}` : "",
+    concentratedLb: parseFloat(seismicEl("seismicConcentrated").value) || 0,
+    bracedPipe: { tableId: seismicEl("seismicBracedTable").value, size: seismicEl("seismicBracedSize").value },
+    spacingFt: parseFloat(seismicEl("seismicSpacing").value) || 0,
+    brace: {
+      memberCategory: seismicEl("seismicMemberCategory").value,
+      memberSize: seismicEl("seismicMemberSize").value,
+      lengthIn, angleDeg: parseFloat(seismicEl("seismicAngle").value),
+    },
+    components,
+    fastener: {
+      tableId: seismicEl("seismicFastenerTable").value,
+      size: seismicEl("seismicFastenerSize").value,
+      orientation: seismicEl("seismicOrientation").value,
+      prBand: seismicEl("seismicPrWrap")?.hidden ? 0 : parseInt(seismicEl("seismicPrBand")?.value || "0", 10),
+    },
+    structureMember: seismicEl("seismicStructMember")?.value === "redbuilt" && seismicEl("seismicRbDetail")?.value
+      ? { system: "redbuilt", detailId: seismicEl("seismicRbDetail").value }
+      : null,
+    bracePlane: seismicEl("seismicOrientGroup")?.value || "overhead",
+    project: {
+      jobName: seismicEl("seismicJobName").value, jobNumber: seismicEl("seismicJobNumber").value,
+      address: seismicEl("seismicJobAddress")?.value || "",
+      designer: seismicEl("seismicDesigner").value, braceId: seismicEl("seismicBraceId").value,
+      firmRole: seismicEl("seismicFirmRole")?.value || "contractor",
+      firmName: seismicEl("seismicFirmName")?.value || "",
+      firmAddress: seismicEl("seismicFirmAddress")?.value || "",
+      firmLicense: seismicEl("seismicFirmLicense")?.value || "",
+    },
+    conditionAck: { ...seismicState.conditionAck },
+  };
+}
+
+function seismicScheduleCalc() {
+  clearTimeout(seismicState.timer);
+  seismicState.timer = setTimeout(seismicRunCalc, 350);
+}
+
+async function seismicRunCalc() {
+  const status = seismicEl("seismicStatus");
+  seismicUpdateMainAuto();
+  seismicUpdateContextBar();
+  const payload = seismicBuildPayload();
+  if (!payload.zoi.length || !payload.brace.lengthIn || !(payload.seismic.cp || payload.seismic.sds || payload.seismic.ss)) {
+    seismicEl("seismicOverall").textContent = "—";
+    seismicEl("seismicOverall").className = "seismic-overall";
+    seismicEl("seismicDemand").innerHTML = '<p class="hydreport-note">Enter the seismic load basis, at least one ZOI pipe, and the brace member to calculate.</p>';
+    seismicEl("seismicConstraints").innerHTML = "";
+    seismicState.ok = false;
+    seismicEl("seismicExportPdf").disabled = true;
+    seismicEl("seismicCopyPng").disabled = true;
+    seismicUpdateSidePanel();
+    seismicUpdateFoldHints();
+    return;
+  }
+  try {
+    const r = await readApiJson("./api/seismic/calc", { method: "POST", body: JSON.stringify(payload) });
+    seismicState.lastPayload = payload;
+    seismicState.ok = true;
+    if (status) status.textContent = "";
+    const line = (k, v) => `<div class="layout-result-line"><span>${k}</span><strong>${v}</strong></div>`;
+    seismicEl("seismicDemand").innerHTML =
+      line("Seismic coefficient Cp", `${r.cp}`) +
+      line("Wp (incl. allowance)", `${r.wpLb.toLocaleString()} lb`) +
+      line("Horizontal force Fpw", `${r.fpwLb.toLocaleString()} lb`) +
+      line("Net vertical at brace", `${r.verticalReactionLb.toLocaleString()} lb`);
+    seismicEl("seismicConstraints").innerHTML = r.constraints.map((c) => `
+      <div class="seismic-constraint is-${c.status.toLowerCase()}">
+        <div class="seismic-constraint-head"><span>${escapeHtml(c.name)}</span>
+          <span class="seismic-badge">${c.status}</span></div>
+        <div class="seismic-constraint-body">${c.demandLb != null ? `${c.demandLb.toLocaleString()} lb demand` : ""}${c.capacity != null ? ` vs ${c.capacity.toLocaleString()} ${escapeHtml(c.capacityUnit || "lb")} capacity` : ""}
+          ${escapeHtml((c.detail || "").slice(0, 160))}</div>
+      </div>`).join("");
+    // interactive code-condition verification checklist
+    const condBox = seismicEl("seismicConditions");
+    if (condBox) {
+      condBox.innerHTML = (r.conditions || []).length
+        ? `<p class="eyebrow seismic-cond-head">Code conditions — auto-resolved where the inputs decide, check the rest</p>` +
+          r.conditions.map((item) => item.verdict
+            ? `<div class="seismic-cond is-acked is-auto">
+                 <span class="seismic-cond-badge">${item.verdict === "na" ? "N/A" : "AUTO ✓"}</span>
+                 <span><strong>${escapeHtml(item.section)}</strong> ${escapeHtml(item.reason || "")}</span>
+               </div>`
+            : `<label class="seismic-cond${item.acked ? " is-acked" : ""}">
+                 <input type="checkbox" data-cond="${escapeHtml(item.section)}"${item.acked ? " checked" : ""} />
+                 <span><strong>${escapeHtml(item.section)}</strong> ${escapeHtml(item.logic.slice(0, 180))}</span>
+               </label>`).join("")
+        : "";
+      condBox.querySelectorAll("[data-cond]").forEach((el) => el.addEventListener("change", () => {
+        seismicState.conditionAck[el.dataset.cond] = el.checked;
+        el.closest(".seismic-cond").classList.toggle("is-acked", el.checked);
+      }));
+    }
+    const chip = seismicEl("seismicOverall");
+    chip.textContent = r.overall === "PASS" ? "PASS" : r.overall === "FAIL" ? "FAIL" : "PENDING DATA";
+    chip.className = "seismic-overall is-" + r.overall.toLowerCase();
+    const sbox = seismicEl("seismicSuggest");
+    if (sbox) {
+      sbox.hidden = r.overall !== "FAIL";
+      // inputs changed - stale suggestions come down until re-requested
+      seismicEl("seismicSuggestList").innerHTML = "";
+      seismicEl("seismicSuggestBtn").disabled = false;
+    }
+    // every completed calc drops the bench brace into the rack
+    seismicState.activeBraceId = payload.project.braceId;
+    seismicAutoSaveBrace(r.overall, payload,
+      `${payload.spacingFt} ft · Fpw ${r.fpwLb} lb`);
+    seismicEl("seismicExportPdf").disabled = false;
+    seismicEl("seismicCopyPng").disabled = false;
+    const dxfBtn = seismicEl("seismicDetailDxf");
+    if (dxfBtn) dxfBtn.disabled = false;
+    seismicState.lastConditions = r.conditions || [];
+    // gentle sanity nudge: pipe-attachment size vs braced pipe size
+    const pa = payload.components.find((c) => c.role === "pipe_attachment");
+    const bracedSize = payload.bracedPipe?.size;
+    if (pa && bracedSize && status) {
+      const bs = seismicPrettySize(bracedSize).toLowerCase();
+      const pas = seismicPrettySize(pa.size).toLowerCase();
+      if (!pas.split(/[^0-9a-z/.-]+/).includes(bs)) {
+        status.textContent = `Heads up: pipe attachment "${seismicPrettySize(pa.size)}" vs braced pipe ${seismicPrettySize(bracedSize)}" — double-check the size.`;
+      }
+    }
+  } catch (error) {
+    seismicState.ok = false;
+    if (status) status.textContent = error.message || "Calculation failed.";
+    seismicEl("seismicExportPdf").disabled = true;
+    seismicEl("seismicCopyPng").disabled = true;
+  }
+  seismicUpdateSidePanel();
+  seismicUpdateFoldHints();
+}
+
+async function seismicExport(mode) {
+  const status = seismicEl("seismicStatus");
+  if (!seismicState.lastPayload) return;
+  const btn = mode === "png" ? seismicEl("seismicCopyPng") : seismicEl("seismicExportPdf");
+  btn.disabled = true;
+  const unacked = (seismicState.lastConditions || []).filter((x) => !seismicState.conditionAck[x.section]).length;
+  if (status) status.textContent = (unacked ? `Note: ${unacked} code condition${unacked === 1 ? "" : "s"} not yet checked off. ` : "") +
+    (mode === "png" ? "Rendering 8.5×11 PNG…" : "Building PDF… choose where to save.");
+  try {
+    const payload = { ...seismicState.lastPayload, mode,
+                      conditionAck: { ...seismicState.conditionAck },
+                      sheetStyle: seismicEl("seismicSheetStyle")?.value || "tolbrace" };
+    const r = await readApiJson("./api/seismic/export", { method: "POST", body: JSON.stringify(payload) });
+    if (status) status.textContent = mode === "png"
+      ? `Copied to clipboard (${r.width}×${r.height} px) — paste onto your calcs sheet.`
+      : `Saved: ${r.path}`;
+  } catch (error) {
+    if (status) status.textContent = (error.message === "Save cancelled." ? "Save cancelled." : (error.message || "Export failed."));
+  }
+  btn.disabled = false;
+}
+
+// ---- saved braces (localStorage, hydreport saved-report pattern) ----
+
+const SEISMIC_STORE_KEY = "sprinkflow.seismic.braces.v1";
+const SEISMIC_INFO_KEY = "sprinkflow.seismic.info.v1";
+
+function seismicLoadStore() {
+  try { return JSON.parse(localStorage.getItem(SEISMIC_STORE_KEY)) || []; }
+  catch { return []; }
+}
+
+function seismicSaveStore(list) {
+  localStorage.setItem(SEISMIC_STORE_KEY, JSON.stringify(list));
+  seismicRenderRack();
+}
+
+// ---- brace rack ------------------------------------------------------------
+// The project holds a rack of braces. The one on the bench auto-saves after
+// every calc under an auto-numbered ID (LAT-1, LONG-1, 4W-1...); chips switch
+// between them with their latest PASS/FAIL state on the dot.
+const SEISMIC_ID_PREFIX = { lateral: "LAT", longitudinal: "LONG", riser: "4W" };
+
+function seismicCurrentJob() {
+  return (seismicEl("seismicJobName")?.value || "").trim();
+}
+
+function seismicJobBraces() {
+  // strict job scoping so different saved projects can coexist in the store
+  // without their racks bleeding together (an empty job matches empty-job braces)
+  const job = seismicCurrentJob();
+  return seismicLoadStore().filter((b) => (b.job || "").trim() === job);
+}
+
+function seismicNextBraceId(braceType) {
+  const prefix = SEISMIC_ID_PREFIX[braceType] || "BR";
+  let n = 0;
+  seismicJobBraces().forEach((b) => {
+    const m = String(b.id).match(new RegExp(`^${prefix}-(\\d+)$`, "i"));
+    if (m) n = Math.max(n, parseInt(m[1], 10));
+  });
+  return `${prefix}-${n + 1}`;
+}
+
+// First-open calm: the right panel (rack + results) hides behind a one-line
+// empty state until there's a brace on the rack or a finished calc to show.
+function seismicUpdateSidePanel() {
+  const panel = document.getElementById("seismicSidePanel");
+  if (!panel) return;
+  const engaged = seismicJobBraces().length > 0 || seismicState.ok || !!seismicState.lastPayload;
+  panel.classList.toggle("is-empty", !engaged);
+}
+
+// The Step-1 folds show a live summary in their header so collapsed never
+// means hidden: the project fold echoes the job, the site fold its overrides.
+function seismicUpdateFoldHints() {
+  const ph = document.getElementById("seismicFoldProjectHint");
+  if (ph) {
+    const firm = seismicEl("seismicFirmName")?.value?.trim();
+    const designer = seismicEl("seismicDesigner")?.value?.trim();
+    const who = firm || designer;
+    ph.textContent = who ? who : "optional — shows on the calc sheet";
+  }
+  const sh = document.getElementById("seismicFoldSiteHint");
+  if (sh) {
+    const bits = [];
+    const sc = seismicEl("seismicSiteClass")?.value;
+    if (sc && sc !== "Default") bits.push(`Site Class ${sc}`);
+    const asce = seismicEl("seismicAsce")?.value;
+    if (asce && asce !== "asce7-22") bits.push("ASCE 7-16");
+    sh.textContent = bits.length ? bits.join(" · ") : "site class & hazard — defaults are fine";
+  }
+}
+
+function seismicRenderRack() {
+  const rack = seismicEl("seismicBraceRack");
+  if (!rack) return;
+  seismicUpdateSidePanel();
+  const active = seismicEl("seismicBraceId")?.value || "";
+  rack.innerHTML = seismicJobBraces().map((b) => {
+    const cls = b.summary === "PASS" ? " is-pass" : b.summary === "FAIL" ? " is-fail" : "";
+    return `<button class="seismic-brace-chip${cls}${b.id === active ? " active" : ""}" type="button"
+      data-bid="${escapeHtml(b.id)}" title="${escapeHtml(`${b.summary || "pending"}${b.detail ? " · " + b.detail : ""} — click to load`)}">
+      <span class="rack-dot"></span>${escapeHtml(b.id)}<span class="rack-x" data-del="${escapeHtml(b.id)}" title="Remove ${escapeHtml(b.id)}">&times;</span>
+    </button>`;
+  }).join("");
+  rack.querySelectorAll(".seismic-brace-chip").forEach((chip) => {
+    chip.addEventListener("click", (e) => {
+      if (e.target.dataset.del) { seismicDeleteBrace(e.target.dataset.del); return; }
+      const job = seismicCurrentJob();
+      const b = seismicLoadStore().find((x) => x.id === chip.dataset.bid && (x.job || "").trim() === job);
+      if (b) { seismicApplyPayloadToForm(JSON.parse(JSON.stringify(b.payload))); seismicRenderRack(); }
+    });
+  });
+}
+
+function seismicAutoSaveBrace(overall, payload, detail) {
+  const id = (seismicEl("seismicBraceId")?.value || "").trim();
+  if (!id || !payload?.zoi?.length) return;   // nothing worth keeping yet
+  const job = payload.project.jobName || "";
+  // dedup on (job, id) so a same-named brace in another job isn't clobbered
+  const list = seismicLoadStore().filter((b) => !(b.id === id && (b.job || "").trim() === job.trim()));
+  list.push({ id, payload, summary: overall, detail: detail || "", job, updated: Date.now() });
+  list.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+  seismicSaveStore(list);
+}
+
+function seismicDeleteBrace(id) {
+  const list = seismicLoadStore();
+  const job = seismicCurrentJob();
+  const gone = list.find((b) => b.id === id && (b.job || "").trim() === job);
+  if (!gone) return;
+  seismicState.lastDeletedBrace = gone;
+  seismicSaveStore(list.filter((b) => !(b.id === id && (b.job || "").trim() === job)));
+  const st = seismicEl("seismicBraceStatus");
+  if (st) {
+    st.innerHTML = `Removed ${escapeHtml(id)}. <button class="ghost-button compact-button" id="seismicUndoDel" type="button">Undo</button>`;
+    seismicEl("seismicUndoDel")?.addEventListener("click", () => {
+      const cur = seismicLoadStore();
+      cur.push(seismicState.lastDeletedBrace);
+      cur.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+      seismicSaveStore(cur);
+      st.textContent = `${seismicState.lastDeletedBrace.id} is back.`;
+    });
+  }
+}
+
+function seismicStartNewBrace() {
+  // project info, design standard, member and hardware all carry over -
+  // only what changes brace to brace resets
+  const id = seismicNextBraceId(seismicEl("seismicBraceType").value);
+  seismicEl("seismicBraceId").value = id;
+  const mp = seismicEl("seismicMainSize");
+  if (mp) { mp.value = ""; seismicRefreshMainPipe(); }
+  seismicEl("seismicSpacing").value = 40;
+  seismicEl("seismicConcentrated").value = 0;
+  seismicEl("seismicZoiRows").innerHTML = "";
+  seismicAddRow("seismicZoiRows", "zoi");
+  seismicState.conditionAck = {};
+  seismicDeriveStress();
+  seismicUpdateMainAuto();
+  seismicRenderRack();
+  seismicSetStep("orientation");
+  const st = seismicEl("seismicBraceStatus");
+  if (st) st.textContent = `${id} on the bench — project info and hardware carried over.`;
+  seismicScheduleCalc();
+}
+
+function seismicDuplicateBrace() {
+  const id = seismicNextBraceId(seismicEl("seismicBraceType").value);
+  seismicEl("seismicBraceId").value = id;
+  seismicRenderRack();
+  const st = seismicEl("seismicBraceStatus");
+  if (st) st.textContent = `Copied to ${id} — tweak what differs and it saves itself.`;
+  seismicScheduleCalc();
+}
+
+function seismicRenameBrace() {
+  const input = seismicEl("seismicBraceId");
+  const newId = (input.value || "").trim();
+  const oldId = seismicState.activeBraceId || "";
+  const st = seismicEl("seismicBraceStatus");
+  if (!newId) { input.value = oldId; return; }
+  if (newId === oldId) return;
+  const list = seismicLoadStore();
+  if (list.some((b) => b.id === newId)) {
+    if (st) st.textContent = `${newId} already exists — pick another ID.`;
+    input.value = oldId;
+    return;
+  }
+  const entry = list.find((b) => b.id === oldId);
+  if (entry) {
+    entry.id = newId;
+    if (entry.payload?.project) entry.payload.project.braceId = newId;
+    list.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+    seismicSaveStore(list);
+    if (st) st.textContent = `${oldId} is now ${newId}.`;
+  }
+  seismicState.activeBraceId = newId;
+  seismicScheduleCalc();
+}
+
+// ---- saved projects --------------------------------------------------------
+// A project bundles the shared header (job info, contractor, design standard)
+// plus every brace on the rack, so a whole job can be saved and reloaded.
+const SEISMIC_PROJECTS_KEY = "sprinkflow.seismic.projects.v1";
+const SEISMIC_PROJECT_FIELDS = ["seismicJobName", "seismicJobNumber", "seismicJobAddress",
+  "seismicDesigner", "seismicFirmRole", "seismicFirmName", "seismicFirmAddress",
+  "seismicFirmLicense", "seismicEdition", "seismicCpMode", "seismicCpValue",
+  "seismicSiteClass", "seismicAsce"];
+
+function seismicLoadProjects() {
+  try { const v = JSON.parse(localStorage.getItem(SEISMIC_PROJECTS_KEY) || "[]"); return Array.isArray(v) ? v : []; }
+  catch { return []; }
+}
+
+function seismicSaveProjects(list) {
+  try { localStorage.setItem(SEISMIC_PROJECTS_KEY, JSON.stringify(list)); } catch { /* quota */ }
+}
+
+function seismicCollectProjectInfo() {
+  const info = {};
+  SEISMIC_PROJECT_FIELDS.forEach((id) => { const el = seismicEl(id); if (el) info[id] = el.value; });
+  return info;
+}
+
+function seismicApplyProjectInfo(info) {
+  SEISMIC_PROJECT_FIELDS.forEach((id) => { const el = seismicEl(id); if (el && info[id] != null) el.value = info[id]; });
+  // the edition drives the basis dropdown + value label
+  seismicEl("seismicEdition")?.dispatchEvent(new Event("change", { bubbles: true }));
+  // ...but the saved basis mode/value should win over the edition default
+  if (info.seismicCpMode) {
+    seismicEl("seismicCpMode").value = info.seismicCpMode;
+    seismicEl("seismicCpMode").dispatchEvent(new Event("change", { bubbles: true }));
+  }
+  if (info.seismicCpValue != null) seismicEl("seismicCpValue").value = info.seismicCpValue;
+  seismicUpdateFirmLabels();
+}
+
+function seismicRefreshProjectSelect() {
+  const sel = seismicEl("seismicProjectSelect");
+  if (!sel) return;
+  const cur = seismicState.activeProjectId || "";
+  const list = seismicLoadProjects().sort((a, b) => (b.updated || 0) - (a.updated || 0));
+  sel.innerHTML = `<option value="">New project</option>` + list.map((p) =>
+    `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}${p.info?.seismicJobNumber ? " · #" + escapeHtml(p.info.seismicJobNumber) : ""} (${(p.braces || []).length} brace${(p.braces || []).length === 1 ? "" : "s"})</option>`).join("");
+  sel.value = [...sel.options].some((o) => o.value === cur) ? cur : "";
+}
+
+function seismicSaveProject() {
+  const st = seismicEl("seismicProjectStatus");
+  const info = seismicCollectProjectInfo();
+  const name = (info.seismicJobName || "").trim() || "Untitled project";
+  const braces = seismicJobBraces();
+  if (!braces.length) { if (st) st.textContent = "Add at least one brace before saving the project."; return; }
+  const list = seismicLoadProjects();
+  const id = seismicState.activeProjectId
+    || (list.find((p) => p.name === name)?.id)
+    || `proj-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const existing = list.find((p) => p.id === id);
+  const record = { id, name, info, braces: JSON.parse(JSON.stringify(braces)), updated: Date.now() };
+  if (existing) Object.assign(existing, record);
+  else list.push(record);
+  seismicSaveProjects(list);
+  seismicState.activeProjectId = id;
+  seismicRefreshProjectSelect();
+  if (st) st.textContent = `Saved "${name}" — ${braces.length} brace${braces.length === 1 ? "" : "s"}.`;
+}
+
+function seismicLoadProject(id) {
+  const st = seismicEl("seismicProjectStatus");
+  const proj = seismicLoadProjects().find((p) => p.id === id);
+  if (!proj) return;
+  seismicState.activeProjectId = id;
+  seismicApplyProjectInfo(proj.info || {});
+  // replace this job's braces in the live store with the project snapshot
+  const job = (proj.info?.seismicJobName || "").trim();
+  const others = seismicLoadStore().filter((b) => (b.job || "").trim() !== job);
+  const braces = JSON.parse(JSON.stringify(proj.braces || []));
+  seismicSaveStore([...others, ...braces]);
+  if (braces[0]?.payload) {
+    seismicApplyPayloadToForm(braces[0].payload);
+    seismicState.activeBraceId = braces[0].id;
+  }
+  seismicRenderRack();
+  if (st) st.textContent = `Loaded "${proj.name}" — ${braces.length} brace${braces.length === 1 ? "" : "s"} on the rack.`;
+}
+
+function seismicNewProject() {
+  seismicState.activeProjectId = "";
+  // clear the job/firm text header, but keep the design standard usable -
+  // reset the seismic basis value to the app default so the calc still runs
+  ["seismicJobName", "seismicJobNumber", "seismicJobAddress", "seismicDesigner",
+   "seismicFirmName", "seismicFirmAddress", "seismicFirmLicense",
+   "seismicAttachHeight", "seismicRoofHeight"].forEach((id) => {
+    const el = seismicEl(id); if (el) el.value = "";
+  });
+  if (seismicEl("seismicFirmRole")) seismicEl("seismicFirmRole").value = "contractor";
+  if (seismicEl("seismicCpValue")) seismicEl("seismicCpValue").value = "0.5";
+  seismicEl("seismicEdition")?.dispatchEvent(new Event("change", { bubbles: true }));
+  seismicUpdateHeightFactor();
+  // fresh single brace, cleared bench
+  seismicEl("seismicZoiRows").innerHTML = "";
+  seismicAddRow("seismicZoiRows", "zoi");
+  const mp = seismicEl("seismicMainSize");
+  if (mp) { mp.value = ""; seismicRefreshMainPipe(); }
+  seismicEl("seismicBraceType").value = "lateral";
+  seismicApplyBraceTypeHints();
+  seismicEl("seismicBraceId").value = seismicNextBraceId("lateral");
+  seismicState.conditionAck = {};
+  seismicUpdateFirmLabels();
+  seismicRefreshProjectSelect();
+  seismicRenderRack();
+  const st = seismicEl("seismicProjectStatus");
+  if (st) st.textContent = "Fresh project — enter the job info and build your first brace.";
+  seismicScheduleCalc();
+}
+
+function seismicStartOver() {
+  // Total reset: a brand-new project with NOTHING carried over — including the
+  // looked-up job address / SDS provenance (which seismicNewProject leaves in
+  // memory + localStorage) so the previous Lookup-From-Address job fully clears.
+  seismicNewProject();
+  seismicState.sdsLookup = null;
+  seismicState.sdsDoc = null;
+  const doc = seismicEl("seismicSdsDoc");
+  if (doc) { doc.hidden = true; doc.innerHTML = ""; }
+  const ss = seismicEl("seismicSdsStatus");
+  if (ss) ss.textContent = "";
+  if (seismicEl("seismicSiteClass")) seismicEl("seismicSiteClass").value = "Default";
+  if (seismicEl("seismicAsce")) seismicEl("seismicAsce").value = "asce7-22";
+  if (seismicEl("seismicRiskCategory")) seismicEl("seismicRiskCategory").value = "II";
+  // clear the remaining calc inputs (components / optimizer) the way Clear does
+  ["seismicComponentRows", "seismicStretchRows"].forEach((id) => { const el = seismicEl(id); if (el) el.innerHTML = ""; });
+  seismicAddRow("seismicComponentRows", "component", "structure_attachment");
+  seismicAddRow("seismicComponentRows", "component", "pipe_attachment");
+  if (seismicEl("seismicStretchRows")) seismicAddRow("seismicStretchRows", "zoi");
+  const optRes = seismicEl("seismicOptResult");
+  if (optRes) optRes.innerHTML = "";
+  // forget the persisted job/firm info so a reload starts clean too
+  try { localStorage.removeItem(SEISMIC_INFO_KEY); } catch (e) { /* ignore */ }
+  seismicUpdateFirmLabels();
+  seismicUpdateHeightFactor();
+  seismicSetStep("project");
+  const stp = seismicEl("seismicProjectStatus");
+  if (stp) stp.textContent = "Started over — brand-new project, everything cleared.";
+  seismicScheduleCalc();
+}
+
+function seismicDeleteProject() {
+  const st = seismicEl("seismicProjectStatus");
+  const id = seismicState.activeProjectId;
+  const list = seismicLoadProjects();
+  const proj = list.find((p) => p.id === id);
+  if (!proj) { if (st) st.textContent = "Pick a saved project to delete."; return; }
+  seismicSaveProjects(list.filter((p) => p.id !== id));
+  seismicState.activeProjectId = "";
+  seismicRefreshProjectSelect();
+  if (st) st.textContent = `Deleted "${proj.name}". Its braces stay on the rack until you clear them.`;
+}
+
+function seismicApplyPayloadToForm(p) {
+  seismicState.conditionAck = { ...(p.conditionAck || {}) };
+  const set = (id, v) => { const el = seismicEl(id); if (el && v != null) el.value = v; };
+  set("seismicEdition", p.edition);
+  seismicEl("seismicEdition").dispatchEvent(new Event("change", { bubbles: true }));
+  set("seismicBraceType", p.braceType);
+  seismicApplyBraceTypeHints();
+  const mode = p.seismic?.cp != null ? "cp" : p.seismic?.sds != null ? "sds" : "ss";
+  set("seismicCpMode", mode);
+  seismicEl("seismicCpValueLabel").textContent = { cp: "Cp", sds: "SDS", ss: "Ss" }[mode];
+  set("seismicCpValue", p.seismic?.[mode]);
+  if (seismicEl("seismicAttachHeight")) seismicEl("seismicAttachHeight").value = p.seismic?.attachHeightFt ?? "";
+  if (seismicEl("seismicRoofHeight")) seismicEl("seismicRoofHeight").value = p.seismic?.roofHeightFt ?? "";
+  seismicUpdateHeightFactor();
+  set("seismicSpacing", p.spacingFt);
+  if (seismicEl("seismicMainSize")) {
+    const [mSize = "", mSched = ""] = String(p.mainPipe || "").split("|");
+    seismicEl("seismicMainSize").value = mSize;
+    if (mSched) seismicEl("seismicMainSched").value = mSched;
+    seismicRefreshMainPipe();
+  }
+  set("seismicConcentrated", p.concentratedLb || 0);
+  set("seismicBracedTable", p.bracedPipe?.tableId);
+  seismicRefreshBracedSizes();
+  set("seismicBracedSize", p.bracedPipe?.size);
+  set("seismicMemberCategory", p.brace?.memberCategory);
+  seismicRefreshMemberSizes();
+  set("seismicMemberSize", p.brace?.memberSize);
+  if (p.brace?.lengthIn != null) {
+    const ft = Math.floor(p.brace.lengthIn / 12), inch = Math.round(p.brace.lengthIn % 12);
+    set("seismicMemberLength", `${ft}-${inch}`);
+  }
+  set("seismicAngle", p.brace?.angleDeg);
+  set("seismicFastenerTable", p.fastener?.tableId);
+  seismicRefreshFastenerSizes();
+  seismicRefreshPrBands();
+  set("seismicFastenerSize", p.fastener?.size);
+  set("seismicOrientation", p.fastener?.orientation);
+  if (seismicEl("seismicPrBand")) seismicEl("seismicPrBand").value = String(p.fastener?.prBand || 0);
+  if (seismicEl("seismicOrientGroup")) {
+    seismicEl("seismicOrientGroup").value = p.bracePlane || "overhead";
+    seismicUpdateOrientVisual();
+    seismicUpdateAngleBounds();
+  }
+  ["seismicJobName", "seismicJobNumber", "seismicDesigner", "seismicBraceId",
+   "seismicJobAddress", "seismicFirmName", "seismicFirmAddress", "seismicFirmLicense"].forEach((id, i) => {
+    set(id, [p.project?.jobName, p.project?.jobNumber, p.project?.designer, p.project?.braceId,
+             p.project?.address, p.project?.firmName, p.project?.firmAddress, p.project?.firmLicense][i] || "");
+  });
+  if (seismicEl("seismicFirmRole")) {
+    seismicEl("seismicFirmRole").value = p.project?.firmRole || "contractor";
+    seismicUpdateFirmLabels();
+  }
+  const wrap = seismicEl("seismicZoiRows");
+  wrap.innerHTML = "";
+  // the main line is regenerated from the select + spacing, not stored as a row
+  const manualZoi = (p.zoi || []).filter((r) => !r.auto);
+  manualZoi.forEach((r) => {
+    const row = seismicAddRow("seismicZoiRows", "zoi");
+    let { size, schedule } = r;
+    if (!size) {
+      // legacy saved rows carried only lb/ft - map back to a catalog pipe
+      const m = (seismicState.meta?.pipeWeights || []).find(
+        (x) => Math.abs(x.lbPerFt - r.weightPerFt) < 0.005);
+      if (m) { size = m.size; schedule = m.schedule; }
+    }
+    if (size) {
+      row.querySelector('[data-f="size"]').value = size;
+      seismicRefreshPipeRow(row);
+      if (schedule) { row.querySelector('[data-f="sched"]').value = schedule; seismicRefreshPipeRow(row); }
+    }
+    row.querySelector('[data-f="length"]').value = r.lengthFt;
+  });
+  if (!manualZoi.length) seismicAddRow("seismicZoiRows", "zoi");
+  const cw = seismicEl("seismicComponentRows");
+  cw.innerHTML = "";
+  (p.components || []).forEach((c) => {
+    // fittings from older saves land in the consolidated Structural slot
+    const role = c.role === "pipe_attachment" ? "pipe_attachment" : "structure_attachment";
+    const row = seismicAddRow("seismicComponentRows", "component", role);
+    row.querySelector('[data-f="manufacturer"]').value = c.manufacturer;
+    seismicRefreshComponentRow(row);
+    row.querySelector('[data-f="figure"]').value = c.figure;
+    seismicRefreshComponentSizes(row);
+    row.querySelector('[data-f="size"]').value = c.size;
+  });
+  if (!(p.components || []).length) {
+    seismicAddRow("seismicComponentRows", "component", "structure_attachment");
+    seismicAddRow("seismicComponentRows", "component", "pipe_attachment");
+  }
+  const sm = p.structureMember;
+  if (seismicEl("seismicStructMember")) {
+    seismicEl("seismicStructMember").value = sm?.system === "redbuilt" ? "redbuilt" : "";
+    if (sm?.detailId && seismicEl("seismicRbDetail")) seismicEl("seismicRbDetail").value = sm.detailId;
+    seismicUpdateStructMember();
+  }
+  // loading a brace while sitting on the review step must re-evaluate the
+  // spacing tuner (new brace type / spacing) instead of leaving it stale
+  if (seismicState.wizStep === "review") seismicShowSpacingTuner();
+  seismicScheduleCalc();
+}
+
+async function seismicExportAll() {
+  const status = seismicEl("seismicBraceStatus");
+  let list = seismicLoadStore();
+  // scope the batch to the current job so multi-job saves don't mix sheets
+  const job = (seismicEl("seismicJobName").value || "").trim();
+  if (job) {
+    const scoped = list.filter((b) => !b.job || b.job === job);
+    if (scoped.length && scoped.length < list.length && status) {
+      status.textContent = `Exporting ${scoped.length} of ${list.length} braces (job "${job}").`;
+    }
+    if (scoped.length) list = scoped;
+  }
+  if (!list.length) {
+    if (status) status.textContent = "Save at least one brace first.";
+    return;
+  }
+  const btn = seismicEl("seismicExportAll");
+  btn.disabled = true;
+  if (status) status.textContent = `Building ${list.length}-brace PDF… choose where to save.`;
+  try {
+    const r = await readApiJson("./api/seismic/export-batch", {
+      method: "POST",
+      body: JSON.stringify({ braces: list.map((b) => b.payload),
+                             sheetStyle: seismicEl("seismicSheetStyle")?.value || "tolbrace" }),
+    });
+    const fails = (r.summary || []).filter((s) => s.overall !== "PASS");
+    if (status) status.textContent = `Saved ${r.path}` +
+      (fails.length ? ` — attention: ${fails.map((s) => `${s.braceId} ${s.overall}`).join(", ")}` : " — all braces PASS.");
+  } catch (error) {
+    if (status) status.textContent = (error.message === "Save cancelled." ? "Save cancelled." : (error.message || "Batch export failed."));
+  }
+  btn.disabled = false;
+}
+
+async function seismicRunOptimize() {
+  const mSize = seismicEl("seismicOptMainSize").value;
+  const mSched = seismicEl("seismicOptMainSched").value;
+  const mLen = parseFloat(seismicEl("seismicOptMainLen").value);
+  const mPipe = mSize ? seismicPipeLookup(mSize, mSched) : null;
+  if (!mPipe || !(mLen > 0)) {
+    seismicEl("seismicOptResult").innerHTML = '<p class="hydreport-note">Pick the main pipe size, type, and total length first.</p>';
+    return;
+  }
+  const stretch = [{
+    label: `Main ${seismicPrettySize(mSize)}" ${seismicSchedShort(mSched)}`,
+    size: mSize, schedule: mSched,
+    weightPerFt: mPipe.lbPerFt, totalLengthFt: mLen, isMain: true,
+  }, ...[...seismicEl("seismicStretchRows").querySelectorAll(".seismic-row")].map((row) => {
+    const size = row.querySelector('[data-f="size"]').value;
+    const sched = row.querySelector('[data-f="sched"]').value;
+    return {
+      label: `${seismicPrettySize(size)}" ${seismicSchedShort(sched)}`,
+      size, schedule: sched,
+      weightPerFt: parseFloat(row.querySelector('[data-f="weight"]').value),
+      totalLengthFt: seismicParseLength(row.querySelector('[data-f="length"]').value),
+      isMain: false,
+    };
+  }).filter((r) => r.weightPerFt > 0 && r.totalLengthFt > 0)];
+  const payload = { ...seismicBuildPayload(), stretch };
+  seismicEl("seismicOptimize").disabled = true;
+  try {
+    const r = await readApiJson("./api/seismic/optimize", { method: "POST", body: JSON.stringify(payload) });
+    seismicState.lastOptimize = { result: r, stretch };
+    const line = (k, v) => `<div class="layout-result-line"><span>${k}</span><strong>${v}</strong></div>`;
+    seismicEl("seismicOptResult").innerHTML = r.spacingFt
+      ? line("Max passing spacing", `${r.spacingFt} ft`) +
+        line("Braces for this stretch", `${r.braceCount} (${r.mainLengthFt.toLocaleString()} ft of main)`) +
+        line("Blocked at next size up by", escapeHtml((r.governing || "—").slice(0, 90))) +
+        (r.codeComplete ? "" : `<p class="hydreport-note">Pending data: ${escapeHtml(r.pending.join(", "))}</p>`) +
+        `<button class="primary-button full-width-button" id="seismicApplyOpt" type="button">Apply ${r.spacingFt} ft to the calc</button>`
+      : `<p class="hydreport-note">No candidate spacing passed — ${escapeHtml((r.governing || "").slice(0, 120))}</p>`;
+    document.getElementById("seismicApplyOpt")?.addEventListener("click", seismicApplyOptimize);
+  } catch (error) {
+    seismicEl("seismicOptResult").innerHTML = `<p class="hydreport-note">${escapeHtml(error.message || "Optimizer failed.")}</p>`;
+  }
+  seismicEl("seismicOptimize").disabled = false;
+}
+
+function seismicApplyOptimize() {
+  // Stamp the optimizer's spacing into the calc: the main becomes the
+  // calculator's Main Size/Type (its auto ZOI line follows the spacing by
+  // itself), and each branch classification contributes total x (s /
+  // mainLen) feet per brace - the proportional math designers did by hand.
+  const opt = seismicState.lastOptimize;
+  if (!opt?.result?.spacingFt) return;
+  const s = opt.result.spacingFt;
+  const mainLen = opt.result.mainLengthFt;
+  seismicEl("seismicSpacing").value = s;
+  const main = opt.stretch.find((p) => p.isMain);
+  if (main && seismicEl("seismicMainSize")) {
+    seismicEl("seismicMainSize").value = String(main.size);
+    seismicRefreshMainPipe();
+    seismicEl("seismicMainSched").value = main.schedule;
+  }
+  const wrap = seismicEl("seismicZoiRows");
+  wrap.innerHTML = "";
+  opt.stretch.filter((p) => !p.isMain).forEach((p) => {
+    const row = seismicAddRow("seismicZoiRows", "zoi");
+    row.querySelector('[data-f="size"]').value = String(p.size);
+    seismicRefreshPipeRow(row);
+    row.querySelector('[data-f="sched"]').value = p.schedule;
+    seismicRefreshPipeRow(row);
+    row.querySelector('[data-f="length"]').value = Math.round(p.totalLengthFt * s / mainLen * 100) / 100;
+  });
+  const status = seismicEl("seismicStatus");
+  if (status) status.textContent = `Applied ${s} ft spacing; main set to ${main ? main.label.replace(/^Main /, "") : "—"}, branch ZOI scaled from the ${mainLen} ft stretch.`;
+  seismicScheduleCalc();
+}
+
+function initSeismic() {
+  if (!seismicEl("seismicEdition")) return;
+  seismicLoadMeta().then(() => {
+    seismicAddRow("seismicZoiRows", "zoi");
+    seismicAddRow("seismicComponentRows", "component", "structure_attachment");
+    seismicAddRow("seismicComponentRows", "component", "pipe_attachment");
+    seismicAddRow("seismicStretchRows", "zoi");
+    seismicLoadContractors();
+    seismicRefreshPrBands();
+    seismicSetStep("project");
+    seismicUpdateOrientVisual();
+    seismicUpdateAngleBounds();
+    seismicApplyBraceTypeHints();
+    // pick up where the job left off: latest rack brace, else a fresh LAT-1
+    const existing = seismicJobBraces().sort((a, b) => (b.updated || 0) - (a.updated || 0));
+    if (existing.length) {
+      seismicApplyPayloadToForm(JSON.parse(JSON.stringify(existing[0].payload)));
+      seismicState.activeBraceId = existing[0].id;
+      const st = seismicEl("seismicBraceStatus");
+      if (st) st.textContent = `Picked up ${existing[0].id} from the rack.`;
+    } else {
+      seismicEl("seismicBraceId").value = seismicNextBraceId("lateral");
+      seismicDeriveStress();
+      // sync the load basis with the default edition on first load - the
+      // change handler only runs on user edits, so fire it once here
+      seismicEl("seismicEdition").dispatchEvent(new Event("change", { bubbles: true }));
+      seismicRunCalc();
+    }
+    seismicRenderRack();
+    seismicRefreshProjectSelect();
+  }).catch((e) => {
+    const status = seismicEl("seismicStatus");
+    if (status) status.textContent = e.message || "Could not load seismic data.";
+  });
+  seismicEl("seismicProjectSelect")?.addEventListener("change", (e) => {
+    if (e.target.value) seismicLoadProject(e.target.value);
+    else seismicState.activeProjectId = "";
+  });
+  seismicEl("seismicSaveProjectBtn")?.addEventListener("click", seismicSaveProject);
+  seismicEl("seismicNewProjectBtn")?.addEventListener("click", seismicNewProject);
+  seismicEl("seismicDeleteProjectBtn")?.addEventListener("click", seismicDeleteProject);
+  seismicEl("seismicAddBraceBtn")?.addEventListener("click", seismicStartNewBrace);
+  seismicEl("seismicWizBack")?.addEventListener("click", () => {
+    const i = SEISMIC_STEPS.findIndex(([k]) => k === seismicState.wizStep);
+    seismicSetStep(SEISMIC_STEPS[Math.max(0, i - 1)][0]);
+  });
+  seismicEl("seismicWizNext")?.addEventListener("click", () => {
+    const i = SEISMIC_STEPS.findIndex(([k]) => k === seismicState.wizStep);
+    seismicSetStep(SEISMIC_STEPS[Math.min(SEISMIC_STEPS.length - 1, i + 1)][0]);
+  });
+  seismicEl("seismicAddZoiRow").addEventListener("click", () => seismicAddRow("seismicZoiRows", "zoi"));
+  seismicEl("seismicAddStretchRow").addEventListener("click", () => seismicAddRow("seismicStretchRows", "zoi"));
+  seismicEl("seismicOptMainSize")?.addEventListener("change", () =>
+    seismicRefreshPipePair("seismicOptMainSize", "seismicOptMainSched"));
+  seismicEl("seismicMemberCategory").addEventListener("change", () => { seismicRefreshMemberSizes(); seismicScheduleCalc(); });
+  seismicEl("seismicBracedTable").addEventListener("change", () => { seismicRefreshBracedSizes(); seismicScheduleCalc(); });
+  seismicEl("seismicMainSize")?.addEventListener("change", () => {
+    seismicRefreshMainPipe();
+    seismicDeriveStress();
+    seismicSyncPipeAttSize();
+    seismicUpdateAutoLen();
+    seismicScheduleCalc();
+  });
+  seismicEl("seismicMainSched")?.addEventListener("change", () => { seismicDeriveStress(); seismicScheduleCalc(); });
+  seismicEl("seismicFastenerTable").addEventListener("change", () => { seismicRefreshFastenerSizes(); seismicRefreshPrBands(); seismicScheduleCalc(); });
+  seismicEl("seismicPrBand")?.addEventListener("change", seismicScheduleCalc);
+  seismicEl("seismicStructMember")?.addEventListener("change", () => { seismicUpdateStructMember(); seismicScheduleCalc(); });
+  seismicEl("seismicRbDetail")?.addEventListener("change", () => { seismicUpdateStructMember(); seismicScheduleCalc(); });
+  seismicEl("seismicOrientGroup")?.addEventListener("change", () => { seismicUpdateOrientVisual(); seismicUpdateAngleBounds(); });
+  seismicEl("seismicOrientSlider")?.addEventListener("input", (e) => seismicSetAngle(parseFloat(e.target.value)));
+  seismicEl("seismicAngleSlider")?.addEventListener("input", (e) => seismicSetAngle(parseFloat(e.target.value)));
+  seismicEl("seismicAngle")?.addEventListener("input", () => {
+    seismicUpdateOrientVisual();
+    seismicUpdateAngleBounds();
+    seismicUpdateAutoLen();
+  });
+  seismicEl("seismicRiseIn")?.addEventListener("input", seismicUpdateAutoLen);
+  seismicEl("seismicApplyLen")?.addEventListener("click", () => {
+    const btn = seismicEl("seismicApplyLen");
+    if (!btn.dataset.ftin) return;
+    seismicEl("seismicMemberLength").value = btn.dataset.ftin;
+    seismicEl("seismicMemberLength").dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  seismicEl("seismicFirmPick")?.addEventListener("change", () => {
+    const c = (seismicState.contractors || [])[parseInt(seismicEl("seismicFirmPick").value, 10)];
+    if (!c) return;
+    if (c.name) seismicEl("seismicFirmName").value = c.name;
+    if (c.address) seismicEl("seismicFirmAddress").value = c.address;
+    if (c.license) seismicEl("seismicFirmLicense").value = c.license;
+    seismicScheduleCalc();
+  });
+  seismicEl("seismicFirmRole")?.addEventListener("change", () => { seismicUpdateFirmLabels(); seismicScheduleCalc(); });
+  seismicEl("seismicAutoFit")?.addEventListener("click", seismicRunAutoFit);
+  seismicEl("seismicSpacingSlider")?.addEventListener("input", (e) => seismicTuneSpacing(parseInt(e.target.value, 10)));
+  seismicEl("seismicSdsLookup")?.addEventListener("click", seismicRunSdsLookup);
+  seismicEl("seismicBraceType")?.addEventListener("change", () => { seismicApplyBraceTypeHints(); seismicToggleQuickLong(); seismicUpdateOrientVisual(); });
+  seismicEl("seismicQlMfr")?.addEventListener("change", seismicQlRefresh);
+  seismicEl("seismicQlFig")?.addEventListener("change", seismicQlRefreshSizes);
+  seismicEl("seismicQuickLongRun")?.addEventListener("click", seismicRunQuickLong);
+  seismicEl("seismicSuggestBtn")?.addEventListener("click", seismicRunSuggest);
+  seismicEl("seismicEdition").addEventListener("change", () => {
+    const info = (seismicState.meta?.editions || []).find((e) => e.edition === seismicEl("seismicEdition").value);
+    const modeSel = seismicEl("seismicCpMode");
+    const wantsSds = info?.cp_input === "SDS";
+    modeSel.querySelector('option[value="sds"]').hidden = !wantsSds;
+    modeSel.querySelector('option[value="ss"]').hidden = wantsSds;
+    // the edition drives the basis: formula editions (2025 / 2022 post-TIA)
+    // auto-select From SDS, table editions auto-select From Ss
+    modeSel.value = wantsSds ? "sds" : "ss";
+    seismicEl("seismicCpValueLabel").textContent = { cp: "Cp", sds: "SDS", ss: "Ss" }[modeSel.value];
+    seismicUpdateHeightFactor();
+    seismicScheduleCalc();
+  });
+  seismicEl("seismicCpMode").addEventListener("change", () => {
+    seismicEl("seismicCpValueLabel").textContent = { cp: "Cp", sds: "SDS", ss: "Ss" }[seismicEl("seismicCpMode").value];
+    seismicScheduleCalc();
+  });
+  ["seismicAttachHeight", "seismicRoofHeight"].forEach((id) =>
+    seismicEl(id)?.addEventListener("input", () => { seismicUpdateHeightFactor(); seismicScheduleCalc(); }));
+  ["seismicBraceType", "seismicCpValue", "seismicSpacing", "seismicBracedSize", "seismicMemberSize",
+   "seismicMemberLength", "seismicAngle", "seismicConcentrated", "seismicFastenerSize", "seismicOrientation",
+   "seismicJobName", "seismicJobNumber", "seismicDesigner",
+   "seismicJobAddress", "seismicFirmName", "seismicFirmAddress", "seismicFirmLicense"]
+    .forEach((id) => seismicEl(id)?.addEventListener("input", seismicScheduleCalc));
+  seismicEl("seismicExportPdf").addEventListener("click", () => seismicExport("pdf"));
+  seismicEl("seismicCopyPng").addEventListener("click", () => seismicExport("png"));
+  seismicEl("seismicDetailDxf")?.addEventListener("click", async () => {
+    const status = seismicEl("seismicStatus");
+    if (!seismicState.lastPayload) return;
+    const dxfBtn = seismicEl("seismicDetailDxf");
+    dxfBtn.disabled = true;
+    if (status) status.textContent = "Building brace detail DXF… choose where to save.";
+    try {
+      const r = await readApiJson("./api/seismic/export-detail-dxf", {
+        method: "POST", body: JSON.stringify({ ...seismicState.lastPayload,
+          detailName: seismicEl("seismicDetailSelect")?.value || "generated" }) });
+      if (status) status.textContent = `Saved detail: ${r.path} — insert it on your plans next to the pasted calc.`;
+    } catch (error) {
+      if (status) status.textContent = (error.message === "Save cancelled." ? "Save cancelled." : (error.message || "DXF export failed."));
+    }
+    dxfBtn.disabled = false;
+  });
+  seismicEl("seismicOptimize").addEventListener("click", seismicRunOptimize);
+  // brace rack
+  seismicRenderRack();
+  seismicUpdateFoldHints();
+  seismicEl("seismicNewBrace")?.addEventListener("click", seismicStartNewBrace);
+  seismicEl("seismicDupBrace")?.addEventListener("click", seismicDuplicateBrace);
+  seismicEl("seismicBraceId")?.addEventListener("change", seismicRenameBrace);
+  seismicEl("seismicJobName")?.addEventListener("input", seismicRenderRack);
+  seismicEl("seismicExportAll")?.addEventListener("click", seismicExportAll);
+  // mini-calcs: branch-line restraint + riser-nipple screening
+  let miniTimer = null;
+  const miniRun = () => {
+    clearTimeout(miniTimer);
+    miniTimer = setTimeout(() => { seismicRunRestraint(); seismicRunRiserScreen(); }, 350);
+  };
+  seismicEl("seismicRestraintTable")?.addEventListener("change", () => { seismicRefreshRestraintSizes(); miniRun(); });
+  ["seismicRestraintSize", "seismicRestraintSpacing", "seismicRiserWp", "seismicRiserHr",
+   "seismicRiserS", "seismicRiserFy", "seismicCpValue", "seismicCpMode", "seismicEdition"]
+    .forEach((id) => seismicEl(id)?.addEventListener("input", miniRun));
+  // designer/job/firm info persists across sessions
+  const SEISMIC_PERSIST_IDS = ["seismicDesigner", "seismicJobName", "seismicJobNumber",
+    "seismicJobAddress", "seismicFirmRole", "seismicFirmName", "seismicFirmAddress", "seismicFirmLicense",
+    "seismicSiteClass", "seismicAsce"];
+  try {
+    const info = JSON.parse(localStorage.getItem(SEISMIC_INFO_KEY)) || {};
+    SEISMIC_PERSIST_IDS.forEach((id) => {
+      const el = seismicEl(id);
+      if (!info[id] || !el) return;
+      // selects always carry a default value - restore them directly;
+      // text inputs only fill when the user hasn't typed anything
+      if (el.tagName === "SELECT" || !el.value) el.value = info[id];
+    });
+    seismicUpdateFirmLabels();
+  } catch { /* first run */ }
+  const seismicPersistInfo = () => {
+    const info = {};
+    SEISMIC_PERSIST_IDS.forEach((k) => { const el = seismicEl(k); if (el) info[k] = el.value; });
+    localStorage.setItem(SEISMIC_INFO_KEY, JSON.stringify(info));
+  };
+  SEISMIC_PERSIST_IDS.forEach((id) => {
+    seismicEl(id)?.addEventListener("input", seismicPersistInfo);
+    seismicEl(id)?.addEventListener("change", seismicPersistInfo);
+  });
+  seismicEl("seismicStartOverButton")?.addEventListener("click", seismicStartOver);
+  seismicEl("seismicClearButton").addEventListener("click", () => {
+    const mp = seismicEl("seismicMainSize");
+    if (mp) { mp.value = ""; seismicRefreshMainPipe(); }
+    ["seismicZoiRows", "seismicComponentRows", "seismicStretchRows"].forEach((id) => { seismicEl(id).innerHTML = ""; });
+    seismicAddRow("seismicZoiRows", "zoi");
+    seismicAddRow("seismicComponentRows", "component", "structure_attachment");
+    seismicAddRow("seismicComponentRows", "component", "pipe_attachment");
+    seismicAddRow("seismicStretchRows", "zoi");
+    seismicDeriveStress();
+    const om = seismicEl("seismicOptMainSize");
+    if (om) { om.value = ""; seismicRefreshPipePair("seismicOptMainSize", "seismicOptMainSched"); }
+    const ol = seismicEl("seismicOptMainLen");
+    if (ol) ol.value = "";
+    seismicEl("seismicOptResult").innerHTML = "";
+    seismicRunCalc();
+  });
+}
+
+// ---- marketing screenshot staging -------------------------------------------
+// ?demo=seismic loads the seismic tool pre-filled with a passing calc so a
+// headless browser can capture site screenshots. Inert unless the query
+// parameter is present.
+function initDemoStage() {
+  const params = new URLSearchParams(location.search);
+  const demo = params.get("demo");
+  if (!demo) return;
+  setTheme(params.get("theme") === "light" ? "plain-light" : "default");
+  if (demo === "filters") {
+    (async () => {
+      await new Promise((r) => setTimeout(r, 1200));
+      setSimpleStep("materials");
+      await new Promise((r) => setTimeout(r, 600));
+      document.querySelector('[data-category-tab="Sprinklers"]')?.click();
+      await new Promise((r) => setTimeout(r, 600));
+      state.catalogFiltersOpen = true;
+      renderCatalog();
+    })();
+    return;
+  }
+  if (demo === "seismic-fresh") {
+    // first-open capture: just land on the seismic tool, nothing pre-filled
+    document.querySelector('[data-tool-tab="seismic"]')?.click();
+    return;
+  }
+  if (demo !== "seismic") return;
+  const finalStep = params.get("step") || "review";
+  document.querySelector('[data-tool-tab="seismic"]')?.click();
+  const stage = async () => {
+    await new Promise((r) => setTimeout(r, 1500));
+    const set = (id, v, evt = "change") => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = v;
+      el.dispatchEvent(new Event(evt, { bubbles: true }));
+    };
+    set("seismicJobName", "Harrison St High Rise", "input");
+    set("seismicJobNumber", "26-104", "input");
+    set("seismicMainSize", "4");
+    set("seismicMainSched", "Schedule 10");
+    set("seismicFastenerTable", "18.5.12.2(k)");
+    set("seismicMemberLength", "7-0", "input");
+    set("seismicSpacing", "36", "input");
+    set("seismicBraceId", "LAT-1", "input");
+    await new Promise((r) => setTimeout(r, 1600));
+    seismicSetAngle(45);
+    seismicSetStep(finalStep);
+  };
+  stage();
+}
+
+// ---- early-access flags -----------------------------------------------------
+// The paid pitch is "Material Data Submittal Generator + extra goodies" -
+// tools still maturing carry an EARLY ACCESS mark so nobody buys expecting
+// polish we haven't shipped yet. Framed as a perk, not an apology.
+const EARLY_ACCESS_TOOLS = ["hanger", "estimator", "seismic"];
+
+function initEarlyAccess() {
+  EARLY_ACCESS_TOOLS.forEach((key) => {
+    const tab = document.querySelector(`[data-tool-tab="${key}"]`);
+    if (tab && !tab.querySelector(".ea-pill")) {
+      tab.classList.add("is-early-access");
+      tab.insertAdjacentHTML("beforeend",
+        '<span class="ea-pill" title="Early Access — fully usable, still getting polish">Early Access</span>');
+    }
+    const panel = document.querySelector(`[data-tool-panel="${key}"]`);
+    if (!panel || panel.querySelector(".ea-banner")) return;
+    if (localStorage.getItem(`sprinkflow.ea.dismissed.${key}`) === "1") return;
+    const hero = panel.querySelector(".calculator-hero");
+    if (!hero) return;
+    const div = document.createElement("div");
+    div.className = "ea-banner";
+    div.innerHTML = `<span class="ea-pill">Early Access</span>
+      <span class="ea-banner-text">One of the extra goodies included with SprinkFlow — fully usable and improving with every release. Expect a rough edge here and there; your feedback shapes what gets built next.</span>
+      <button class="ghost-button compact-button" type="button" data-ea-dismiss>Got it</button>`;
+    hero.insertAdjacentElement("afterend", div);
+    div.querySelector("[data-ea-dismiss]").addEventListener("click", () => {
+      localStorage.setItem(`sprinkflow.ea.dismissed.${key}`, "1");
+      div.remove();
+    });
+  });
+}
+
+function initPdfcad() {
+  const drop = document.getElementById("pdfcadDrop");
+  if (!drop) return;
+  const fileInput = document.getElementById("pdfcadFileInput");
+  const takeFile = async (file) => {
+    if (!file) return;
+    if (!/pdf$/i.test(file.name) && file.type !== "application/pdf") {
+      const st = document.getElementById("pdfcadFileStatus"); if (st) st.textContent = "Please choose a PDF file."; return;
+    }
+    const st = document.getElementById("pdfcadFileStatus");
+    // A dropped file only reaches the server as base64: a ~100 MB+ PDF becomes a
+    // ~135 MB data URL plus another copy when the body is serialized, which the
+    // web view can't hold. Send big sets through the native picker instead
+    // (the browser never exposes a dropped file's real path, so we must ask).
+    if (file.size > 60 * 1024 * 1024) {
+      if (st) st.textContent = `${file.name} is ${(file.size / 1048576).toFixed(0)} MB — opening the file picker so it can be read straight off disk...`;
+      await pdfcadPickFile();
+      return;
+    }
+    try {
+      if (st) st.textContent = "Reading PDF...";
+      const dataUrl = await readFileAsDataUrl(file);
+      await pdfcadAnalyze(dataUrl, file.name, 0);
+    } catch (error) {
+      if (st) st.textContent = `Could not read ${file.name} in the browser — use "Choose PDF" to load it straight off disk.`;
+    }
+  };
+  drop.addEventListener("click", () => fileInput?.click());
+  drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput?.click(); } });
+  fileInput?.addEventListener("change", (e) => { if (e.target.files[0]) takeFile(e.target.files[0]); e.target.value = ""; });
+  drop.addEventListener("dragenter", (e) => { e.preventDefault(); drop.classList.add("drag-over"); });
+  drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("drag-over"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("drag-over"));
+  drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("drag-over"); if (e.dataTransfer.files[0]) takeFile(e.dataTransfer.files[0]); });
+  document.getElementById("pdfcadPickButton")?.addEventListener("click", pdfcadPickFile);
+  document.getElementById("pdfcadScaleSelect")?.addEventListener("change", renderPdfcadSummary);
+  // DWG/DXF viewer + ODA download links
+  document.getElementById("cadviewOpenButton")?.addEventListener("click", cadviewOpen);
+  document.getElementById("cadviewZoomSelect")?.addEventListener("change", cadviewRerender);
+  document.getElementById("cadviewClearButton")?.addEventListener("click", cadviewClear);
+  ["cadviewOdaLink", "pdfcadOdaLink"].forEach((id) =>
+    document.getElementById(id)?.addEventListener("click", () => window.open(ODA_DOWNLOAD_URL, "_blank", "noopener")));
+  document.getElementById("pdfcadConvertButton")?.addEventListener("click", pdfcadConvert);
+  let pdfcadScrollTimer = null;
+  document.getElementById("pdfcadCards")?.addEventListener("scroll", () => {
+    if (pdfcadScrollTimer) return;
+    pdfcadScrollTimer = setTimeout(() => { pdfcadScrollTimer = null; pdfcadLoadVisibleThumbs(); }, 120);
+  });
+  document.getElementById("pdfcadClearButton")?.addEventListener("click", () => {
+    pdfcadThumbQueue.length = 0;
+    if (pdfcadState.observer) { pdfcadState.observer.disconnect(); pdfcadState.observer = null; }
+    pdfcadState.token = null; pdfcadState.groups = []; pdfcadState.dims = null; pdfcadState.fileName = "";
+    pdfcadState.pageCount = 0; pdfcadState.page = 0; pdfcadState.layerMode = false;
+    const clearNote = document.getElementById("pdfcadLayerNote");
+    if (clearNote) clearNote.textContent = "Each color becomes its own CAD layer.";
+    document.getElementById("pdfcadGroupsList").innerHTML = "";
+    document.getElementById("pdfcadConvertButton").disabled = true;
+    document.getElementById("pdfcadFileStatus").textContent = "";
+    document.getElementById("pdfcadStatus").textContent = "";
+    document.getElementById("pdfcadSummary").innerHTML = "";
+    const cards = document.getElementById("pdfcadCards");
+    if (cards) cards.innerHTML = '<div class="pdfcad-cards-empty" id="pdfcadCardsEmpty">Drop or import a PDF and every sheet shows up here as a thumbnail &mdash; click the one you want to convert.</div>';
+    pdfcadUpdatePageLabel();
+  });
+  pdfcadUpdatePageLabel();
+}
+
+// ---- Explode CAD Blocks ----
+const cadxState = { token: null, fileName: "", stats: null };
+
+async function cadxAnalyze(fileDataUrl, fileName) {
+  const status = document.getElementById("cadxFileStatus");
+  const oda = document.getElementById("cadxOdaNote");
+  if (oda) oda.hidden = true;
+  if (status) status.textContent = "Reading drawing...";
+  try {
+    const body = fileDataUrl ? { file: { name: fileName, dataUrl: fileDataUrl } } : { token: cadxState.token };
+    const payload = await readApiJson("./api/cad-explode/analyze", { method: "POST", body: JSON.stringify(body) });
+    cadxState.token = payload.token;
+    cadxState.stats = payload;
+    if (fileName) cadxState.fileName = fileName;
+    renderCadxSummary(payload);
+    renderCadxBlocks(payload);
+    const hint = document.getElementById("cadxBlockHint");
+    if (hint) hint.textContent = (payload.uniqueBlocks || 0) > 0
+      ? `${(payload.uniqueBlocks || 0).toLocaleString()} unique block${payload.uniqueBlocks === 1 ? "" : "s"} - Explode & Save to flatten`
+      : "No blocks to explode";
+    const has = (payload.blockRefs || 0) > 0;
+    document.getElementById("cadxConvertButton").disabled = !has && (payload.entities || 0) === 0;
+    if (status) status.textContent = `${cadxState.fileName} loaded - ${(payload.blockRefs || 0).toLocaleString()} block reference${payload.blockRefs === 1 ? "" : "s"} found.`;
+  } catch (error) {
+    // needsOda comes back as a normal (ok:false) body via readApiJson throwing with the message
+    if (status) status.textContent = error.message || "Could not read that drawing.";
+    if (/ODA File Converter/i.test(error.message || "") && oda) oda.hidden = false;
+  }
+}
+
+function renderCadxSummary(p) {
+  const box = document.getElementById("cadxSummary");
+  if (!box) return;
+  const line = (k, v) => `<div class="layout-result-line"><span>${k}</span><strong>${v}</strong></div>`;
+  box.innerHTML =
+    line("Source format", p.isDwg ? "DWG (via ODA)" : "DXF") +
+    line("Block references", (p.blockRefs || 0).toLocaleString()) +
+    line("Unique blocks", (p.uniqueBlocks || 0).toLocaleString()) +
+    line("Entities (model space)", (p.entities || 0).toLocaleString());
+}
+
+function renderCadxBlocks(p) {
+  const wrap = document.getElementById("cadxBlocks");
+  if (!wrap) return;
+  const top = p.topBlocks || [];
+  if (!top.length) {
+    wrap.innerHTML = '<div class="pdfcad-cards-empty">No block references in this drawing &mdash; nothing to explode. (It may already be flattened.)</div>';
+    return;
+  }
+  const more = (p.uniqueBlocks || 0) - top.length;
+  wrap.innerHTML = '<div class="cadx-block-list">' + top.map((b) =>
+    `<div class="cadx-block-row"><span class="cadx-block-name">${escapeHtml(b.name)}</span><span class="cadx-block-count">${b.count.toLocaleString()}&times;</span></div>`).join("") +
+    (more > 0 ? `<div class="cadx-block-more">+ ${more.toLocaleString()} more block${more === 1 ? "" : "s"}</div>` : "") + "</div>";
+}
+
+async function cadxConvert() {
+  const status = document.getElementById("cadxStatus");
+  if (!cadxState.token) return;
+  const btn = document.getElementById("cadxConvertButton");
+  if (btn) btn.disabled = true;
+  if (status) status.textContent = "Exploding blocks... choose where to save the DXF.";
+  try {
+    const base = (cadxState.fileName || "drawing").replace(/\.(dwg|dxf)$/i, "");
+    const payload = await readApiJson("./api/cad-explode/convert", {
+      method: "POST",
+      body: JSON.stringify({ token: cadxState.token, defaultName: `${base}-exploded.dxf` }),
+    });
+    if (status) status.textContent = `Saved DXF: ${payload.path} - exploded ${(payload.exploded || 0).toLocaleString()} block${payload.exploded === 1 ? "" : "s"} into ${(payload.after || 0).toLocaleString()} entities` + (payload.dropped ? ` (${payload.dropped} xref/unresolved dropped).` : ".");
+  } catch (error) {
+    if (status) status.textContent = (error.message === "Save cancelled." ? "Save cancelled." : (error.message || "Explode failed."));
+    if (/ODA File Converter/i.test(error.message || "")) { const oda = document.getElementById("cadxOdaNote"); if (oda) oda.hidden = false; }
+  }
+  if (btn) btn.disabled = false;
+}
+
+function initCadx() {
+  const drop = document.getElementById("cadxDrop");
+  if (!drop) return;
+  const fileInput = document.getElementById("cadxFileInput");
+  const takeFile = async (file) => {
+    if (!file) return;
+    if (!/\.(dwg|dxf)$/i.test(file.name)) {
+      const st = document.getElementById("cadxFileStatus"); if (st) st.textContent = "Please choose a .dwg or .dxf file."; return;
+    }
+    const dataUrl = await readFileAsDataUrl(file);
+    await cadxAnalyze(dataUrl, file.name);
+  };
+  drop.addEventListener("click", () => fileInput?.click());
+  drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput?.click(); } });
+  fileInput?.addEventListener("change", (e) => { if (e.target.files[0]) takeFile(e.target.files[0]); e.target.value = ""; });
+  drop.addEventListener("dragenter", (e) => { e.preventDefault(); drop.classList.add("drag-over"); });
+  drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("drag-over"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("drag-over"));
+  drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("drag-over"); if (e.dataTransfer.files[0]) takeFile(e.dataTransfer.files[0]); });
+  document.getElementById("cadxConvertButton")?.addEventListener("click", cadxConvert);
+  document.getElementById("cadxClearButton")?.addEventListener("click", () => {
+    cadxState.token = null; cadxState.fileName = ""; cadxState.stats = null;
+    document.getElementById("cadxConvertButton").disabled = true;
+    document.getElementById("cadxFileStatus").textContent = "";
+    document.getElementById("cadxStatus").textContent = "";
+    document.getElementById("cadxSummary").innerHTML = "";
+    const oda = document.getElementById("cadxOdaNote"); if (oda) oda.hidden = true;
+    const blocks = document.getElementById("cadxBlocks");
+    if (blocks) blocks.innerHTML = '<div class="pdfcad-cards-empty">Drop or import a drawing and the blocks it contains are listed here, most-used first. Then hit Explode &amp; Save to flatten them all into a plain DXF.</div>';
+    const hint = document.getElementById("cadxBlockHint"); if (hint) hint.textContent = "Import a DWG or DXF to see its blocks";
+  });
+}
+
+function initHydreport() {
+  if (!document.getElementById("hydreportOutput")) return;
+  hydreportLoadCustomHazards();
+  renderHydreportCodes();
+  renderHydreportRooms();
+  renderHydreportPipes();
+  renderHydreportCustomList();
+  renderHydreportReportSelect();
+  renderHydreportProjectLink();
+  document.getElementById("hydreportAddCode")?.addEventListener("click", () => { hydreportState.codes.push({ code: "", edition: "" }); renderHydreportCodes(); generateHydreport(); });
+  document.getElementById("hydreportAddRoom")?.addEventListener("click", () => { hydreportState.rooms.push({ name: "", hazard: "light" }); renderHydreportRooms(); generateHydreport(); });
+  document.getElementById("hydreportAddPipe")?.addEventListener("click", () => { hydreportState.pipes.push({ desc: "", spec: "" }); renderHydreportPipes(); generateHydreport(); });
+  ["hydreportProjectInput", "hydreportBaseAreaInput", "hydreportCeilingInput", "hydreportSlopeToggle", "hydreportStorageInput"].forEach((id) => {
+    const el = document.getElementById(id);
+    el?.addEventListener("input", generateHydreport);
+    el?.addEventListener("change", generateHydreport);
+  });
+  // QR reduction and dry pipe are mutually exclusive (QR reduction requires wet pipe).
+  const qrToggle = document.getElementById("hydreportQrToggle");
+  const dryToggle = document.getElementById("hydreportDryToggle");
+  const syncExclusion = () => { if (dryToggle) dryToggle.disabled = qrToggle?.checked; if (qrToggle) qrToggle.disabled = dryToggle?.checked; };
+  qrToggle?.addEventListener("change", () => { if (qrToggle.checked && dryToggle) dryToggle.checked = false; syncExclusion(); generateHydreport(); });
+  dryToggle?.addEventListener("change", () => { if (dryToggle.checked && qrToggle) qrToggle.checked = false; syncExclusion(); generateHydreport(); });
+  syncExclusion();
+  document.getElementById("hydreportCopyButton")?.addEventListener("click", async () => {
+    const status = document.getElementById("hydreportStatus");
+    try {
+      await navigator.clipboard.writeText(document.getElementById("hydreportOutput").value);
+      if (status) status.textContent = "Report copied to clipboard.";
+    } catch (e) {
+      const out = document.getElementById("hydreportOutput");
+      out.focus(); out.select();
+      if (status) status.textContent = "Press Ctrl+C to copy (clipboard access blocked).";
+    }
+  });
+  document.getElementById("hydreportClearButton")?.addEventListener("click", () => {
+    hydreportState.codes = [{ code: "NFPA 13", edition: "2025" }];
+    hydreportState.rooms = [{ name: "", hazard: "light" }];
+    hydreportState.pipes = JSON.parse(JSON.stringify(HYDREPORT_DEFAULT_PIPES));
+    ["hydreportProjectInput", "hydreportCeilingInput"].forEach((id) => { const el = document.getElementById(id); if (el) el.value = ""; });
+    ["hydreportQrToggle", "hydreportDryToggle", "hydreportSlopeToggle"].forEach((id) => { const el = document.getElementById(id); if (el) { el.checked = false; el.disabled = false; } });
+    const baseArea = document.getElementById("hydreportBaseAreaInput"); if (baseArea) baseArea.value = "1500";
+    const storage = document.getElementById("hydreportStorageInput"); if (storage) storage.value = "12";
+    const link = document.getElementById("hydreportLinkProjectSelect"); if (link) link.value = "";
+    const status = document.getElementById("hydreportStatus"); if (status) status.textContent = "";
+    renderHydreportCodes(); renderHydreportRooms(); renderHydreportPipes(); generateHydreport();
+  });
+  // Keep the linked-project list current (projects may be saved while this tab is open).
+  document.getElementById("hydreportLinkProjectSelect")?.addEventListener("focus", renderHydreportProjectLink);
+
+  // Link to a saved project — prefill the project name if empty.
+  document.getElementById("hydreportLinkProjectSelect")?.addEventListener("change", (e) => {
+    const id = e.target.value;
+    const nameInput = document.getElementById("hydreportProjectInput");
+    if (id && nameInput && !nameInput.value.trim()) {
+      const proj = (loadProjects() || []).find((p) => p.id === id);
+      if (proj && proj.name) { nameInput.value = proj.name; }
+    }
+    generateHydreport();
+  });
+
+  // Custom hazard editor
+  const hazEditor = document.getElementById("hydreportHazardEditor");
+  document.getElementById("hydreportAddHazardButton")?.addEventListener("click", () => { if (hazEditor) hazEditor.hidden = !hazEditor.hidden; });
+  document.getElementById("hydreportHazEditCancel")?.addEventListener("click", () => {
+    if (hazEditor) hazEditor.hidden = true;
+    ["hydreportHazEditName", "hydreportHazEditDensity", "hydreportHazEditArea"].forEach((id) => { const el = document.getElementById(id); if (el) el.value = ""; });
+    const note = document.getElementById("hydreportHazEditNote"); if (note) note.textContent = "";
+  });
+  document.getElementById("hydreportHazEditSave")?.addEventListener("click", () => {
+    const note = document.getElementById("hydreportHazEditNote");
+    const name = (document.getElementById("hydreportHazEditName")?.value || "").trim();
+    const density = parseFloat(document.getElementById("hydreportHazEditDensity")?.value);
+    const area = parseFloat(document.getElementById("hydreportHazEditArea")?.value);
+    if (!name) { if (note) { note.textContent = "Enter a name for the hazard."; note.className = "hydreport-note warn"; } return; }
+    if (!Number.isFinite(density) || density <= 0) { if (note) { note.textContent = "Enter a valid density (gpm/ft2)."; note.className = "hydreport-note warn"; } return; }
+    const hazard = { id: "custom-" + Date.now().toString(36), label: name, density, designArea: Number.isFinite(area) && area > 0 ? area : null, custom: true };
+    hydreportCustomHazards.push(hazard);
+    hydreportSaveCustomHazards();
+    ["hydreportHazEditName", "hydreportHazEditDensity", "hydreportHazEditArea"].forEach((id) => { const el = document.getElementById(id); if (el) el.value = ""; });
+    if (hazEditor) hazEditor.hidden = true;
+    if (note) note.textContent = "";
+    renderHydreportCustomList(); renderHydreportRooms(); generateHydreport();
+  });
+
+  // Saved reports: Save / Load / Delete / New
+  document.getElementById("hydreportSaveReportButton")?.addEventListener("click", () => {
+    const status = document.getElementById("hydreportStatus");
+    const projectName = (document.getElementById("hydreportProjectInput")?.value || "").trim();
+    let name = projectName || "Untitled report";
+    const reports = hydreportLoadReports();
+    let id = hydreportState.activeReportId;
+    if (!id) { id = "rep-" + Date.now().toString(36); hydreportState.activeReportId = id; }
+    const entry = { id, name, savedAt: new Date().toISOString(), data: hydreportCollectState() };
+    const idx = reports.findIndex((r) => r.id === id);
+    if (idx >= 0) reports[idx] = entry; else reports.push(entry);
+    reports.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    hydreportSaveReports(reports);
+    renderHydreportReportSelect();
+    const btn = document.getElementById("hydreportSaveReportButton");
+    if (btn) { btn.innerHTML = "&#10003; Saved"; window.setTimeout(() => { btn.innerHTML = "&#128190; Save Report"; }, 2000); }
+    if (status) status.textContent = `Saved report: ${name}`;
+  });
+  document.getElementById("hydreportLoadReportButton")?.addEventListener("click", () => {
+    const sel = document.getElementById("hydreportReportSelect");
+    const id = sel?.value;
+    const status = document.getElementById("hydreportStatus");
+    if (!id) { if (status) status.textContent = "Pick a saved report to load."; return; }
+    const rep = hydreportLoadReports().find((r) => r.id === id);
+    if (!rep) return;
+    hydreportState.activeReportId = id;
+    hydreportApplyState(rep.data);
+    const qr2 = document.getElementById("hydreportQrToggle"), dry2 = document.getElementById("hydreportDryToggle");
+    if (dry2) dry2.disabled = !!qr2?.checked; if (qr2) qr2.disabled = !!dry2?.checked;
+    generateHydreport();
+    if (status) status.textContent = `Loaded report: ${rep.name}`;
+  });
+  document.getElementById("hydreportDeleteReportButton")?.addEventListener("click", () => {
+    const sel = document.getElementById("hydreportReportSelect");
+    const id = sel?.value;
+    if (!id) return;
+    const reports = hydreportLoadReports().filter((r) => r.id !== id);
+    hydreportSaveReports(reports);
+    if (hydreportState.activeReportId === id) hydreportState.activeReportId = "";
+    renderHydreportReportSelect();
+    const status = document.getElementById("hydreportStatus"); if (status) status.textContent = "Report deleted.";
+  });
+  document.getElementById("hydreportNewReportButton")?.addEventListener("click", () => {
+    hydreportState.activeReportId = "";
+    hydreportApplyState({});
+    const status = document.getElementById("hydreportStatus"); if (status) status.textContent = "Started a new report.";
+    renderHydreportReportSelect();
+    generateHydreport();
+  });
+
+  generateHydreport();
+}
+
+function initVicinityTool() {
+  dom.vicinityAddressInput?.addEventListener("input", () => {
+    vicinityState.point = null;
+    window.clearTimeout(vicinityState.suggestTimer);
+    vicinityState.suggestTimer = window.setTimeout(vicinityFetchSuggestions, 350);
+  });
+  document.addEventListener("click", (event) => {
+    if (dom.vicinitySuggest && !event.target.closest(".vicinity-address-wrap")) dom.vicinitySuggest.hidden = true;
+  });
+  dom.vicinityGenerateButton?.addEventListener("click", vicinityGenerate);
+  dom.vicinityCopyButton?.addEventListener("click", vicinityCopyImage);
+  dom.vicinityPngButton?.addEventListener("click", vicinityExportPng);
+  dom.vicinityDxfButton?.addEventListener("click", vicinityExportDxf);
+  dom.vicinitySvg?.addEventListener("click", (event) => {
+    if (vicinityState.dragMoved) { vicinityState.dragMoved = false; return; }  // was a drag, not a click
+    const street = event.target.closest("[data-vic-key]");
+    if (!street) return;
+    const key = street.dataset.vicKey;
+    const way = vicinityState.ways.find((w) => vicinityWayKey(w) === key);
+    if (!way) return;
+    vicinityState.overrides[key] = !vicinityIsMajor(way);
+    renderVicinityMap();
+  });
+
+  // Drag the AREA OF WORK rectangle and its label independently; the leader
+  // between them re-anchors live.
+  dom.vicinitySvg?.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 || !vicinityState.ways.length) return;   // left-drag only (right = context menu)
+    const label = event.target.closest("[data-vic-label]");
+    const handle = event.target.closest("[data-drag]");
+    const [px, py] = vicinitySvgPoint(event);
+    if (label) {
+      const key = label.dataset.vicLabel;
+      vicinityState.drag = { kind: "streetLabel", key, el: label,
+        bx: +label.dataset.bx, by: +label.dataset.by, ang: +label.dataset.ang,
+        px, py, start: { ...(vicinityState.labelPos[key] || { dx: 0, dy: 0 }) } };
+    } else if (handle) {
+      const kind = handle.dataset.drag;
+      vicinityState.drag = { kind, px, py, start: kind === "work" ? { ...vicinityState.workOffset } : { ...vicinityState.labelOffset } };
+    } else {
+      return;
+    }
+    vicinityState.dragMoved = false;
+    try { dom.vicinitySvg.setPointerCapture(event.pointerId); } catch (e) { /* older webview */ }
+    event.preventDefault();
+  });
+  dom.vicinitySvg?.addEventListener("pointermove", (event) => {
+    if (!vicinityState.drag) return;
+    const [px, py] = vicinitySvgPoint(event);
+    const d = vicinityState.drag;
+    const ddx = px - d.px, ddy = py - d.py;
+    if (Math.abs(ddx) > 2 || Math.abs(ddy) > 2) vicinityState.dragMoved = true;
+    if (d.kind === "streetLabel") {
+      const nx = d.bx + d.start.dx + ddx, ny = d.by + d.start.dy + ddy;
+      d.el.setAttribute("x", nx.toFixed(1));
+      d.el.setAttribute("y", ny.toFixed(1));
+      d.el.setAttribute("transform", `rotate(${d.ang} ${nx.toFixed(1)} ${ny.toFixed(1)})`);
+      vicinityState.labelPos[d.key] = { dx: d.start.dx + ddx, dy: d.start.dy + ddy };
+      return;
+    }
+    const target = d.kind === "work" ? vicinityState.workOffset : vicinityState.labelOffset;
+    target.dx = d.start.dx + ddx;
+    target.dy = d.start.dy + ddy;
+    vicinityPositionWork();
+  });
+  const endDrag = (event) => {
+    if (!vicinityState.drag) return;
+    vicinityState.drag = null;
+    try { dom.vicinitySvg.releasePointerCapture(event.pointerId); } catch (e) { /* noop */ }
+  };
+  dom.vicinitySvg?.addEventListener("pointerup", endDrag);
+  dom.vicinitySvg?.addEventListener("pointercancel", endDrag);
+
+  // Right-click a street or its label -> Edit/Remove label menu.
+  dom.vicinitySvg?.addEventListener("contextmenu", (event) => {
+    const labelEl = event.target.closest("[data-vic-label]");
+    const streetEl = event.target.closest("[data-vic-key]");
+    if (!labelEl && !streetEl) return;
+    event.preventDefault();
+    if (labelEl) {
+      const nameKey = labelEl.dataset.vicLabel;
+      const way = vicinityState.ways.find((w) => (w.name || "").toUpperCase() === nameKey);
+      vicinityOpenMenu(event.clientX, event.clientY, { nameKey, streetName: way?.name || nameKey, way: null });
+    } else {
+      const way = vicinityState.ways.find((w) => vicinityWayKey(w) === streetEl.dataset.vicKey);
+      if (!way) return;
+      vicinityOpenMenu(event.clientX, event.clientY, { nameKey: (way.name || "").toUpperCase(), streetName: way.name, way });
+    }
+  });
+  document.addEventListener("pointerdown", (event) => {
+    if (!event.target.closest("#vicinityMenu")) vicinityCloseMenu();
+  });
+  [dom.vicinityCoverageSelect, dom.vicinityWorkSizeSelect, dom.vicinityWorkRotationInput, dom.vicinityLabelsToggle].forEach((el) => {
+    el?.addEventListener("change", () => {
+      if (vicinityState.ways.length && dom.vicinityCoverageSelect === el) vicinityGenerate();
+      else if (vicinityState.ways.length) renderVicinityMap();
+    });
+  });
+  dom.vicinityClearButton?.addEventListener("click", () => {
+    vicinityState.point = null; vicinityState.center = null; vicinityState.label = ""; vicinityState.ways = []; vicinityState.overrides = {};
+    vicinityState.labelHidden = {}; vicinityState.labelText = {}; vicinityState.labelPos = {};
+    vicinityState.workOffset = { dx: 0, dy: 0 }; vicinityState.labelOffset = { dx: 0, dy: 0 };
+    if (dom.vicinityAddressInput) dom.vicinityAddressInput.value = "";
+    if (dom.vicinitySvg) dom.vicinitySvg.innerHTML = "";
+    const panEl = document.getElementById("vicinityPan"); if (panEl) panEl.hidden = true;
+    if (dom.vicinityMapEmpty) dom.vicinityMapEmpty.hidden = false;
+    if (dom.vicinityStatus) dom.vicinityStatus.textContent = "";
+    if (dom.vicinityCopyButton) dom.vicinityCopyButton.disabled = true;
+    if (dom.vicinityPngButton) dom.vicinityPngButton.disabled = true;
+    if (dom.vicinityDxfButton) dom.vicinityDxfButton.disabled = true;
+  });
+  const PAN_DIRS = { up: [0, 1], down: [0, -1], left: [-1, 0], right: [1, 0] };
+  document.getElementById("vicinityPan")?.querySelectorAll("[data-pan]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const dir = btn.dataset.pan;
+      if (dir === "recenter") vicinityRecenter();
+      else if (PAN_DIRS[dir]) vicinityPan(PAN_DIRS[dir][0], PAN_DIRS[dir][1]);
+    });
+  });
+}
+
+function initHangerSpacing() {
+  if (!dom.hangerTypeSelect) return;
+  populateHangerSizes();
+  syncHangerMaxSpacing();
+  renderHangerTable();
+  calculateAndRenderHanger();
+  dom.hangerTypeSelect.addEventListener("change", () => { syncHangerMaxSpacing(); calculateAndRenderHanger(); });
+  dom.hangerSizeSelect?.addEventListener("change", () => { syncHangerMaxSpacing(); calculateAndRenderHanger(); });
+  dom.hangerLengthInput?.addEventListener("keydown", (e) => { if (e.key === "Enter") calculateAndRenderHanger(); });
+  dom.hangerTableEditButton?.addEventListener("click", () => {
+    hangerTableEditMode = !hangerTableEditMode;
+    renderHangerTable();
+    if (!hangerTableEditMode) { syncHangerMaxSpacing(); calculateAndRenderHanger(); saveState(); }
+  });
+  dom.hangerTableResetButton?.addEventListener("click", () => {
+    state.hangerSpacing = JSON.parse(JSON.stringify(HANGER_SPACING_DEFAULT));
+    renderHangerTable();
+    syncHangerMaxSpacing();
+    calculateAndRenderHanger();
+    saveState();
+  });
+  dom.hangerTable?.addEventListener("input", (e) => {
+    const t = e.target;
+    if (!t.classList || !t.classList.contains("hanger-cell-input")) return;
+    const type = t.dataset.htype;
+    const size = HANGER_SIZES[Number(t.dataset.hidx)];
+    if (!type || !size) return;
+    const tbl = hangerSpacingTable();
+    if (!tbl[type]) tbl[type] = {};
+    const raw = String(t.value).trim();
+    tbl[type][size] = raw === "" ? null : (Number.isFinite(Number(raw)) ? Number(raw) : null);
+  });
+  dom.hangerLengthInput?.addEventListener("input", calculateAndRenderHanger);
+  document.getElementById("hangerMaxSource")?.addEventListener("click", (e) => {
+    if (e.target.classList && e.target.classList.contains("hb-view-table")) {
+      const d = document.getElementById("hangerReferenceDetails");
+      if (d) { d.open = true; d.scrollIntoView({ behavior: "smooth", block: "nearest" }); }
+    }
+  });
+  document.querySelectorAll(".hb-tab").forEach((b) => b.addEventListener("click", () => setHbTab(b.dataset.hbTab)));
+  dom.bracingLengthInput?.addEventListener("input", onBracingBaseChange);
+  dom.bracingSpacingInput?.addEventListener("input", onBracingBaseChange);
+  document.querySelectorAll("input[name='bracingType']").forEach((r) => r.addEventListener("change", onBracingBaseChange));
+  dom.bracingEndSlider?.addEventListener("input", () => { bracingEndUserSet = true; calculateAndRenderBracing(); });
+  calculateAndRenderBracing();
+  dom.blrLengthInput?.addEventListener("input", calculateAndRenderBlr);
+  dom.blrSpacingInput?.addEventListener("input", calculateAndRenderBlr);
+  dom.blrSizeSelect?.addEventListener("change", () => { renderBlrTable(); calculateAndRenderBlr(); });
+  document.querySelectorAll("input[name='blrMaterial']").forEach((r) => r.addEventListener("change", renderBlrTable));
+  renderBlrTable();
+  calculateAndRenderBlr();
+}
+
+function setHbTab(tab) {
+  document.querySelectorAll(".hb-tab").forEach((b) => {
+    const on = b.dataset.hbTab === tab;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+  });
+  document.querySelectorAll(".hb-tool").forEach((t) => { t.hidden = t.dataset.hbTool !== tab; });
+}
+
+function formatFileSize(bytes) {
+  const size = Number(bytes) || 0;
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function setPdfMergeStatus(message, type = "info") {
+  if (!dom.pdfMergeStatus) return;
+  dom.pdfMergeStatus.textContent = message || "";
+  dom.pdfMergeStatus.dataset.status = type;
+  scheduleStatusAutoClear(dom.pdfMergeStatus, message, type, () => setPdfMergeStatus(""));
+}
+
+function setPdfCompressionProgress(job) {
+  const active = Boolean(job && ["running", "canceling"].includes(job.status));
+  if (dom.pdfCompressionProgress) dom.pdfCompressionProgress.hidden = !job;
+  const progress = Math.max(0, Math.min(100, Number(job?.progress) || 0));
+  if (dom.pdfCompressionProgressLabel) dom.pdfCompressionProgressLabel.textContent = job?.message || "Preparing compression...";
+  if (dom.pdfCompressionProgressPercent) dom.pdfCompressionProgressPercent.textContent = `${Math.round(progress)}%`;
+  if (dom.pdfCompressionProgressBar) dom.pdfCompressionProgressBar.style.width = `${progress}%`;
+  if (dom.pdfCompressionProgressDetails) dom.pdfCompressionProgressDetails.textContent = job?.detail || "";
+  if (dom.pdfAbortCompressionButton) dom.pdfAbortCompressionButton.hidden = !active;
+}
+
+function setPdfCompressionBusy(isBusy) {
+  if (dom.pdfCompressButton) dom.pdfCompressButton.disabled = isBusy || pdfMergeFiles.length < 1;
+  if (dom.pdfMergeButton) dom.pdfMergeButton.disabled = isBusy || pdfMergeFiles.length < 2;
+  if (dom.pdfMergeImportButton) dom.pdfMergeImportButton.disabled = isBusy;
+  dom.pdfCompressionOptions.forEach((input) => {
+    input.disabled = isBusy;
+  });
+}
+
+function selectedPdfCompression() {
+  return dom.pdfCompressionOptions.find((input) => input.checked)?.value || "recommended";
+}
+
+function syncPdfCompressionOptions() {
+  dom.pdfCompressionOptions.forEach((input) => {
+    input.closest(".pdf-compression-option")?.classList.toggle("active", input.checked);
+  });
+}
+
+function pdfCompressionReductionText(file) {
+  const result = file.compressionResult;
+  if (!result?.originalBytes || !result?.outputBytes) return "";
+  const reduction = Math.max(0, Math.round((1 - (result.outputBytes / result.originalBytes)) * 100));
+  return `PDF compressed (-${reduction}%)`;
+}
+
+function renderPdfMergeWorkspace() {
+  if (dom.pdfMergeCount) {
+    dom.pdfMergeCount.textContent = `${pdfMergeFiles.length} PDF${pdfMergeFiles.length === 1 ? "" : "s"}`;
+  }
+  const compressionBusy = Boolean(pdfCompressionJobId);
+  if (dom.pdfMergeButton) dom.pdfMergeButton.disabled = compressionBusy || pdfMergeFiles.length < 2;
+  if (dom.pdfCompressButton) dom.pdfCompressButton.disabled = compressionBusy || pdfMergeFiles.length < 1;
+  if (!dom.pdfMergeList) return;
+  if (!pdfMergeFiles.length) {
+    dom.pdfMergeList.innerHTML = '<div class="empty-state">Drop PDFs here or use Import PDF Files.</div>';
+    return;
+  }
+  dom.pdfMergeList.innerHTML = pdfMergeFiles.map((file, index) => `
+    <article class="pdf-merge-item">
+      <div class="pdf-merge-order">${index + 1}</div>
+      <div class="pdf-merge-preview">
+        ${file.thumbnailDataUrl
+          ? `<img src="${escapeHtml(file.thumbnailDataUrl)}" alt="${escapeHtml(file.name)} first page preview" />`
+          : `<span>${file.thumbnailStatus === "loading" ? "Rendering" : "PDF"}</span>`}
+      </div>
+      <div class="pdf-merge-copy">
+        <p title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</p>
+        <span>${escapeHtml(formatFileSize(file.size))} - ${escapeHtml(formatPdfPageCount(file.pageCount, file.thumbnailStatus))}</span>
+        ${file.compressionResult ? `
+          <strong class="pdf-compression-result">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5" /></svg>
+            ${escapeHtml(pdfCompressionReductionText(file))}
+          </strong>
+        ` : ""}
+      </div>
+      <div class="pdf-merge-actions">
+        <button class="small-button icon-button" type="button" data-pdf-merge-action="up" data-pdf-merge-id="${escapeHtml(file.id)}" ${index === 0 ? "disabled" : ""} aria-label="Move ${escapeHtml(file.name)} up" title="Move up">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5" /><path d="M5 12l7-7 7 7" /></svg>
+        </button>
+        <button class="small-button icon-button" type="button" data-pdf-merge-action="down" data-pdf-merge-id="${escapeHtml(file.id)}" ${index === pdfMergeFiles.length - 1 ? "disabled" : ""} aria-label="Move ${escapeHtml(file.name)} down" title="Move down">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14" /><path d="M19 12l-7 7-7-7" /></svg>
+        </button>
+        <button class="small-button danger-button icon-button" type="button" data-pdf-merge-action="remove" data-pdf-merge-id="${escapeHtml(file.id)}" aria-label="Remove ${escapeHtml(file.name)}" title="Remove">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M6 6l1 15h10l1-15" /><path d="M10 11v6" /><path d="M14 11v6" /></svg>
+        </button>
+      </div>
+    </article>
+  `).join("");
+}
+
+function formatPdfPageCount(pageCount, status = "") {
+  const count = Number(pageCount);
+  if (Number.isFinite(count) && count > 0) return `${count} page${count === 1 ? "" : "s"}`;
+  if (status === "loading") return "reading pages";
+  return "page count pending";
+}
+
+async function loadPdfMergeThumbnail(id) {
+  const file = pdfMergeFiles.find((item) => item.id === id);
+  if (!file || file.thumbnailStatus === "loading" || file.thumbnailStatus === "ready") return;
+  file.thumbnailStatus = "loading";
+  renderPdfMergeWorkspace();
+  try {
+    const response = await fetch("./api/pdf-thumbnail", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        file: {
+          name: file.name,
+          dataUrl: file.dataUrl,
+        },
+      }),
+    });
+    const result = await readJsonResponse(response);
+    if (!response.ok || !result.ok) throw new Error(result.error || `Thumbnail failed with server status ${response.status}.`);
+    const current = pdfMergeFiles.find((item) => item.id === id);
+    if (!current) return;
+    current.thumbnailDataUrl = result.thumbnailDataUrl || "";
+    current.pageCount = result.pageCount || current.pageCount || null;
+    current.thumbnailStatus = result.thumbnailDataUrl ? "ready" : "fallback";
+  } catch (error) {
+    const current = pdfMergeFiles.find((item) => item.id === id);
+    if (current) {
+      current.thumbnailStatus = "fallback";
+      current.thumbnailError = error.message || "Thumbnail failed.";
+    }
+  } finally {
+    renderPdfMergeWorkspace();
+  }
+}
+
+function hydratePdfMergeThumbnails(files) {
+  files.forEach((file) => {
+    void loadPdfMergeThumbnail(file.id);
+  });
+}
+
+async function addPdfMergeFiles(files) {
+  if (!ensureLicensedToolAccess(setPdfMergeStatus)) return;
+  const pdfFiles = files.filter((file) => file.name.toLowerCase().endsWith(".pdf") || file.type === "application/pdf");
+  if (!pdfFiles.length) {
+    setPdfMergeStatus("Drop or import PDFs only.", "error");
+    return;
+  }
+  setPdfMergeStatus(`Reading ${pdfFiles.length} PDF${pdfFiles.length === 1 ? "" : "s"}...${ignoredFilesNote(files.length, pdfFiles.length)}`, "info");
+  try {
+    const nextFiles = [];
+    for (const file of pdfFiles) {
+      nextFiles.push({
+        id: localId("pdf-merge"),
+        name: file.name,
+        size: file.size,
+        objectUrl: URL.createObjectURL(file),
+        dataUrl: await readFileAsDataUrl(file),
+        pageCount: null,
+        thumbnailDataUrl: "",
+        thumbnailStatus: "pending",
+      });
+    }
+    pdfMergeFiles = [...pdfMergeFiles, ...nextFiles];
+    renderPdfMergeWorkspace();
+    hydratePdfMergeThumbnails(nextFiles);
+    setPdfMergeStatus(`${nextFiles.length} PDF${nextFiles.length === 1 ? "" : "s"} added to the merge workspace.`, "success");
+  } catch (error) {
+    setPdfMergeStatus(`Could not read PDFs: ${error.message || "File read failed."}`, "error");
+  } finally {
+    if (dom.pdfMergeInput) dom.pdfMergeInput.value = "";
+  }
+}
+
+function movePdfMergeFile(id, direction) {
+  const index = pdfMergeFiles.findIndex((file) => file.id === id);
+  const nextIndex = direction === "up" ? index - 1 : index + 1;
+  if (index < 0 || nextIndex < 0 || nextIndex >= pdfMergeFiles.length) return;
+  const next = [...pdfMergeFiles];
+  [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+  pdfMergeFiles = next;
+  renderPdfMergeWorkspace();
+}
+
+function removePdfMergeFile(id) {
+  const removed = pdfMergeFiles.find((file) => file.id === id);
+  if (removed?.objectUrl) URL.revokeObjectURL(removed.objectUrl);
+  pdfMergeFiles = pdfMergeFiles.filter((file) => file.id !== id);
+  renderPdfMergeWorkspace();
+  setPdfMergeStatus(pdfMergeFiles.length ? "PDF removed from workspace." : "", "info");
+}
+
+function clearPdfMergeWorkspace() {
+  pdfMergeFiles.forEach((file) => {
+    if (file.objectUrl) URL.revokeObjectURL(file.objectUrl);
+  });
+  pdfMergeFiles = [];
+  renderPdfMergeWorkspace();
+  setPdfMergeStatus("", "info");
+  if (dom.pdfMergeInput) dom.pdfMergeInput.value = "";
+}
+
+function defaultPdfOutputName(operation) {
+  const firstName = pdfMergeFiles[0]?.name || "SprinkFlow PDFs.pdf";
+  const baseName = firstName.replace(/\.pdf$/i, "").trim() || "SprinkFlow PDFs";
+  if (operation === "compress" && pdfMergeFiles.length > 1) return `${baseName} compressed.zip`;
+  if (operation === "compress") return `${baseName} compressed.pdf`;
+  return `${baseName}.pdf`;
+}
+
+async function runPdfWorkspaceOperation(operation = "merge") {
+  if (!ensureLicensedToolAccess(setPdfMergeStatus)) return;
+  if (operation === "merge" && pdfMergeFiles.length < 2) {
+    setPdfMergeStatus("Add at least two PDFs before merging.", "error");
+    return;
+  }
+  if (operation === "compress" && pdfMergeFiles.length < 1) {
+    setPdfMergeStatus("Add at least one PDF before compressing.", "error");
+    return;
+  }
+  const mergeCompress = operation !== "compress" && currentPdfMode === "mergeCompress";
+  const activeButton = operation === "compress" ? dom.pdfCompressButton : dom.pdfMergeButton;
+  const idleText = operation === "compress" ? "Compress PDFs" : (mergeCompress ? "Merge & Compress" : "Merge PDFs");
+  const busyText = operation === "compress" ? "Compressing..." : (mergeCompress ? "Merging & compressing..." : "Merging...");
+  const operationLabel = operation === "compress" ? "Compressing" : (mergeCompress ? "Merging & compressing" : "Merging");
+  setPdfMergeStatus(`${operationLabel} PDFs. Choose a save location when prompted...`, "info");
+  if (activeButton) {
+    activeButton.disabled = true;
+    activeButton.textContent = busyText;
+  }
+  try {
+    const response = await fetch("./api/merge-pdfs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        operation,
+        compression: mergeCompress ? selectedPdfCompression() : "none",
+        defaultName: defaultPdfOutputName(operation),
+        files: pdfMergeFiles.map((file) => ({
+          name: file.name,
+          dataUrl: file.dataUrl,
+        })),
+      }),
+    });
+    const result = await readJsonResponse(response);
+    if (!response.ok || !result.ok) throw new Error(result.error || `PDF merge failed with server status ${response.status}.`);
+    const reduced = result.originalBytes && result.outputBytes
+      ? ` Size: ${formatFileSize(result.originalBytes)} to ${formatFileSize(result.outputBytes)}.`
+      : "";
+    const engine = result.engine && result.engine !== "none" ? ` Engine: ${result.engine}.` : "";
+    if (operation === "compress" && result.originalBytes && result.outputBytes) {
+      const compressedAt = new Date().toISOString();
+      pdfMergeFiles = pdfMergeFiles.map((file) => ({
+        ...file,
+        compressionResult: {
+          originalBytes: result.originalBytes,
+          outputBytes: result.outputBytes,
+          path: result.path,
+          engine: result.engine || "Ghostscript",
+          compressedAt,
+        },
+      }));
+    }
+    setPdfMergeStatus(`${result.message || "PDF output created."}${engine}${reduced} Saved: ${result.path}`, "success");
+  } catch (error) {
+    setPdfMergeStatus(`Could not ${operation === "compress" ? "compress" : "merge"} PDFs: ${error.message || "Operation failed."}`, "error");
+  } finally {
+    if (activeButton) {
+      activeButton.textContent = idleText;
+    }
+    renderPdfMergeWorkspace();
+  }
+}
+
+function mergePdfWorkspace() {
+  return runPdfWorkspaceOperation("merge");
+}
+
+function applyPdfMode(mode) {
+  currentPdfMode = ["merge", "compress", "mergeCompress"].includes(mode) ? mode : "merge";
+  dom.pdfModeInputs?.forEach((input) => { input.checked = input.value === currentPdfMode; });
+  const showCompression = currentPdfMode !== "merge";
+  if (dom.pdfCompressionPanel) dom.pdfCompressionPanel.hidden = !showCompression;
+  if (dom.pdfMergeButton) {
+    const isMergeMode = currentPdfMode === "merge" || currentPdfMode === "mergeCompress";
+    dom.pdfMergeButton.hidden = !isMergeMode;
+    dom.pdfMergeButton.textContent = currentPdfMode === "mergeCompress" ? "Merge & Compress" : "Merge PDFs";
+  }
+  if (dom.pdfCompressButton) dom.pdfCompressButton.hidden = currentPdfMode !== "compress";
+  if (dom.pdfModeHint) {
+    dom.pdfModeHint.textContent =
+      currentPdfMode === "compress"
+        ? "Shrink PDF file size. One PDF saves as a PDF; multiple save as a ZIP of compressed PDFs."
+        : currentPdfMode === "mergeCompress"
+          ? "Combine multiple PDFs into one file, then compress the merged result."
+          : "Combine multiple PDFs into a single file (no recompression).";
+  }
+  renderPdfMergeWorkspace();
+}
+
+function pdfRecentSubtitle(item) {
+  const parts = [];
+  if (item.kind) parts.push(item.kind);
+  if (item.bytes) parts.push(formatFileSize(item.bytes));
+  return parts.join(" · ");
+}
+
+function renderRecentOutputs() {
+  if (!dom.pdfRecentList) return;
+  if (!pdfRecentOutputs.length) {
+    dom.pdfRecentList.innerHTML = '<div class="empty-state">No recent outputs yet. Generate a submittal, calc package, or flow test sheet first.</div>';
+    return;
+  }
+  dom.pdfRecentList.innerHTML = pdfRecentOutputs.map((item, index) => `
+    <article class="pdf-recent-item" draggable="true" data-pdf-recent-index="${index}" title="${escapeHtml(item.path || item.name)}">
+      <svg class="pdf-recent-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="1.6" /><path d="M14 2v6h6" fill="none" stroke="currentColor" stroke-width="1.6" /></svg>
+      <div class="pdf-recent-meta">
+        <div class="pdf-recent-name">${escapeHtml(item.name)}</div>
+        <div class="pdf-recent-sub">${escapeHtml(pdfRecentSubtitle(item))}</div>
+      </div>
+      <button class="small-button pdf-recent-add" type="button" data-pdf-recent-add="${index}">Add</button>
+    </article>
+  `).join("");
+}
+
+async function loadRecentOutputs() {
+  if (!dom.pdfRecentList) return;
+  try {
+    const response = await fetch("./api/recent-outputs", { method: "GET" });
+    const result = await readJsonResponse(response);
+    if (!response.ok || !result.ok) throw new Error(result.error || "Could not load recent outputs.");
+    pdfRecentOutputs = Array.isArray(result.items) ? result.items : [];
+  } catch (error) {
+    pdfRecentOutputs = [];
+  }
+  renderRecentOutputs();
+}
+
+async function addRecentOutputToWorkspace(index) {
+  const item = pdfRecentOutputs[index];
+  if (!item) return;
+  if (!ensureLicensedToolAccess(setPdfMergeStatus)) return;
+  setPdfMergeStatus(`Adding ${item.name} to the workspace...`, "info");
+  try {
+    const response = await fetch("./api/read-output", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: item.path }),
+    });
+    const result = await readJsonResponse(response);
+    if (!response.ok || !result.ok || !result.dataUrl) throw new Error(result.error || "Could not read the output file.");
+    const file = {
+      id: localId("pdf-merge"),
+      name: result.name || item.name,
+      size: result.bytes || item.bytes || 0,
+      objectUrl: "",
+      dataUrl: result.dataUrl,
+      pageCount: null,
+      thumbnailDataUrl: "",
+      thumbnailStatus: "pending",
+    };
+    pdfMergeFiles = [...pdfMergeFiles, file];
+    renderPdfMergeWorkspace();
+    hydratePdfMergeThumbnails([file]);
+    setPdfMergeStatus(`${file.name} added to the workspace.`, "success");
+  } catch (error) {
+    setPdfMergeStatus(`Could not add ${item.name}: ${error.message || "Read failed."}`, "error");
+  }
+}
+
+function setHydraulicStatus(message, type = "info") {
+  if (!dom.hydraulicStatus) return;
+  dom.hydraulicStatus.textContent = message || "";
+  dom.hydraulicStatus.dataset.status = type;
+  scheduleStatusAutoClear(dom.hydraulicStatus, message, type, () => setHydraulicStatus(""));
+}
+
+function defaultHydraulicLabel(name, index = 0) {
+  const stem = String(name || `Hydraulic Calculation ${index + 1}`)
+    .replace(/\.pdf$/i, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return stem || `Hydraulic Calculation ${index + 1}`;
+}
+
+function cleanRemoteAreaValue(value) {
+  return String(value || "").replace(/\s+/g, " ").trim().slice(0, 80);
+}
+
+function hydraulicDetectionSummary(file) {
+  const parts = [];
+  if (file.remoteAreaNumber) parts.push(`Area/design ${file.remoteAreaNumber}`);
+  if (file.remoteAreaLocation) parts.push(file.remoteAreaLocation);
+  if (file.hazard) parts.push(file.hazard);
+  return parts.length ? `Detected: ${parts.join(" - ")}` : (file.detectedNote || "Review the TOC name and area/design number before generating.");
+}
+
+function remoteAreaSortKey(value) {
+  const text = cleanRemoteAreaValue(value).replace(/^#/i, "");
+  const numberMatch = text.match(/\d+/);
+  return {
+    hasNumber: Boolean(numberMatch),
+    number: numberMatch ? Number(numberMatch[0]) : Number.POSITIVE_INFINITY,
+    prefix: text.slice(0, numberMatch?.index || 0).toLowerCase(),
+    suffix: numberMatch ? text.slice((numberMatch.index || 0) + numberMatch[0].length).toLowerCase() : text.toLowerCase(),
+  };
+}
+
+function compareRemoteAreaNumbers(a, b) {
+  const aKey = remoteAreaSortKey(a);
+  const bKey = remoteAreaSortKey(b);
+  if (aKey.hasNumber !== bKey.hasNumber) return aKey.hasNumber ? -1 : 1;
+  if (aKey.prefix !== bKey.prefix) return aKey.prefix.localeCompare(bKey.prefix);
+  if (aKey.number !== bKey.number) return aKey.number - bKey.number;
+  return aKey.suffix.localeCompare(bKey.suffix, undefined, { numeric: true, sensitivity: "base" });
+}
+
+function updateHydraulicSortButton() {
+  if (dom.hydraulicSortRemoteButton) {
+    dom.hydraulicSortRemoteButton.disabled = hydraulicCalcFiles.filter((file) => cleanRemoteAreaValue(file.remoteAreaNumber)).length < 2;
+  }
+}
+
+function renderHydraulicWorkspace() {
+  if (dom.hydraulicCount) {
+    dom.hydraulicCount.textContent = `${hydraulicCalcFiles.length} PDF${hydraulicCalcFiles.length === 1 ? "" : "s"}`;
+  }
+  if (dom.hydraulicGenerateButton) dom.hydraulicGenerateButton.disabled = hydraulicCalcFiles.length < 1;
+  updateHydraulicSortButton();
+  if (!dom.hydraulicList) return;
+  if (!hydraulicCalcFiles.length) {
+    dom.hydraulicList.innerHTML = '<div class="empty-state">Drop hydraulic calculation PDFs here or use Import Calc PDFs.</div>';
+    return;
+  }
+  dom.hydraulicList.innerHTML = hydraulicCalcFiles.map((file, index) => `
+    <article class="hydraulic-item">
+      <div class="pdf-merge-order" title="Package order">${index + 1}</div>
+      <div class="pdf-merge-preview">
+        ${file.thumbnailDataUrl
+          ? `<img src="${escapeHtml(file.thumbnailDataUrl)}" alt="${escapeHtml(file.name)} first page preview" />`
+          : `<span>${file.thumbnailStatus === "loading" ? "Rendering" : "PDF"}</span>`}
+      </div>
+      <div class="hydraulic-item-body">
+        <div class="hydraulic-item-heading">
+          <span class="hydraulic-order-label">Package item ${index + 1}</span>
+          ${file.remoteAreaNumber ? `<strong class="remote-area-badge">Area / design ${escapeHtml(file.remoteAreaNumber)}</strong>` : `<strong class="remote-area-badge muted">Area / design # not detected</strong>`}
+        </div>
+        <label>
+          TOC / Bookmark Name
+          <input type="text" data-hydraulic-label-id="${escapeHtml(file.id)}" value="${escapeHtml(file.label || defaultHydraulicLabel(file.name, index))}" />
+        </label>
+        <div class="hydraulic-meta-grid">
+          <label>
+            Area / Design #
+            <input type="text" data-hydraulic-meta-id="${escapeHtml(file.id)}" data-hydraulic-meta-field="remoteAreaNumber" value="${escapeHtml(file.remoteAreaNumber || "")}" placeholder="1, 2, 3..." />
+          </label>
+          <label>
+            Area Location
+            <input type="text" data-hydraulic-meta-id="${escapeHtml(file.id)}" data-hydraulic-meta-field="remoteAreaLocation" value="${escapeHtml(file.remoteAreaLocation || "")}" placeholder="Optional" />
+          </label>
+          <label>
+            Hazard / Description
+            <input type="text" data-hydraulic-meta-id="${escapeHtml(file.id)}" data-hydraulic-meta-field="hazard" value="${escapeHtml(file.hazard || "")}" placeholder="Optional" />
+          </label>
+        </div>
+        <span>${escapeHtml(file.name)} - ${escapeHtml(formatFileSize(file.size))} - ${escapeHtml(formatPdfPageCount(file.pageCount, file.thumbnailStatus))}</span>
+        ${file.startPage && file.endPage ? `<small>Source pages ${escapeHtml(String(file.startPage))}-${escapeHtml(String(file.endPage))}</small>` : ""}
+        <small>${escapeHtml(hydraulicDetectionSummary(file))}</small>
+      </div>
+      <div class="pdf-merge-actions">
+        <button class="small-button icon-button" type="button" data-hydraulic-action="up" data-hydraulic-id="${escapeHtml(file.id)}" ${index === 0 ? "disabled" : ""} aria-label="Move ${escapeHtml(file.name)} up" title="Move up">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5" /><path d="M5 12l7-7 7 7" /></svg>
+        </button>
+        <button class="small-button icon-button" type="button" data-hydraulic-action="down" data-hydraulic-id="${escapeHtml(file.id)}" ${index === hydraulicCalcFiles.length - 1 ? "disabled" : ""} aria-label="Move ${escapeHtml(file.name)} down" title="Move down">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14" /><path d="M19 12l-7 7-7-7" /></svg>
+        </button>
+        <button class="small-button danger-button icon-button" type="button" data-hydraulic-action="remove" data-hydraulic-id="${escapeHtml(file.id)}" aria-label="Remove ${escapeHtml(file.name)}" title="Remove">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M6 6l1 15h10l1-15" /><path d="M10 11v6" /><path d="M14 11v6" /></svg>
+        </button>
+      </div>
+    </article>
+  `).join("");
+}
+
+async function loadHydraulicThumbnail(id) {
+  const file = hydraulicCalcFiles.find((item) => item.id === id);
+  if (!file || file.thumbnailStatus === "loading" || file.thumbnailStatus === "ready") return;
+  file.thumbnailStatus = "loading";
+  renderHydraulicWorkspace();
+  try {
+    const response = await fetch("./api/pdf-thumbnail", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        file: {
+          name: file.name,
+          dataUrl: file.dataUrl,
+        },
+      }),
+    });
+    const result = await readJsonResponse(response);
+    if (!response.ok || !result.ok) throw new Error(result.error || `Thumbnail failed with server status ${response.status}.`);
+    const current = hydraulicCalcFiles.find((item) => item.id === id);
+    if (!current) return;
+    current.thumbnailDataUrl = result.thumbnailDataUrl || "";
+    current.pageCount = current.startPage ? (current.pageCount || null) : (result.pageCount || current.pageCount || null);
+    current.thumbnailStatus = result.thumbnailDataUrl ? "ready" : "fallback";
+  } catch (error) {
+    const current = hydraulicCalcFiles.find((item) => item.id === id);
+    if (current) {
+      current.thumbnailStatus = "fallback";
+      current.thumbnailError = error.message || "Thumbnail failed.";
+    }
+  } finally {
+    renderHydraulicWorkspace();
+  }
+}
+
+function hydrateHydraulicThumbnails(files) {
+  files.forEach((file) => {
+    void loadHydraulicThumbnail(file.id);
+  });
+}
+
+async function analyzeHydraulicFiles(files) {
+  const response = await fetch("./api/analyze-hydraulic-calcs", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      files: files.map((file) => ({
+        id: file.id,
+        name: file.name,
+        dataUrl: file.dataUrl,
+      })),
+    }),
+  });
+  const result = await readJsonResponse(response);
+  if (!response.ok || !result.ok) throw new Error(result.error || `Calc analysis failed with server status ${response.status}.`);
+  return Array.isArray(result.files) ? result.files : [];
+}
+
+async function addHydraulicCalcFiles(files) {
+  if (!ensureLicensedToolAccess(setHydraulicStatus)) return;
+  const pdfFiles = files.filter((file) => file.name.toLowerCase().endsWith(".pdf") || file.type === "application/pdf");
+  if (!pdfFiles.length) {
+    setHydraulicStatus("Drop or import PDFs only.", "error");
+    return;
+  }
+  setHydraulicStatus(`Reading ${pdfFiles.length} hydraulic calc PDF${pdfFiles.length === 1 ? "" : "s"}...${ignoredFilesNote(files.length, pdfFiles.length)}`, "info");
+  try {
+    const nextFiles = [];
+    for (const [index, file] of pdfFiles.entries()) {
+      nextFiles.push({
+        id: localId("hydraulic"),
+        name: file.name,
+        size: file.size,
+        dataUrl: await readFileAsDataUrl(file),
+        label: defaultHydraulicLabel(file.name, hydraulicCalcFiles.length + index),
+        remoteAreaNumber: "",
+        remoteAreaLocation: "",
+        reportDescription: "",
+        drawingName: "",
+        hazard: "",
+        pageCount: null,
+        thumbnailDataUrl: "",
+        thumbnailStatus: "pending",
+        detectedNote: "",
+      });
+    }
+    await addHydraulicCalcDataFiles(nextFiles);
+  } catch (error) {
+    setHydraulicStatus(`Could not read hydraulic calc PDFs: ${error.message || "File read failed."}`, "error");
+  } finally {
+    if (dom.hydraulicInput) dom.hydraulicInput.value = "";
+  }
+}
+
+async function addHydraulicCalcDataFiles(nextFiles) {
+  if (!nextFiles.length) return;
+  let filesToAdd = [...nextFiles];
+  try {
+    const analyzed = await analyzeHydraulicFiles(nextFiles);
+    const expanded = [];
+    nextFiles.forEach((file) => {
+      const match = analyzed.find((item) => item.id === file.id || item.name === file.name);
+      if (!match) {
+        expanded.push(file);
+        return;
+      }
+      if (Array.isArray(match.sections) && match.sections.length > 1) {
+        match.sections.forEach((section, sectionIndex) => {
+          expanded.push({
+            ...file,
+            id: `${file.id}-${section.idSuffix || `section-${sectionIndex + 1}`}`,
+            label: section.label || file.label,
+            remoteAreaNumber: cleanRemoteAreaValue(section.remoteAreaNumber || ""),
+            remoteAreaLocation: cleanRemoteAreaValue(section.remoteAreaLocation || ""),
+            reportDescription: cleanRemoteAreaValue(section.reportDescription || ""),
+            drawingName: cleanRemoteAreaValue(section.drawingName || ""),
+            hazard: cleanRemoteAreaValue(section.hazard || ""),
+            pageCount: section.pageCount || file.pageCount,
+            startPage: section.startPage || 1,
+            endPage: section.endPage || section.startPage || file.pageCount,
+            thumbnailDataUrl: "",
+            thumbnailStatus: "pending",
+            detectedNote: section.note || "Split from merged hydraulic calc package.",
+          });
+        });
+        return;
+      }
+      file.label = match.label || file.label;
+      file.remoteAreaNumber = cleanRemoteAreaValue(match.remoteAreaNumber || file.remoteAreaNumber || "");
+      file.remoteAreaLocation = cleanRemoteAreaValue(match.remoteAreaLocation || file.remoteAreaLocation || "");
+      file.reportDescription = cleanRemoteAreaValue(match.reportDescription || file.reportDescription || "");
+      file.drawingName = cleanRemoteAreaValue(match.drawingName || file.drawingName || "");
+      file.hazard = cleanRemoteAreaValue(match.hazard || file.hazard || "");
+      file.pageCount = match.pageCount || file.pageCount;
+      file.detectedNote = match.note || file.detectedNote || "";
+      expanded.push(file);
+    });
+    filesToAdd = expanded;
+  } catch (error) {
+    setHydraulicStatus(`PDFs added. Auto-label review was limited: ${error.message || "analysis failed."}`, "info");
+  }
+  hydraulicCalcFiles = [...hydraulicCalcFiles, ...filesToAdd];
+  renderHydraulicWorkspace();
+  hydrateHydraulicThumbnails(filesToAdd);
+  const splitCount = filesToAdd.length - nextFiles.length;
+  setHydraulicStatus(`${filesToAdd.length} calc entr${filesToAdd.length === 1 ? "y" : "ies"} added${splitCount > 0 ? ` (${splitCount + nextFiles.length} detected from merged PDFs)` : ""}. Confirm the TOC names before generating.`, "success");
+}
+
+function moveHydraulicFile(id, direction) {
+  const index = hydraulicCalcFiles.findIndex((file) => file.id === id);
+  const nextIndex = direction === "up" ? index - 1 : index + 1;
+  if (index < 0 || nextIndex < 0 || nextIndex >= hydraulicCalcFiles.length) return;
+  const next = [...hydraulicCalcFiles];
+  [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+  hydraulicCalcFiles = next;
+  renderHydraulicWorkspace();
+  setHydraulicStatus("Calc package order updated.", "info");
+}
+
+function sortHydraulicFilesByRemoteArea() {
+  const indexed = hydraulicCalcFiles.map((file, index) => ({ file, index }));
+  indexed.sort((left, right) => {
+    const comparison = compareRemoteAreaNumbers(left.file.remoteAreaNumber, right.file.remoteAreaNumber);
+    return comparison || left.index - right.index;
+  });
+  hydraulicCalcFiles = indexed.map((item) => item.file);
+  renderHydraulicWorkspace();
+  setHydraulicStatus("Calc package sorted by area/design number. Review the order, then generate.", "success");
+}
+
+function removeHydraulicFile(id) {
+  hydraulicCalcFiles = hydraulicCalcFiles.filter((file) => file.id !== id);
+  renderHydraulicWorkspace();
+  setHydraulicStatus(hydraulicCalcFiles.length ? "PDF removed from calc package." : "", "info");
+}
+
+function clearHydraulicWorkspace() {
+  hydraulicCalcFiles = [];
+  renderHydraulicWorkspace();
+  setHydraulicStatus("", "info");
+  if (dom.hydraulicInput) dom.hydraulicInput.value = "";
+}
+
+function updateHydraulicLabel(id, label) {
+  const file = hydraulicCalcFiles.find((item) => item.id === id);
+  if (!file) return;
+  file.label = String(label || "").replace(/\s+/g, " ").trim();
+}
+
+function updateHydraulicMetadata(id, field, value) {
+  const file = hydraulicCalcFiles.find((item) => item.id === id);
+  if (!file || !["remoteAreaNumber", "remoteAreaLocation", "hazard"].includes(field)) return;
+  file[field] = cleanRemoteAreaValue(value);
+  updateHydraulicSortButton();
+}
+
+function handleHydraulicDrop(event) {
+  event.preventDefault();
+  dom.hydraulicDrop?.classList.remove("drag-over");
+  addHydraulicCalcFiles([...(event.dataTransfer?.files || [])]);
+}
+
+let hydraulicPackageGenerating = false;
+
+async function generateHydraulicPackage() {
+  if (hydraulicPackageGenerating) return;
+  hydraulicPackageGenerating = true;
+  setHydraulicStatus("Generating hydraulic calc package and opening it in your default viewer...", "info");
+  if (dom.hydraulicGenerateButton) {
+    dom.hydraulicGenerateButton.disabled = true;
+    dom.hydraulicGenerateButton.textContent = "Generating...";
+  }
+  try {
+    const path = await createHydraulicPackageOutput({ openGeneratedPdf: state.settings.openGeneratedPdf });
+    setHydraulicStatus(`${state.settings.openGeneratedPdf ? "Generated and opened" : "Generated"}: ${path}`, "success");
+  } catch (error) {
+    setHydraulicStatus(`Could not generate hydraulic calc package: ${error.message || "PDF generation failed."}`, "error");
+  } finally {
+    hydraulicPackageGenerating = false;
+    if (dom.hydraulicGenerateButton) {
+      dom.hydraulicGenerateButton.textContent = "Generate Calc Package";
+    }
+    renderHydraulicWorkspace();
+  }
+}
+
+function stopPdfCompressionPolling() {
+  if (pdfCompressionPollTimer) {
+    clearTimeout(pdfCompressionPollTimer);
+    pdfCompressionPollTimer = null;
+  }
+}
+
+function applyPdfCompressionResult(job) {
+  if (!job?.originalBytes || !job?.outputBytes) return;
+  const compressedAt = new Date().toISOString();
+  pdfMergeFiles = pdfMergeFiles.map((file) => ({
+    ...file,
+    compressionResult: {
+      originalBytes: job.originalBytes,
+      outputBytes: job.outputBytes,
+      path: job.path,
+      engine: job.engine || "Ghostscript",
+      compressedAt,
+    },
+  }));
+}
+
+async function pollPdfCompressionJob() {
+  if (!pdfCompressionJobId) return;
+  try {
+    const response = await fetch(`./api/pdf-compression/status?id=${encodeURIComponent(pdfCompressionJobId)}`);
+    const result = await readJsonResponse(response);
+    if (!response.ok || !result.ok) throw new Error(result.error || `Compression status failed with server status ${response.status}.`);
+    const job = result.job || {};
+    setPdfCompressionProgress(job);
+    if (job.status === "complete") {
+      stopPdfCompressionPolling();
+      pdfCompressionJobId = "";
+      setPdfCompressionBusy(false);
+      applyPdfCompressionResult(job);
+      const reduced = job.originalBytes && job.outputBytes
+        ? ` Size: ${formatFileSize(job.originalBytes)} to ${formatFileSize(job.outputBytes)}.`
+        : "";
+      const engine = job.engine && job.engine !== "none" ? ` Engine: ${job.engine}.` : "";
+      setPdfMergeStatus(`${job.message || "PDF compression complete."}${engine}${reduced} Saved: ${job.path}`, "success");
+      renderPdfMergeWorkspace();
+      return;
+    }
+    if (job.status === "canceled") {
+      stopPdfCompressionPolling();
+      pdfCompressionJobId = "";
+      setPdfCompressionBusy(false);
+      setPdfMergeStatus("Compression canceled.", "info");
+      setPdfCompressionProgress(null);
+      renderPdfMergeWorkspace();
+      return;
+    }
+    if (job.status === "error") {
+      stopPdfCompressionPolling();
+      pdfCompressionJobId = "";
+      setPdfCompressionBusy(false);
+      setPdfMergeStatus(`Could not compress PDFs: ${job.error || "Operation failed."}`, "error");
+      setPdfCompressionProgress(null);
+      renderPdfMergeWorkspace();
+      return;
+    }
+    pdfCompressionPollTimer = setTimeout(pollPdfCompressionJob, 700);
+  } catch (error) {
+    stopPdfCompressionPolling();
+    pdfCompressionJobId = "";
+    setPdfCompressionBusy(false);
+    setPdfMergeStatus(`Could not track compression: ${error.message || "Status check failed."}`, "error");
+    renderPdfMergeWorkspace();
+  }
+}
+
+async function compressPdfWorkspace() {
+  if (!ensureLicensedToolAccess(setPdfMergeStatus)) return;
+  if (pdfMergeFiles.length < 1) {
+    setPdfMergeStatus("Add at least one PDF before compressing.", "error");
+    return;
+  }
+  stopPdfCompressionPolling();
+  setPdfCompressionBusy(true);
+  setPdfCompressionProgress({
+    status: "running",
+    progress: 2,
+    message: "Preparing compression...",
+    detail: "Choose a save location when prompted.",
+  });
+  setPdfMergeStatus("Preparing compression. Choose a save location when prompted...", "info");
+  if (dom.pdfCompressButton) dom.pdfCompressButton.textContent = "Compressing...";
+  try {
+    const response = await fetch("./api/pdf-compression/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        compression: selectedPdfCompression(),
+        defaultName: defaultPdfOutputName("compress"),
+        files: pdfMergeFiles.map((file) => ({
+          name: file.name,
+          dataUrl: file.dataUrl,
+        })),
+      }),
+    });
+    const result = await readJsonResponse(response);
+    if (!response.ok || !result.ok) throw new Error(result.error || `Compression failed with server status ${response.status}.`);
+    pdfCompressionJobId = result.jobId || "";
+    if (!pdfCompressionJobId) throw new Error("Compression job did not start.");
+    setPdfMergeStatus("Compression running. You can abort if it takes too long.", "info");
+    await pollPdfCompressionJob();
+  } catch (error) {
+    pdfCompressionJobId = "";
+    stopPdfCompressionPolling();
+    setPdfCompressionBusy(false);
+    setPdfCompressionProgress(null);
+    setPdfMergeStatus(`Could not compress PDFs: ${error.message || "Operation failed."}`, "error");
+  } finally {
+    if (dom.pdfCompressButton) dom.pdfCompressButton.textContent = "Compress PDFs";
+    renderPdfMergeWorkspace();
+  }
+}
+
+async function abortPdfCompression() {
+  if (!pdfCompressionJobId) return;
+  const jobId = pdfCompressionJobId;
+  setPdfCompressionProgress({
+    status: "canceling",
+    progress: 0,
+    message: "Canceling compression...",
+    detail: "Stopping Ghostscript.",
+  });
+  setPdfMergeStatus("Canceling compression...", "info");
+  try {
+    await fetch("./api/pdf-compression/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobId }),
+    });
+  } catch (error) {
+    setPdfMergeStatus(`Could not abort compression: ${error.message || "Abort failed."}`, "error");
+  }
+}
+
+class FeetQuantity {
+  constructor(value, power = 1) {
+    this.value = Number(value) || 0;
+    this.power = power;
+  }
+
+  checkAdd(other) {
+    if (this.power !== other.power) throw new Error("Cannot add or subtract dimensions with different units.");
+  }
+
+  add(other) {
+    this.checkAdd(other);
+    return new FeetQuantity(this.value + other.value, this.power);
+  }
+
+  subtract(other) {
+    this.checkAdd(other);
+    return new FeetQuantity(this.value - other.value, this.power);
+  }
+
+  multiply(other) {
+    return new FeetQuantity(this.value * other.value, this.power + other.power);
+  }
+
+  divide(other) {
+    if (Math.abs(other.value) < 1e-12) throw new Error("Division by zero.");
+    return new FeetQuantity(this.value / other.value, this.power - other.power);
+  }
+
+  negate() {
+    return new FeetQuantity(-this.value, this.power);
+  }
+}
+
+function parseFeetNumber(text, index) {
+  const match = String(text).slice(index).match(/^\d+(?:\.\d+)?/);
+  if (!match) return null;
+  return { value: Number.parseFloat(match[0]), index: index + match[0].length };
+}
+
+function parseFeetDimensionToken(text, index) {
+  const first = parseFeetNumber(text, index);
+  if (!first) return null;
+  let nextIndex = first.index;
+  const firstValue = first.value;
+  const primeChars = new Set(["'", "\u2019", "\u2032"]);
+  const doublePrimeChars = new Set(['"', "\u201d", "\u2033"]);
+
+  if (primeChars.has(text[nextIndex])) {
+    nextIndex += 1;
+    while (/\s/.test(text[nextIndex] || "")) nextIndex += 1;
+    if (text[nextIndex] === "-") nextIndex += 1;
+    while (/\s/.test(text[nextIndex] || "")) nextIndex += 1;
+    const inches = parseFeetNumber(text, nextIndex);
+    let inchValue = 0;
+    if (inches) {
+      inchValue = inches.value;
+      nextIndex = inches.index;
+      if (doublePrimeChars.has(text[nextIndex])) nextIndex += 1;
+    }
+    return { quantity: new FeetQuantity(firstValue + inchValue / 12, 1), index: nextIndex };
+  }
+
+  let scanIndex = nextIndex;
+  while (/\s/.test(text[scanIndex] || "")) scanIndex += 1;
+  if (text[scanIndex] === "-") {
+    let inchIndex = scanIndex + 1;
+    while (/\s/.test(text[inchIndex] || "")) inchIndex += 1;
+    const inches = parseFeetNumber(text, inchIndex);
+    if (inches) {
+      nextIndex = inches.index;
+      if (doublePrimeChars.has(text[nextIndex])) nextIndex += 1;
+      return { quantity: new FeetQuantity(firstValue + inches.value / 12, 1), index: nextIndex };
+    }
+  }
+
+  return { quantity: new FeetQuantity(firstValue, 0), index: nextIndex };
+}
+
+class FeetExpressionParser {
+  constructor(text) {
+    this.text = String(text || "");
+    this.index = 0;
+  }
+
+  skipWhitespace() {
+    while (/\s/.test(this.text[this.index] || "")) this.index += 1;
+  }
+
+  consume(characters) {
+    this.skipWhitespace();
+    if (characters.includes(this.text[this.index])) {
+      this.index += 1;
+      return true;
+    }
+    return false;
+  }
+
+  parse() {
+    const result = this.expression();
+    this.skipWhitespace();
+    if (this.index !== this.text.length) throw new Error(`Unexpected character: ${this.text[this.index]}`);
+    return result;
+  }
+
+  expression() {
+    let left = this.term();
+    while (true) {
+      if (this.consume("+")) left = left.add(this.term());
+      else if (this.consume("-")) left = left.subtract(this.term());
+      else return left;
+    }
+  }
+
+  term() {
+    let left = this.factor();
+    while (true) {
+      if (this.consume("*xX\u00d7")) left = left.multiply(this.factor());
+      else if (this.consume("/\u00f7")) left = left.divide(this.factor());
+      else return left;
+    }
+  }
+
+  factor() {
+    this.skipWhitespace();
+    if (this.consume("+")) return this.factor();
+    if (this.consume("-")) return this.factor().negate();
+    if (this.consume("(")) {
+      const result = this.expression();
+      if (!this.consume(")")) throw new Error("Missing closing parenthesis.");
+      return result;
+    }
+    const parsed = parseFeetDimensionToken(this.text, this.index);
+    if (!parsed) throw new Error("Expected a number or dimension.");
+    this.index = parsed.index;
+    return parsed.quantity;
+  }
+}
+
+function roundHalfUp(value, digits = 0) {
+  const factor = 10 ** digits;
+  return Math.floor(value * factor + 0.5) / factor;
+}
+
+function formatFeetInches(value) {
+  const sign = value < 0 ? "-" : "";
+  const totalInches = roundHalfUp(Math.abs(value) * 12, 2);
+  const feet = Math.floor(totalInches / 12);
+  let inches = totalInches - feet * 12;
+  if (Math.abs(inches - Math.round(inches)) < 0.005) inches = Math.round(inches);
+  const inchText = Number.isInteger(inches) ? String(inches) : inches.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+  return `${sign}${feet}'-${inchText}"`;
+}
+
+function feetUnitLabel(power) {
+  return { 0: "Scalar", 1: "Length", 2: "Area", 3: "Volume" }[power] || `Feet^${power}`;
+}
+
+function formatFeetDecimal(quantity) {
+  const suffix = { 0: "", 1: " ft", 2: " sq ft", 3: " cu ft" }[quantity.power] || ` ft^${quantity.power}`;
+  return `${quantity.value.toFixed(2)}${suffix}`;
+}
+
+let lastFeetResult = null;
+
+function setFeetStatus(message, type = "info") {
+  if (!dom.feetStatus) return;
+  dom.feetStatus.textContent = message || "";
+  dom.feetStatus.dataset.status = type;
+  scheduleStatusAutoClear(dom.feetStatus, message, type, () => setFeetStatus(""));
+}
+
+function renderFeetResult(quantity) {
+  lastFeetResult = quantity;
+  if (dom.feetResultType) dom.feetResultType.textContent = feetUnitLabel(quantity.power);
+  const decimal = formatFeetDecimal(quantity);
+  const canCopyFeet = quantity.power === 1;
+  if (dom.feetPrimaryResult) dom.feetPrimaryResult.textContent = canCopyFeet ? formatFeetInches(quantity.value) : decimal;
+  if (dom.feetSecondaryResult) dom.feetSecondaryResult.textContent = canCopyFeet ? decimal : "";
+  if (dom.feetCopyFeetButton) dom.feetCopyFeetButton.disabled = !canCopyFeet;
+  if (dom.feetCopyDecimalButton) dom.feetCopyDecimalButton.disabled = false;
+}
+
+function calculateFeetExpression() {
+  const expression = dom.feetExpressionInput?.value || "";
+  if (!expression.trim()) {
+    setFeetStatus("Enter a feet/inch expression first.", "error");
+    return;
+  }
+  try {
+    const quantity = new FeetExpressionParser(expression).parse();
+    renderFeetResult(quantity);
+    setFeetStatus("Calculated successfully.", "success");
+  } catch (error) {
+    lastFeetResult = null;
+    if (dom.feetResultType) dom.feetResultType.textContent = "Check expression";
+    if (dom.feetPrimaryResult) dom.feetPrimaryResult.textContent = "-";
+    if (dom.feetSecondaryResult) dom.feetSecondaryResult.textContent = "";
+    if (dom.feetCopyFeetButton) dom.feetCopyFeetButton.disabled = true;
+    if (dom.feetCopyDecimalButton) dom.feetCopyDecimalButton.disabled = true;
+    setFeetStatus(error.message || "Could not calculate that expression.", "error");
+  }
+}
+
+function clearFeetCalculator() {
+  if (dom.feetExpressionInput) dom.feetExpressionInput.value = "";
+  lastFeetResult = null;
+  if (dom.feetResultType) dom.feetResultType.textContent = "Waiting";
+  if (dom.feetPrimaryResult) dom.feetPrimaryResult.textContent = "-";
+  if (dom.feetSecondaryResult) dom.feetSecondaryResult.textContent = "";
+  if (dom.feetCopyFeetButton) dom.feetCopyFeetButton.disabled = true;
+  if (dom.feetCopyDecimalButton) dom.feetCopyDecimalButton.disabled = true;
+  setFeetStatus("Use dash format for feet-inches, like 5-3.5 for 5 ft 3.5 in.", "info");
+  dom.feetExpressionInput?.focus();
+}
+
+function loadFeetExample() {
+  if (dom.feetExpressionInput) dom.feetExpressionInput.value = "5-3.5 * 6-2";
+  calculateFeetExpression();
+}
+
+async function copyFeetResult(type) {
+  if (!lastFeetResult) return;
+  const text = type === "feet" ? formatFeetInches(lastFeetResult.value) : lastFeetResult.value.toFixed(2);
+  try {
+    await copyTextToClipboard(text);
+    setFeetStatus(`Copied: ${text}`, "success");
+  } catch (error) {
+    setFeetStatus(`Could not copy result: ${error.message || "Clipboard failed."}`, "error");
+  }
+}
+
+function normalizeCodeLookup(value) {
+  return String(value || "")
+    .trim()
+    .replace(/^nfpa\s*13\s*/i, "")
+    .replace(/\s+/g, "")
+    .replace(/\*+$/g, "");
+}
+
+function codeConvertDirection() {
+  return document.querySelector("input[name='codeConvertDirection']:checked")?.value || "2016-to-2019";
+}
+
+function cleanCodeForCopy(code) {
+  return normalizeCodeLookup(code);
+}
+
+function copyLabelForCode(code) {
+  const clean = cleanCodeForCopy(code);
+  return clean ? `\u00a7${clean}` : "";
+}
+
+function sectionCopyButton(edition, code, label = "") {
+  if (/^(deleted|various)$/i.test(String(code || ""))) return "";
+  const copyLabel = copyLabelForCode(code);
+  if (!copyLabel) return "";
+  const buttonLabel = label || copyLabel;
+  return `<button class="code-copy-button" type="button" data-nfpa-copy="section" data-nfpa-edition="${escapeHtml(edition)}" data-nfpa-code="${escapeHtml(code)}" title="Copy ${escapeHtml(copyLabel)}">${escapeHtml(buttonLabel)}</button>`;
+}
+
+function commonReferenceCodes(reference, edition) {
+  return Array.isArray(reference?.sections?.[edition]) ? reference.sections[edition].filter(Boolean) : [];
+}
+
+function renderNfpaSourceStatus() {
+  if (!dom.nfpaSourceStatus) return;
+  dom.nfpaSourceStatus.innerHTML = "";
+}
+
+function nfpaLoadedStatusText() {
+  return `Loaded ${nfpaRoadmapRows.length.toLocaleString()} roadmap entries and ${nfpaCommonReferences.length.toLocaleString()} common rule references.`;
+}
+
+function allCommonReferences() {
+  return [
+    ...nfpaCommonReferences.map((reference) => ({ ...reference, custom: false })),
+    ...state.customCommonReferences.map((reference) => ({ ...reference, custom: true })),
+  ];
+}
+
+function commonReferenceCodeLabel(reference, edition) {
+  const codes = commonReferenceCodes(reference, edition);
+  return codes.length ? codes.join(", ") : "-";
+}
+
+function commonReferenceSearchText(reference) {
+  return [
+    reference.name,
+    reference.category,
+    ...NFPA_COMMON_REFERENCE_EDITIONS.map((edition) => commonReferenceCodeLabel(reference, edition)),
+    ...(Array.isArray(reference.tags) ? reference.tags : []),
+  ].join(" ").toLowerCase();
+}
+
+function renderCommonReferenceMap(reference) {
+  return NFPA_COMMON_REFERENCE_EDITIONS.map((edition) => `
+    <span>${edition}: ${escapeHtml(commonReferenceCodeLabel(reference, edition))}</span>
+  `).join("");
+}
+
+function renderCommonCodeReferences() {
+  if (!dom.commonCodeReferenceList) return;
+  const terms = String(dom.commonCodeReferenceSearch?.value || "")
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+  const references = allCommonReferences().filter((reference) => {
+    const text = commonReferenceSearchText(reference);
+    return terms.every((term) => text.includes(term));
+  });
+  if (dom.commonCodeReferenceCount) {
+    dom.commonCodeReferenceCount.textContent = `${references.length} rule${references.length === 1 ? "" : "s"}`;
+  }
+  if (!references.length) {
+    dom.commonCodeReferenceList.innerHTML = '<div class="empty-state compact-empty-state">No common rule references match that search.</div>';
+    return;
+  }
+  dom.commonCodeReferenceList.innerHTML = references.map((reference) => `
+    <div class="common-code-reference-row ${reference.custom ? "custom-common-code-reference" : ""}" data-common-code-reference="${escapeHtml(reference.id)}">
+      <button class="common-code-reference-main" type="button" data-common-code-reference-open="${escapeHtml(reference.id)}">
+        <span class="common-code-reference-name">${escapeHtml(reference.name)}</span>
+        <span class="common-code-reference-category">${escapeHtml(reference.category || "Reference")}${reference.custom ? " / Custom" : ""}</span>
+        <span class="common-code-reference-map">${renderCommonReferenceMap(reference)}</span>
+      </button>
+      ${reference.custom ? `<button class="small-button danger-button compact-button common-code-delete-button" type="button" data-common-code-reference-delete="${escapeHtml(reference.id)}">Delete</button>` : ""}
+    </div>
+  `).join("");
+}
+
+function renderCommonReferenceSectionGrid(reference) {
+  return NFPA_COMMON_REFERENCE_EDITIONS.map((edition) => {
+    const codes = commonReferenceCodes(reference, edition);
+    const label = `NFPA 13 (${edition})`;
+    return `
+      <div>
+        <span>${label}</span>
+        <div class="code-copy-row">${codes.length ? codes.map((code) => sectionCopyButton(edition, code)).join("") : "<em>-</em>"}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderCommonReferenceNotes(reference) {
+  const tags = Array.isArray(reference?.tags) ? reference.tags.filter(Boolean) : [];
+  if (!tags.length) return "";
+  return `<p class="common-code-edition-note">Tags: ${escapeHtml(tags.join(", "))}</p>`;
+}
+
+function renderCommonReferencePreview(reference) {
+  if (!reference || !dom.codeConverterResults) return;
+  if (dom.codeConverterCount) dom.codeConverterCount.textContent = "1 rule";
+  if (dom.codeConverterStatus) {
+    dom.codeConverterStatus.textContent = `Showing common rule reference: ${reference.name}.`;
+    dom.codeConverterStatus.dataset.status = "success";
+  }
+  dom.codeConverterResults.innerHTML = `
+    <article class="code-result-card common-code-result-card">
+      <div class="common-code-result-header">
+        <div>
+          <span>${escapeHtml(reference.category || "Common Rule")}</span>
+          <strong>${escapeHtml(reference.name)}</strong>
+        </div>
+      </div>
+      <div class="common-code-section-grid">
+        ${renderCommonReferenceSectionGrid(reference)}
+      </div>
+      ${renderCommonReferenceNotes(reference)}
+    </article>
+  `;
+}
+
+function openCommonCodeReferenceDialog() {
+  if (dom.commonCodeRuleNameInput) dom.commonCodeRuleNameInput.value = "";
+  if (dom.commonCodeRuleCategoryInput) dom.commonCodeRuleCategoryInput.value = "";
+  NFPA_COMMON_REFERENCE_EDITIONS.forEach((edition) => {
+    const input = dom[`commonCodeRule${edition}Input`];
+    if (input) input.value = "";
+  });
+  if (dom.commonCodeRuleTagsInput) dom.commonCodeRuleTagsInput.value = "";
+  if (dom.commonCodeRuleStatus) {
+    dom.commonCodeRuleStatus.textContent = "";
+    dom.commonCodeRuleStatus.dataset.status = "";
+  }
+  openDialogSafely(dom.commonCodeReferenceDialog);
+  dom.commonCodeRuleNameInput?.focus();
+}
+
+function saveCustomCommonReference() {
+  const name = String(dom.commonCodeRuleNameInput?.value || "").replace(/\s+/g, " ").trim();
+  const category = String(dom.commonCodeRuleCategoryInput?.value || "").replace(/\s+/g, " ").trim() || "Custom";
+  const sections = Object.fromEntries(NFPA_COMMON_REFERENCE_EDITIONS.map((edition) => [
+    edition,
+    normalizeSectionList(dom[`commonCodeRule${edition}Input`]?.value || ""),
+  ]));
+  const tags = normalizeTags(dom.commonCodeRuleTagsInput?.value || "");
+  if (!name) {
+    if (dom.commonCodeRuleStatus) {
+      dom.commonCodeRuleStatus.textContent = "Enter a rule name.";
+      dom.commonCodeRuleStatus.dataset.status = "error";
+    }
+    return;
+  }
+  if (!NFPA_COMMON_REFERENCE_EDITIONS.some((edition) => sections[edition].length)) {
+    if (dom.commonCodeRuleStatus) {
+      dom.commonCodeRuleStatus.textContent = "Enter at least one NFPA 13 section.";
+      dom.commonCodeRuleStatus.dataset.status = "error";
+    }
+    return;
+  }
+  const reference = {
+    id: localId("custom-rule"),
+    name,
+    category,
+    custom: true,
+    sections,
+    tags,
+  };
+  state.customCommonReferences = normalizeCustomCommonReferences([...state.customCommonReferences, reference]);
+  closeDialogSafely(dom.commonCodeReferenceDialog);
+  if (dom.commonCodeReferenceSearch) dom.commonCodeReferenceSearch.value = "";
+  renderCommonCodeReferences();
+  renderCommonReferencePreview(reference);
+  saveState();
+}
+
+function deleteCustomCommonReference(id) {
+  const reference = state.customCommonReferences.find((item) => item.id === id);
+  if (!reference) return;
+  if (!window.confirm(`Delete custom common rule reference "${reference.name}"?`)) return;
+  state.customCommonReferences = state.customCommonReferences.filter((item) => item.id !== id);
+  renderCommonCodeReferences();
+  if (dom.codeConverterResults?.textContent?.includes(reference.name)) {
+    dom.codeConverterResults.innerHTML = '<div class="empty-state">Enter an NFPA 13 section number or choose a common rule reference.</div>';
+    if (dom.codeConverterCount) dom.codeConverterCount.textContent = "0 matches";
+  }
+  saveState();
+}
+
+function renderCodeConverterResults(matches, query, direction) {
+  if (dom.codeConverterCount) {
+    dom.codeConverterCount.textContent = `${matches.length} match${matches.length === 1 ? "" : "es"}`;
+  }
+  if (!dom.codeConverterResults) return;
+  if (!matches.length) {
+    const fromLabel = direction === "2016-to-2019" ? "2016" : "2019";
+    const toLabel = direction === "2016-to-2019" ? "2019" : "2016";
+    dom.codeConverterResults.innerHTML = `
+      <div class="empty-state">
+        No exact ${fromLabel} roadmap match found for "${escapeHtml(query)}". Try the parent section or switch to ${toLabel} to ${fromLabel}.
+      </div>
+    `;
+    return;
+  }
+  dom.codeConverterResults.innerHTML = matches.map((row) => {
+    const fromCode = direction === "2016-to-2019" ? row.from2016 : row.to2019;
+    const toCode = direction === "2016-to-2019" ? row.to2019 : row.from2016;
+    const fromYear = direction === "2016-to-2019" ? "2016" : "2019";
+    const toYear = direction === "2016-to-2019" ? "2019" : "2016";
+    const convertedClass = toCode === "Deleted" ? "deleted" : toCode === "Various" ? "various" : "";
+    return `
+      <article class="code-result-card">
+        <div class="code-result-map">
+          <div>
+            <span>NFPA 13 (${fromYear})</span>
+            <strong>${escapeHtml(fromCode)}</strong>
+            <div class="code-copy-row">${sectionCopyButton(fromYear, fromCode, `Copy ${copyLabelForCode(fromCode)}`)}</div>
+          </div>
+          <div class="code-arrow" aria-hidden="true">-></div>
+          <div>
+            <span>NFPA 13 (${toYear})</span>
+            <strong class="${convertedClass}">${escapeHtml(toCode)}</strong>
+            <div class="code-copy-row">${sectionCopyButton(toYear, toCode, `Copy ${copyLabelForCode(toCode)}`)}</div>
+          </div>
+          <p>Roadmap page ${Number(row.page) || "-"}</p>
+        </div>
+      </article>
+    `;
+  }).join("");
+}
+
+function suggestCodeMatches(query, direction) {
+  const fromKey = direction === "2016-to-2019" ? "from2016Clean" : "to2019Clean";
+  return nfpaRoadmapRows
+    .filter((row) => String(row[fromKey] || "").startsWith(query))
+    .slice(0, 8);
+}
+
+function convertNfpaCode() {
+  const query = normalizeCodeLookup(dom.codeConverterInput?.value);
+  const direction = codeConvertDirection();
+  if (!query) {
+    if (dom.codeConverterStatus) {
+      dom.codeConverterStatus.textContent = "Enter an NFPA 13 section number.";
+      dom.codeConverterStatus.dataset.status = "error";
+    }
+    renderCodeConverterResults([], "", direction);
+    return;
+  }
+  if (!nfpaRoadmapRows.length) {
+    if (dom.codeConverterStatus) {
+      dom.codeConverterStatus.textContent = "NFPA 13 roadmap data is not loaded yet.";
+      dom.codeConverterStatus.dataset.status = "error";
+    }
+    return;
+  }
+
+  const fromKey = direction === "2016-to-2019" ? "from2016Clean" : "to2019Clean";
+  const exactMatches = nfpaRoadmapRows.filter((row) => String(row[fromKey] || "") === query);
+  if (exactMatches.length) {
+    if (dom.codeConverterStatus) {
+      dom.codeConverterStatus.textContent = `Found ${exactMatches.length} exact roadmap match${exactMatches.length === 1 ? "" : "es"} for ${query}.`;
+      dom.codeConverterStatus.dataset.status = "success";
+    }
+    renderCodeConverterResults(exactMatches, query, direction);
+    return;
+  }
+
+  const suggestions = suggestCodeMatches(query, direction);
+  if (dom.codeConverterStatus) {
+    dom.codeConverterStatus.textContent = suggestions.length
+      ? `No exact match for ${query}. Showing closest child sections.`
+      : `No roadmap match found for ${query}.`;
+    dom.codeConverterStatus.dataset.status = suggestions.length ? "info" : "error";
+  }
+  renderCodeConverterResults(suggestions, query, direction);
+}
+
+function clearCodeConverter() {
+  if (dom.codeConverterInput) dom.codeConverterInput.value = "";
+  if (dom.codeConverterCount) dom.codeConverterCount.textContent = "0 matches";
+  if (dom.codeConverterResults) {
+    dom.codeConverterResults.innerHTML = '<div class="empty-state">Enter an NFPA 13 section number to find the matching roadmap entry.</div>';
+  }
+  if (dom.codeConverterStatus) {
+    dom.codeConverterStatus.textContent = nfpaRoadmapRows.length
+      ? nfpaLoadedStatusText()
+      : "NFPA 13 roadmap data is not loaded yet.";
+    dom.codeConverterStatus.dataset.status = nfpaRoadmapRows.length ? "success" : "info";
+  }
+  if (dom.commonCodeReferenceSearch) dom.commonCodeReferenceSearch.value = "";
+  renderNfpaSourceStatus();
+  renderCommonCodeReferences();
+}
+
+const WATER_CONVERSIONS = {
+  psiToKpa: 6.89476,
+  gpmToLs: 0.0630902,
+  inToMm: 25.4,
+  ftToM: 0.3048,
+};
+
+let currentWaterMode = "US";
+
+function waterMode() {
+  return document.querySelector("input[name='waterMode']:checked")?.value || "US";
+}
+
+function waterExportStyle() {
+  return document.querySelector("input[name='waterExportStyle']:checked")?.value === "bw" ? "bw" : "color";
+}
+
+function waterUnits() {
+  return waterMode() === "SI"
+    ? { pressure: "kPa", flow: "L/s", diameter: "mm", elevation: "m" }
+    : { pressure: "psi", flow: "gpm", diameter: "in", elevation: "ft" };
+}
+
+function readFiniteInput(input) {
+  const value = Number.parseFloat(input?.value);
+  return Number.isFinite(value) ? value : null;
+}
+
+function roundForInput(value) {
+  if (!Number.isFinite(value)) return "";
+  if (Math.abs(value) >= 100) return String(Math.round(value * 10) / 10);
+  return String(Math.round(value * 100) / 100);
+}
+
+function toBasePressure(value) {
+  return waterMode() === "SI" ? value / WATER_CONVERSIONS.psiToKpa : value;
+}
+
+function fromBasePressure(value) {
+  return waterMode() === "SI" ? value * WATER_CONVERSIONS.psiToKpa : value;
+}
+
+function toBaseFlow(value) {
+  return waterMode() === "SI" ? value / WATER_CONVERSIONS.gpmToLs : value;
+}
+
+function fromBaseFlow(value) {
+  return waterMode() === "SI" ? value * WATER_CONVERSIONS.gpmToLs : value;
+}
+
+function toBaseDiameter(value) {
+  return waterMode() === "SI" ? value / WATER_CONVERSIONS.inToMm : value;
+}
+
+function fromBaseDiameter(value) {
+  return waterMode() === "SI" ? value * WATER_CONVERSIONS.inToMm : value;
+}
+
+function toBaseElevation(value) {
+  return waterMode() === "SI" ? value / WATER_CONVERSIONS.ftToM : value;
+}
+
+function fromBaseElevation(value) {
+  return waterMode() === "SI" ? value * WATER_CONVERSIONS.ftToM : value;
+}
+
+function setWaterInputValue(input, value) {
+  if (!input || !Number.isFinite(value)) return;
+  input.value = roundForInput(value);
+}
+
+function setWaterStatus(message, type = "info") {
+  if (!dom.waterStatus) return;
+  dom.waterStatus.textContent = message || "";
+  dom.waterStatus.dataset.status = type;
+  scheduleStatusAutoClear(dom.waterStatus, message, type, () => setWaterStatus(""));
+}
+
+function updateWaterUnitLabels() {
+  const units = waterUnits();
+  document.querySelectorAll("[data-water-unit]").forEach((node) => {
+    node.textContent = units[node.dataset.waterUnit] || "";
+  });
+}
+
+function syncWaterOutputStyle() {
+  const style = waterExportStyle();
+  if (dom.waterChart) dom.waterChart.dataset.waterStyle = style;
+  const shell = dom.waterChart?.closest(".water-chart-shell");
+  if (shell) shell.dataset.waterStyle = style;
+  document.body.dataset.waterPrintStyle = style;
+}
+
+function convertWaterDisplayedValues(fromMode, toMode) {
+  if (fromMode === toMode) return;
+  const pressureInputs = [
+    dom.waterStaticInput,
+    dom.waterResidualInput,
+    dom.waterTargetPressureInput,
+    dom.waterFh1PitotInput,
+    dom.waterFh2PitotInput,
+    ...document.querySelectorAll("[data-water-demand-field='pressure']"),
+  ];
+  const flowInputs = [
+    dom.waterFh1OverrideInput,
+    dom.waterFh2OverrideInput,
+    ...document.querySelectorAll("[data-water-demand-field='flow']"),
+    ...document.querySelectorAll("[data-water-demand-field='hose']"),
+  ];
+  const diameterInputs = [dom.waterFh1DiameterInput, dom.waterFh2DiameterInput];
+  const elevationInputs = [dom.waterElevationInput];
+
+  const convertValue = (input, fromFactor, toFactor) => {
+    const value = readFiniteInput(input);
+    if (value == null) return;
+    setWaterInputValue(input, (value / fromFactor) * toFactor);
+  };
+
+  const fromPressure = fromMode === "SI" ? WATER_CONVERSIONS.psiToKpa : 1;
+  const toPressure = toMode === "SI" ? WATER_CONVERSIONS.psiToKpa : 1;
+  const fromFlow = fromMode === "SI" ? WATER_CONVERSIONS.gpmToLs : 1;
+  const toFlow = toMode === "SI" ? WATER_CONVERSIONS.gpmToLs : 1;
+  const fromDiameter = fromMode === "SI" ? WATER_CONVERSIONS.inToMm : 1;
+  const toDiameter = toMode === "SI" ? WATER_CONVERSIONS.inToMm : 1;
+  const fromElevation = fromMode === "SI" ? WATER_CONVERSIONS.ftToM : 1;
+  const toElevation = toMode === "SI" ? WATER_CONVERSIONS.ftToM : 1;
+
+  pressureInputs.forEach((input) => convertValue(input, fromPressure, toPressure));
+  flowInputs.forEach((input) => convertValue(input, fromFlow, toFlow));
+  diameterInputs.forEach((input) => convertValue(input, fromDiameter, toDiameter));
+  elevationInputs.forEach((input) => convertValue(input, fromElevation, toElevation));
+}
+
+function waterFlowHydrant(index) {
+  const prefix = index === 1 ? "waterFh1" : "waterFh2";
+  const override = readFiniteInput(dom[`${prefix}OverrideInput`]);
+  const pitot = readFiniteInput(dom[`${prefix}PitotInput`]);
+  const outlets = readFiniteInput(dom[`${prefix}OutletsInput`]);
+  const diameter = readFiniteInput(dom[`${prefix}DiameterInput`]);
+  const coefficient = readFiniteInput(dom[`${prefix}CoeffInput`]);
+  const overrideGpm = override != null && override > 0 ? toBaseFlow(override) : null;
+  const pitotPsi = pitot != null && pitot > 0 ? toBasePressure(pitot) : null;
+  const diameterIn = diameter != null && diameter > 0 ? toBaseDiameter(diameter) : null;
+  const outletCount = outlets != null && outlets > 0 ? outlets : null;
+  const coeff = coefficient != null && coefficient > 0 ? coefficient : null;
+  const pitotFlow = pitotPsi && diameterIn && outletCount && coeff
+    ? 29.83 * coeff * diameterIn ** 2 * Math.sqrt(pitotPsi) * outletCount
+    : 0;
+
+  return {
+    index,
+    overrideGpm,
+    pitotPsi,
+    outletCount,
+    diameterIn,
+    coeff,
+    pitotFlow,
+    flowGpm: overrideGpm ?? pitotFlow,
+    location: dom[`${prefix}LocationInput`]?.value?.trim() || "",
+    usesOverride: overrideGpm != null,
+  };
+}
+
+function addWaterDemandRow(values = {}) {
+  if (!dom.waterDemandList) return;
+  const row = document.createElement("div");
+  row.className = "water-demand-row";
+  row.innerHTML = `
+    <label>
+      Label
+      <input type="text" data-water-demand-field="label" value="${escapeHtml(values.label || "")}" placeholder="Demand" />
+    </label>
+    <label>
+      Pressure <span class="water-unit-label" data-water-unit="pressure">${escapeHtml(waterUnits().pressure)}</span>
+      <input type="number" min="0" step="0.1" inputmode="decimal" data-water-demand-field="pressure" value="${escapeHtml(values.pressure ?? "")}" />
+    </label>
+    <label>
+      Flow <span class="water-unit-label" data-water-unit="flow">${escapeHtml(waterUnits().flow)}</span>
+      <input type="number" min="0" step="1" inputmode="decimal" data-water-demand-field="flow" value="${escapeHtml(values.flow ?? "")}" />
+    </label>
+    <label>
+      Hose <span class="water-unit-label" data-water-unit="flow">${escapeHtml(waterUnits().flow)}</span>
+      <input type="number" min="0" step="1" inputmode="decimal" data-water-demand-field="hose" value="${escapeHtml(values.hose ?? "")}" />
+    </label>
+    <div class="water-demand-margin">
+      <span>Margin</span>
+      <strong data-water-demand-margin>-</strong>
+    </div>
+    <button class="ghost-button compact-button danger-ghost-button" type="button" data-water-demand-remove>Remove</button>
+  `;
+  dom.waterDemandList.appendChild(row);
+  updateWaterUnitLabels();
+  calculateWaterSupply();
+}
+
+function readWaterDemands() {
+  return [...document.querySelectorAll(".water-demand-row")].map((row, index) => {
+    const field = (name) => row.querySelector(`[data-water-demand-field='${name}']`);
+    const pressure = readFiniteInput(field("pressure"));
+    const flow = readFiniteInput(field("flow"));
+    const hose = readFiniteInput(field("hose"));
+    return {
+      row,
+      index,
+      label: field("label")?.value?.trim() || `Demand ${index + 1}`,
+      pressurePsi: pressure != null ? toBasePressure(pressure) : null,
+      flowGpm: flow != null ? toBaseFlow(flow) : null,
+      hoseGpm: hose != null ? toBaseFlow(hose) : 0,
+    };
+  }).filter((demand) => demand.pressurePsi != null && demand.pressurePsi > 0 && demand.flowGpm != null && demand.flowGpm > 0);
+}
+
+function availableWaterPressure(flowGpm, staticPsi, residualPsi, testFlowGpm) {
+  if (!(flowGpm >= 0) || !(testFlowGpm > 0) || !(staticPsi > residualPsi)) return null;
+  return staticPsi - (staticPsi - residualPsi) * (flowGpm / testFlowGpm) ** 1.85;
+}
+
+function expectedWaterFlowAtPressure(targetPsi, staticPsi, residualPsi, testFlowGpm) {
+  if (!(testFlowGpm > 0) || !(staticPsi > residualPsi) || !(targetPsi >= 0) || targetPsi >= staticPsi) return null;
+  return testFlowGpm * ((staticPsi - targetPsi) / (staticPsi - residualPsi)) ** 0.54;
+}
+
+function niceStep(maxValue, targetCount) {
+  if (!(maxValue > 0)) return 1;
+  const rough = maxValue / Math.max(1, targetCount);
+  const power = 10 ** Math.floor(Math.log10(rough));
+  const fraction = rough / power;
+  const nice = fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 5 ? 5 : 10;
+  return nice * power;
+}
+
+function formatWaterPressure(value, digits = 0) {
+  if (!Number.isFinite(value)) return "-";
+  return `${fromBasePressure(value).toLocaleString(undefined, { maximumFractionDigits: digits })} ${waterUnits().pressure}`;
+}
+
+function formatWaterFlow(value, digits = 0) {
+  if (!Number.isFinite(value)) return "-";
+  return `${fromBaseFlow(value).toLocaleString(undefined, { maximumFractionDigits: digits })} ${waterUnits().flow}`;
+}
+
+function waterAnalysisInputs() {
+  const staticValue = readFiniteInput(dom.waterStaticInput);
+  const residualValue = readFiniteInput(dom.waterResidualInput);
+  const targetValue = readFiniteInput(dom.waterTargetPressureInput);
+  const staticPsi = staticValue != null ? toBasePressure(staticValue) : null;
+  const residualPsi = residualValue != null ? toBasePressure(residualValue) : null;
+  const targetPsi = targetValue != null ? toBasePressure(targetValue) : null;
+  const hydrants = [waterFlowHydrant(1), waterFlowHydrant(2)];
+  const totalFlowGpm = hydrants.reduce((sum, hydrant) => sum + Math.max(0, hydrant.flowGpm || 0), 0);
+  const expectedFlowGpm = expectedWaterFlowAtPressure(targetPsi, staticPsi, residualPsi, totalFlowGpm);
+  const curveLimitGpm = expectedWaterFlowAtPressure(0, staticPsi, residualPsi, totalFlowGpm);
+  const demands = readWaterDemands();
+  return { staticPsi, residualPsi, targetPsi, hydrants, totalFlowGpm, expectedFlowGpm, curveLimitGpm, demands };
+}
+
+function validateWaterAnalysis(analysis) {
+  if (!(analysis.staticPsi > 0)) return "Enter a static pressure.";
+  if (!(analysis.residualPsi >= 0)) return "Enter a residual pressure.";
+  if (analysis.residualPsi >= analysis.staticPsi) return "Static pressure must be greater than residual pressure.";
+  if (!(analysis.totalFlowGpm > 0)) return "Enter at least one flow hydrant reading or override.";
+  if (!(analysis.targetPsi >= 0)) return "Enter a fire-flow pressure.";
+  if (analysis.targetPsi >= analysis.staticPsi) return "Fire-flow pressure must be below static pressure.";
+  return "";
+}
+
+// Safety margin at a demand point: how much residual pressure the supply
+// curve delivers at the demand's flow, minus the pressure the demand needs.
+// The percentage is expressed against the residual (available) pressure at
+// that flow, so a reviewer can read the cushion as a share of what the main
+// can actually deliver at that point.
+function computeWaterDemandMargin(demand, analysis) {
+  const availablePsi = availableWaterPressure(demand.flowGpm, analysis.staticPsi, analysis.residualPsi, analysis.totalFlowGpm);
+  if (!Number.isFinite(availablePsi) || !(demand.pressurePsi > 0)) return null;
+  const marginPsi = availablePsi - demand.pressurePsi;
+  const marginPercent = availablePsi > 0 ? (marginPsi / availablePsi) * 100 : null;
+  return { availablePsi, marginPsi, marginPercent };
+}
+
+function formatWaterMarginPressure(marginPsi) {
+  return `${marginPsi >= 0 ? "+" : ""}${formatWaterPressure(marginPsi, 1)}`;
+}
+
+function updateWaterDemandMargins(analysis) {
+  analysis.demands.forEach((demand) => {
+    const marginNode = demand.row.querySelector("[data-water-demand-margin]");
+    if (!marginNode) return;
+    const margin = computeWaterDemandMargin(demand, analysis);
+    if (!margin) {
+      marginNode.textContent = "-";
+      marginNode.classList.remove("is-negative", "is-positive");
+      return;
+    }
+    const percentText = margin.marginPercent == null ? "-" : `${margin.marginPercent.toFixed(0)}%`;
+    marginNode.textContent = `${formatWaterMarginPressure(margin.marginPsi)} / ${percentText}`;
+    marginNode.classList.toggle("is-negative", margin.marginPsi < 0);
+    marginNode.classList.toggle("is-positive", margin.marginPsi >= 0);
+  });
+}
+
+function waterSvgElement(tag, attrs = {}, content = "") {
+  const attrText = Object.entries(attrs)
+    .map(([key, value]) => `${key}="${escapeHtml(value)}"`)
+    .join(" ");
+  return `<${tag}${attrText ? ` ${attrText}` : ""}>${escapeHtml(content)}</${tag}>`;
+}
+
+function renderWaterChart(analysis) {
+  if (!dom.waterChart) return;
+  syncWaterOutputStyle();
+  const error = validateWaterAnalysis(analysis);
+  if (error) {
+    dom.waterChart.innerHTML = `
+      <rect width="940" height="560" class="water-chart-bg"></rect>
+      <text x="470" y="280" text-anchor="middle" class="water-chart-empty">${escapeHtml(error)}</text>
+    `;
+    return;
+  }
+
+  const width = 940;
+  const height = 560;
+  const margin = { left: 84, right: 34, top: 42, bottom: 76 };
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+  const demandMaxFlow = Math.max(0, ...analysis.demands.map((demand) => demand.flowGpm || 0));
+  const maxFlow = Math.max(analysis.curveLimitGpm || analysis.totalFlowGpm, demandMaxFlow, analysis.totalFlowGpm) * 1.12;
+  const maxPressure = Math.max(analysis.staticPsi, ...analysis.demands.map((demand) => demand.pressurePsi || 0)) * 1.18;
+  const x = (flow) => margin.left + (Math.max(0, flow) / maxFlow) * plotWidth;
+  const y = (pressure) => margin.top + plotHeight - (Math.max(0, pressure) / maxPressure) * plotHeight;
+  const pressureStep = niceStep(maxPressure, 6);
+  const flowStep = niceStep(maxFlow, 7);
+  const parts = [`<rect width="${width}" height="${height}" class="water-chart-bg"></rect>`];
+
+  for (let pressure = 0; pressure <= maxPressure + pressureStep * 0.5; pressure += pressureStep) {
+    const yy = y(pressure);
+    parts.push(`<line x1="${margin.left}" y1="${yy}" x2="${width - margin.right}" y2="${yy}" class="water-grid-line"></line>`);
+    parts.push(waterSvgElement("text", { x: margin.left - 12, y: yy + 4, "text-anchor": "end", class: "water-axis-text" }, Math.round(fromBasePressure(pressure)).toLocaleString()));
+  }
+  for (let flow = 0; flow <= maxFlow + flowStep * 0.5; flow += flowStep) {
+    const xx = x(flow);
+    parts.push(`<line x1="${xx}" y1="${margin.top}" x2="${xx}" y2="${height - margin.bottom}" class="water-grid-line"></line>`);
+    parts.push(waterSvgElement("text", { x: xx, y: height - margin.bottom + 24, "text-anchor": "middle", class: "water-axis-text" }, Math.round(fromBaseFlow(flow)).toLocaleString()));
+  }
+
+  parts.push(`<rect x="${margin.left}" y="${margin.top}" width="${plotWidth}" height="${plotHeight}" class="water-plot-border"></rect>`);
+  parts.push(waterSvgElement("text", { x: margin.left + plotWidth / 2, y: height - 22, "text-anchor": "middle", class: "water-axis-title" }, `Flow (${waterUnits().flow})`));
+  parts.push(waterSvgElement("text", { x: 24, y: margin.top + plotHeight / 2, "text-anchor": "middle", class: "water-axis-title", transform: `rotate(-90 24 ${margin.top + plotHeight / 2})` }, `Pressure (${waterUnits().pressure})`));
+
+  const curvePoints = [];
+  for (let i = 0; i <= 80; i += 1) {
+    const flow = (maxFlow * i) / 80;
+    const pressure = availableWaterPressure(flow, analysis.staticPsi, analysis.residualPsi, analysis.totalFlowGpm);
+    if (pressure != null && pressure >= 0) curvePoints.push(`${x(flow).toFixed(2)},${y(pressure).toFixed(2)}`);
+  }
+  parts.push(`<polyline points="${curvePoints.join(" ")}" class="water-supply-curve"></polyline>`);
+  parts.push(`<circle cx="${x(0)}" cy="${y(analysis.staticPsi)}" r="6" class="water-test-point"></circle>`);
+  parts.push(`<circle cx="${x(analysis.totalFlowGpm)}" cy="${y(analysis.residualPsi)}" r="6" class="water-test-point residual"></circle>`);
+  if (Number.isFinite(analysis.expectedFlowGpm)) {
+    parts.push(`<circle cx="${x(analysis.expectedFlowGpm)}" cy="${y(analysis.targetPsi)}" r="6" class="water-fire-point"></circle>`);
+  }
+
+  analysis.demands.forEach((demand, index) => {
+    const netFlow = Math.max(0, demand.flowGpm - (demand.hoseGpm || 0));
+    const points = [
+      `${x(0).toFixed(2)},${y(0).toFixed(2)}`,
+      `${x(netFlow).toFixed(2)},${y(demand.pressurePsi).toFixed(2)}`,
+      `${x(demand.flowGpm).toFixed(2)},${y(demand.pressurePsi).toFixed(2)}`,
+    ];
+    parts.push(`<polyline points="${points.join(" ")}" class="water-demand-line"></polyline>`);
+    parts.push(`<circle cx="${x(demand.flowGpm)}" cy="${y(demand.pressurePsi)}" r="5" class="water-demand-point"></circle>`);
+    parts.push(waterSvgElement("text", { x: Math.min(width - 140, x(demand.flowGpm) + 10), y: Math.max(18, y(demand.pressurePsi) - 10), class: "water-demand-label" }, demand.label || `Demand ${index + 1}`));
+  });
+
+  parts.push(waterSvgElement("text", { x: margin.left, y: 24, class: "water-chart-title" }, "Water Supply Analysis"));
+  dom.waterChart.innerHTML = parts.join("");
+}
+
+function renderWaterReport(analysis) {
+  if (!dom.waterReport || !dom.waterMathPanel) return;
+  const elevation = readFiniteInput(dom.waterElevationInput);
+  const elevationText = elevation == null ? "-" : `${roundForInput(fromBaseElevation(toBaseElevation(elevation)))} ${waterUnits().elevation}`;
+  const siteRows = [
+    ["Project / Site", dom.waterSiteNameInput?.value || "-"],
+    ["Address", dom.waterAddressInput?.value || "-"],
+    ["Date / Time", [dom.waterDateInput?.value, dom.waterTimeInput?.value].filter(Boolean).join(" ") || "-"],
+    ["Performed By", dom.waterByInput?.value || "-"],
+    ["Pressure Hydrant", dom.waterPressureHydrantLocationInput?.value || "-"],
+    ["Elevation", elevationText],
+  ];
+  const flowRows = [
+    ["Static", formatWaterPressure(analysis.staticPsi, 1)],
+    ["Residual", formatWaterPressure(analysis.residualPsi, 1)],
+    ["Total Flow", formatWaterFlow(analysis.totalFlowGpm, 0)],
+    ["Flow at Target", formatWaterFlow(analysis.expectedFlowGpm, 0)],
+  ];
+  const hydrantRows = analysis.hydrants.map((hydrant) => [
+    `Flow Hydrant ${hydrant.index}`,
+    hydrant.flowGpm > 0
+      ? `${formatWaterFlow(hydrant.flowGpm, 0)}${hydrant.usesOverride ? " override" : ""}${hydrant.location ? ` / ${hydrant.location}` : ""}`
+      : "-",
+  ]);
+  const marginRows = analysis.demands.map((demand) => {
+    const margin = computeWaterDemandMargin(demand, analysis);
+    if (!margin) return [`Safety Margin — ${demand.label}`, "-"];
+    const percentText = margin.marginPercent == null ? "-" : `${margin.marginPercent.toFixed(0)}%`;
+    return [`Safety Margin — ${demand.label}`, `${formatWaterMarginPressure(margin.marginPsi)} (${percentText})`];
+  });
+  dom.waterReport.innerHTML = [...siteRows, ...flowRows, ...hydrantRows, ...marginRows].map(([label, value]) => `
+    <div class="layout-result-line">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+    </div>
+  `).join("");
+
+  const h1 = analysis.hydrants[0];
+  const h2 = analysis.hydrants[1];
+  dom.waterMathPanel.innerHTML = `
+    <div><strong>Pitot flow</strong><span>Q = 29.83 x C x d^2 x sqrt(P) x outlets</span></div>
+    <div><strong>Hydrant 1</strong><span>${h1.usesOverride ? "Override" : `29.83 x ${h1.coeff || 0} x ${(h1.diameterIn || 0).toFixed(2)}^2 x sqrt(${(h1.pitotPsi || 0).toFixed(1)}) x ${h1.outletCount || 0}`} = ${formatWaterFlow(h1.flowGpm, 0)}</span></div>
+    <div><strong>Hydrant 2</strong><span>${h2.flowGpm > 0 ? (h2.usesOverride ? "Override" : `29.83 x ${h2.coeff || 0} x ${(h2.diameterIn || 0).toFixed(2)}^2 x sqrt(${(h2.pitotPsi || 0).toFixed(1)}) x ${h2.outletCount || 0}`) : "No flow"} = ${formatWaterFlow(h2.flowGpm, 0)}</span></div>
+    <div><strong>Flow at pressure</strong><span>Q2 = Q1 x ((Ps - P2) / (Ps - Pr))^0.54 = ${formatWaterFlow(analysis.expectedFlowGpm, 0)}</span></div>
+    <div><strong>Curve pressure</strong><span>P = Ps - (Ps - Pr) x (Q / Q1)^1.85</span></div>
+  `;
+}
+
+function calculateWaterSupply() {
+  const analysis = waterAnalysisInputs();
+  const error = validateWaterAnalysis(analysis);
+  if (dom.waterTotalFlowResult) dom.waterTotalFlowResult.textContent = formatWaterFlow(analysis.totalFlowGpm, 0);
+  if (dom.waterExpectedFlowResult) dom.waterExpectedFlowResult.textContent = formatWaterFlow(analysis.expectedFlowGpm, 0);
+  if (dom.waterCurveLimitResult) dom.waterCurveLimitResult.textContent = formatWaterFlow(analysis.curveLimitGpm, 0);
+  updateWaterDemandMargins(analysis);
+  renderWaterChart(analysis);
+  renderWaterReport(analysis);
+  setWaterStatus(error || "Water supply graph updated.", error ? "error" : "success");
+  return analysis;
+}
+
+function resetWaterSupplyTool() {
+  if (dom.waterModeInputs?.length) {
+    dom.waterModeInputs.forEach((input) => {
+      input.checked = input.value === "US";
+    });
+  }
+  dom.waterExportStyleInputs?.forEach((input) => {
+    input.checked = input.value === "color";
+  });
+  currentWaterMode = "US";
+  [
+    dom.waterSiteNameInput,
+    dom.waterAddressInput,
+    dom.waterDateInput,
+    dom.waterTimeInput,
+    dom.waterByInput,
+    dom.waterPressureHydrantLocationInput,
+    dom.waterElevationInput,
+    dom.waterFh1LocationInput,
+    dom.waterFh2LocationInput,
+    dom.waterFh1OverrideInput,
+    dom.waterFh2OverrideInput,
+    dom.waterFh2PitotInput,
+    dom.waterFh2OutletsInput,
+  ].filter(Boolean).forEach((input) => {
+    input.value = "";
+  });
+  if (dom.waterStaticInput) dom.waterStaticInput.value = "75";
+  if (dom.waterResidualInput) dom.waterResidualInput.value = "55";
+  if (dom.waterTargetPressureInput) dom.waterTargetPressureInput.value = "20";
+  if (dom.waterFh1PitotInput) dom.waterFh1PitotInput.value = "25";
+  if (dom.waterFh1OutletsInput) dom.waterFh1OutletsInput.value = "1";
+  if (dom.waterFh1DiameterInput) dom.waterFh1DiameterInput.value = "2.5";
+  if (dom.waterFh1CoeffInput) dom.waterFh1CoeffInput.value = "0.9";
+  if (dom.waterFh2DiameterInput) dom.waterFh2DiameterInput.value = "2.5";
+  if (dom.waterFh2CoeffInput) dom.waterFh2CoeffInput.value = "0.9";
+  if (dom.waterDemandList) dom.waterDemandList.innerHTML = "";
+  addWaterDemandRow({ label: "System Demand", pressure: 20, flow: 600, hose: 0 });
+  updateWaterUnitLabels();
+  calculateWaterSupply();
+}
+
+function exportPathName(path) {
+  return String(path || "").split(/[\\/]/).filter(Boolean).pop() || "file";
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || "");
+      resolve(dataUrl.includes(",") ? dataUrl.split(",").pop() : dataUrl);
+    };
+    reader.onerror = () => reject(reader.error || new Error("Could not read export data."));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function saveGeneratedWaterFile({ defaultName, outputType, content, encoding = "text" }) {
+  const payload = await readApiJson("./api/save-generated-file", {
+    method: "POST",
+    body: JSON.stringify({ defaultName, outputType, content, encoding }),
+  });
+  setWaterStatus(`Saved ${exportPathName(payload.path)}.`, "success");
+  return payload;
+}
+
+function waterExportStyles(style = waterExportStyle()) {
+  const monochrome = style === "bw";
+  return monochrome
+    ? `
+      .water-chart-bg{fill:#fff}
+      .water-grid-line{stroke:#d6d6d6;stroke-width:1}
+      .water-plot-border{fill:none;stroke:#000;stroke-width:2}
+      .water-axis-text,.water-axis-title,.water-demand-label,.water-chart-title,.water-chart-empty{fill:#000;font-family:Arial,sans-serif;font-weight:700}
+      .water-axis-text{font-size:12px}
+      .water-axis-title{font-size:14px}
+      .water-chart-title{font-size:18px}
+      .water-chart-empty{fill:#555;font-size:18px}
+      .water-supply-curve{fill:none;stroke:#000;stroke-linecap:round;stroke-linejoin:round;stroke-width:4}
+      .water-test-point,.water-test-point.residual,.water-fire-point,.water-demand-point{fill:#fff;stroke:#000;stroke-width:2}
+      .water-demand-line{fill:none;stroke:#000;stroke-linecap:round;stroke-width:3;stroke-dasharray:8 7}
+      .water-demand-label{fill:#000;font-size:12px}
+    `
+    : `
+      .water-chart-bg{fill:#10161d}
+      .water-grid-line{stroke:rgba(232,244,248,.18);stroke-width:1}
+      .water-plot-border{fill:none;stroke:#e8f4f8;stroke-width:2}
+      .water-axis-text,.water-axis-title,.water-demand-label,.water-chart-title,.water-chart-empty{fill:#e8f4f8;font-family:Arial,sans-serif;font-weight:700}
+      .water-axis-text{font-size:12px}
+      .water-axis-title{font-size:14px}
+      .water-chart-title{font-size:18px}
+      .water-chart-empty{fill:#98a7b3;font-size:18px}
+      .water-supply-curve{fill:none;stroke:#37b7e4;stroke-linecap:round;stroke-linejoin:round;stroke-width:4}
+      .water-test-point{fill:#ffb03a;stroke:#10161d;stroke-width:2}
+      .water-test-point.residual{fill:#ff5a2f}
+      .water-fire-point{fill:#34d399;stroke:#10161d;stroke-width:2}
+      .water-demand-line{fill:none;stroke:#ff7b5f;stroke-linecap:round;stroke-width:3;stroke-dasharray:8 7}
+      .water-demand-point{fill:#ff8d78;stroke:#10161d;stroke-width:2}
+      .water-demand-label{fill:#ffd0c7;font-size:12px}
+    `;
+}
+
+function serializedWaterExportSvg(style = waterExportStyle()) {
+  const analysis = calculateWaterSupply();
+  if (validateWaterAnalysis(analysis)) return "";
+  const svg = dom.waterChart?.cloneNode(true);
+  if (!svg) return "";
+  svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  svg.setAttribute("width", "1880");
+  svg.setAttribute("height", "1120");
+  svg.dataset.waterStyle = style;
+  svg.insertAdjacentHTML("afterbegin", `<style>${waterExportStyles(style)}</style>`);
+  return new XMLSerializer().serializeToString(svg);
+}
+
+async function exportWaterSvg() {
+  const style = waterExportStyle();
+  const svgText = serializedWaterExportSvg(style);
+  if (!svgText) {
+    setWaterStatus(validateWaterAnalysis(calculateWaterSupply()) || "Could not build the SVG export.", "error");
+    return;
+  }
+  try {
+    setWaterStatus("Choose where to save the SVG export...", "info");
+    await saveGeneratedWaterFile({
+      defaultName: `water-supply-graph${style === "bw" ? "-black-white" : ""}.svg`,
+      outputType: "svg",
+      content: svgText,
+    });
+  } catch (error) {
+    setWaterStatus(error.message || "SVG export failed.", "error");
+  }
+}
+
+function waterSvgToPngBlob(svgText, width = 1880, height = 1120) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(new Blob([svgText], { type: "image/svg+xml;charset=utf-8" }));
+    const image = new Image();
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d");
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => {
+        URL.revokeObjectURL(url);
+        if (blob) {
+          resolve(blob);
+        } else {
+          reject(new Error("Could not create the PNG image."));
+        }
+      }, "image/png");
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Could not render the PNG export. Try SVG export instead."));
+    };
+    image.src = url;
+  });
+}
+
+async function exportWaterPng() {
+  const style = waterExportStyle();
+  const svgText = serializedWaterExportSvg(style);
+  if (!svgText) {
+    setWaterStatus(validateWaterAnalysis(calculateWaterSupply()) || "Could not build the PNG export.", "error");
+    return;
+  }
+  try {
+    setWaterStatus("Rendering PNG export...", "info");
+    const blob = await waterSvgToPngBlob(svgText, 1880, 1280);
+    const content = await blobToBase64(blob);
+    setWaterStatus("Choose where to save the PNG export...", "info");
+    await saveGeneratedWaterFile({
+      defaultName: `water-supply-graph${style === "bw" ? "-black-white" : ""}.png`,
+      outputType: "png",
+      content,
+      encoding: "base64",
+    });
+  } catch (error) {
+    setWaterStatus(error.message || "PNG export failed.", "error");
+  }
+}
+
+function printWaterGraph() {
+  const style = waterExportStyle();
+  const svgText = serializedWaterExportSvg(style);
+  if (!svgText) return;
+  const reportHtml = dom.waterReport?.innerHTML || "";
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) {
+    setWaterStatus("Allow popups to print the water supply graph.", "error");
+    return;
+  }
+  printWindow.document.write(`
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Water Supply Graph</title>
+        <style>
+          @page { size: Letter landscape; margin: 0.35in; }
+          body {
+            background: #fff;
+            color: #000;
+            font-family: Arial, sans-serif;
+            margin: 0;
+          }
+          .print-sheet {
+            display: grid;
+            gap: 0.16in;
+          }
+          .graph-wrap svg {
+            display: block;
+            height: auto;
+            max-width: 100%;
+            width: 100%;
+          }
+          .report {
+            border: 1px solid #000;
+            display: grid;
+            font-size: 9px;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+          }
+          .layout-result-line {
+            border-bottom: 1px solid #bbb;
+            display: flex;
+            gap: 8px;
+            justify-content: space-between;
+            min-height: 18px;
+            padding: 4px 6px;
+          }
+          .layout-result-line span {
+            color: #333;
+            font-weight: 700;
+            text-transform: uppercase;
+          }
+          .layout-result-line strong {
+            color: #000;
+            font-weight: 700;
+            text-align: right;
+          }
+        </style>
+      </head>
+      <body>
+        <main class="print-sheet">
+          <div class="graph-wrap">${svgText}</div>
+          <section class="report">${reportHtml}</section>
+        </main>
+        <script>
+          window.addEventListener("load", () => {
+            setTimeout(() => {
+              window.print();
+              window.close();
+            }, 100);
+          });
+        <\/script>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+}
+
+function waterSheetVal(el) {
+  return el && typeof el.value === "string" ? el.value.trim() : "";
+}
+
+function saveWaterSheetPrefs() {
+  try {
+    localStorage.setItem("sprinkflow.waterSheet", JSON.stringify({
+      on: !!dom.waterSheetDisclaimerToggle?.checked,
+      text: dom.waterSheetDisclaimer?.value || "",
+    }));
+  } catch (err) { /* storage unavailable */ }
+}
+
+function loadWaterSheetPrefs() {
+  try {
+    const raw = localStorage.getItem("sprinkflow.waterSheet");
+    if (raw) {
+      const data = JSON.parse(raw) || {};
+      if (dom.waterSheetDisclaimerToggle && typeof data.on === "boolean") dom.waterSheetDisclaimerToggle.checked = data.on;
+      if (dom.waterSheetDisclaimer && typeof data.text === "string" && data.text.trim()) dom.waterSheetDisclaimer.value = data.text;
+    }
+  } catch (err) { /* ignore */ }
+  if (dom.waterSheetDisclaimer) dom.waterSheetDisclaimer.disabled = !dom.waterSheetDisclaimerToggle?.checked;
+}
+
+async function generateWaterFlowSheetPdf() {
+  const analysis = calculateWaterSupply();
+  const error = validateWaterAnalysis(analysis);
+  if (error) {
+    setWaterStatus(error, "error");
+    return;
+  }
+  const units = (typeof waterUnits === "function" ? waterUnits() : {}) || {};
+  const v = waterSheetVal;
+
+  const project = v(dom.waterSiteNameInput) || "Untitled Project";
+  const address = v(dom.waterAddressInput);
+  const date = v(dom.waterDateInput);
+  const time = v(dom.waterTimeInput);
+  const dateTime = [date, time].filter(Boolean).join(" ");
+  const by = v(dom.waterByInput);
+  const presLoc = v(dom.waterPressureHydrantLocationInput);
+  const elevation = readFiniteInput(dom.waterElevationInput);
+  const elevationText = elevation == null ? "-" : `${roundForInput(elevation)} ${units.elevation || "ft"}`;
+
+  const siteRows = [
+    ["Project / Site", project],
+    ["Address", address || "-"],
+    ["Date / Time", dateTime || "-"],
+    ["Performed By", by || "-"],
+  ];
+  const pressureRows = [
+    ["Static Pressure", formatWaterPressure(analysis.staticPsi, 1)],
+    ["Residual Pressure", formatWaterPressure(analysis.residualPsi, 1)],
+    ["Fire Flow Pressure", formatWaterPressure(analysis.targetPsi, 1)],
+    ["Pressure Hydrant", presLoc || "-"],
+    ["Elevation", elevationText],
+  ];
+
+  const hydrantHeader = [
+    "Hydrant",
+    `Pitot (${units.pressure || "psi"})`,
+    "Outlets",
+    `Dia (${units.diameter || "in"})`,
+    "Coeff",
+    `Flow (${units.flow || "gpm"})`,
+    "Location",
+  ];
+  const hydrantRows = analysis.hydrants.map((h) => {
+    const prefix = h.index === 1 ? "waterFh1" : "waterFh2";
+    const hasData = h.flowGpm > 0 || v(dom[`${prefix}PitotInput`]);
+    if (!hasData) return null;
+    return [
+      `Hydrant ${h.index}`,
+      h.usesOverride ? "override" : (v(dom[`${prefix}PitotInput`]) || "-"),
+      h.usesOverride ? "-" : (v(dom[`${prefix}OutletsInput`]) || "-"),
+      h.usesOverride ? "-" : (v(dom[`${prefix}DiameterInput`]) || "-"),
+      h.usesOverride ? "-" : (v(dom[`${prefix}CoeffInput`]) || "-"),
+      formatWaterFlow(h.flowGpm, 0),
+      v(dom[`${prefix}LocationInput`]) || "-",
+    ];
+  }).filter(Boolean);
+
+  const resultTiles = [
+    ["Total Test Flow", formatWaterFlow(analysis.totalFlowGpm, 0)],
+    [`Available @ ${formatWaterPressure(analysis.targetPsi, 0)}`, formatWaterFlow(analysis.expectedFlowGpm, 0)],
+    ["Flow @ 0 psi (theoretical)", formatWaterFlow(analysis.curveLimitGpm, 0)],
+  ];
+
+  const demandHeader = [
+    "Demand",
+    "Required",
+    "Available",
+    "Safety Margin",
+    "Margin %",
+  ];
+  const demandRows = analysis.demands.map((demand) => {
+    const margin = computeWaterDemandMargin(demand, analysis);
+    const required = `${formatWaterPressure(demand.pressurePsi, 1)} @ ${formatWaterFlow(demand.flowGpm, 0)}`;
+    if (!margin) {
+      return [demand.label, required, "-", "-", "-"];
+    }
+    const percentText = margin.marginPercent == null ? "-" : `${margin.marginPercent.toFixed(0)}%`;
+    return [
+      demand.label,
+      required,
+      formatWaterPressure(margin.availablePsi, 1),
+      formatWaterMarginPressure(margin.marginPsi),
+      percentText,
+    ];
+  });
+
+  const includeDisc = !!dom.waterSheetDisclaimerToggle?.checked;
+  const disclaimer = includeDisc ? v(dom.waterSheetDisclaimer) : "";
+
+  let chartPng = "";
+  try {
+    setWaterStatus("Rendering flow test sheet...", "info");
+    const svgText = serializedWaterExportSvg("bw");
+    if (svgText) {
+      const blob = await waterSvgToPngBlob(svgText, 1700, 1015);
+      chartPng = await blobToBase64(blob);
+    }
+  } catch (err) {
+    chartPng = "";
+  }
+
+  const defaultName = `Flow Test Sheet - ${project}`.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim();
+
+  try {
+    setWaterStatus("Choose where to save the flow test sheet PDF...", "info");
+    const payload = await readApiJson("./api/water-flow-sheet", {
+      method: "POST",
+      body: JSON.stringify({
+        defaultName,
+        title: "HYDRANT FLOW TEST REPORT",
+        subtitle: [project, address].filter(Boolean).join("  —  "),
+        performedBy: by || "",
+        siteRows,
+        pressureRows,
+        hydrantHeader,
+        hydrantRows,
+        resultTiles,
+        demandHeader,
+        demandRows,
+        disclaimer,
+        chartPng,
+      }),
+    });
+    setWaterStatus(`Saved ${exportPathName(payload.path)} and opened it.`, "success");
+  } catch (err) {
+    const msg = err && err.message ? err.message : "Flow test sheet PDF failed.";
+    if (/cancel/i.test(msg)) {
+      setWaterStatus("Save cancelled.", "info");
+      return;
+    }
+    setWaterStatus(msg, "error");
+  }
+}
+
+async function exportWaterDxf() {
+  const analysis = calculateWaterSupply();
+  const error = validateWaterAnalysis(analysis);
+  if (error) {
+    setWaterStatus(error, "error");
+    return;
+  }
+  const monochrome = waterExportStyle() === "bw";
+  const width = 10;
+  const height = 6;
+  const left = 0.85;
+  const bottom = 0.8;
+  const plotWidth = 8.65;
+  const plotHeight = 4.55;
+  const maxFlow = Math.max(analysis.curveLimitGpm || analysis.totalFlowGpm, ...analysis.demands.map((demand) => demand.flowGpm || 0)) * 1.12;
+  const maxPressure = Math.max(analysis.staticPsi, ...analysis.demands.map((demand) => demand.pressurePsi || 0)) * 1.18;
+  const x = (flow) => left + (Math.max(0, flow) / maxFlow) * plotWidth;
+  const y = (pressure) => bottom + (Math.max(0, pressure) / maxPressure) * plotHeight;
+  const supplyColor = monochrome ? 7 : 4;
+  const demandColor = monochrome ? 7 : 1;
+  const textColor = 7;
+  const codes = ["0", "SECTION", "2", "ENTITIES"];
+  const addColor = (color) => (color ? ["62", String(color)] : []);
+  const line = (x1, y1, x2, y2, color = textColor) => codes.push("0", "LINE", "8", "0", ...addColor(color), "10", x1.toFixed(4), "20", y1.toFixed(4), "30", "0", "11", x2.toFixed(4), "21", y2.toFixed(4), "31", "0");
+  const text = (tx, ty, size, value, color = textColor) => codes.push("0", "TEXT", "8", "0", ...addColor(color), "10", tx.toFixed(4), "20", ty.toFixed(4), "30", "0", "40", size.toFixed(4), "1", value);
+  line(left, bottom, left + plotWidth, bottom, textColor);
+  line(left, bottom, left, bottom + plotHeight, textColor);
+  text(4.15, 0.25, 0.16, `FLOW (${waterUnits().flow})`, textColor);
+  text(0.1, 3.0, 0.16, `PRESSURE (${waterUnits().pressure})`, textColor);
+  text(3.8, 5.7, 0.22, "WATER SUPPLY ANALYSIS", textColor);
+  let previous = null;
+  for (let i = 0; i <= 60; i += 1) {
+    const flow = (maxFlow * i) / 60;
+    const pressure = availableWaterPressure(flow, analysis.staticPsi, analysis.residualPsi, analysis.totalFlowGpm);
+    if (pressure == null || pressure < 0) continue;
+    const point = [x(flow), y(pressure)];
+    if (previous) line(previous[0], previous[1], point[0], point[1], supplyColor);
+    previous = point;
+  }
+  analysis.demands.forEach((demand) => {
+    const netFlow = Math.max(0, demand.flowGpm - (demand.hoseGpm || 0));
+    line(x(0), y(0), x(netFlow), y(demand.pressurePsi), demandColor);
+    line(x(netFlow), y(demand.pressurePsi), x(demand.flowGpm), y(demand.pressurePsi), demandColor);
+    text(x(demand.flowGpm) + 0.1, y(demand.pressurePsi) + 0.1, 0.12, demand.label, demandColor);
+  });
+  text(left, 0.48, 0.12, `Static ${formatWaterPressure(analysis.staticPsi, 0)}  Residual ${formatWaterPressure(analysis.residualPsi, 0)}  Flow ${formatWaterFlow(analysis.totalFlowGpm, 0)}`);
+  codes.push("0", "ENDSEC", "0", "EOF");
+  try {
+    setWaterStatus("Choose where to save the DXF export...", "info");
+    await saveGeneratedWaterFile({
+      defaultName: `water-supply-graph${monochrome ? "-black-white" : ""}.dxf`,
+      outputType: "dxf",
+      content: codes.join("\n"),
+    });
+  } catch (saveError) {
+    setWaterStatus(saveError.message || "DXF export failed.", "error");
+  }
+}
+
+function nfpa1142Exposure() {
+  return document.querySelector("input[name='nfpa1142Exposure']:checked")?.value || "without";
+}
+
+function nfpa1142ExportStyle() {
+  return document.querySelector("input[name='nfpa1142ExportStyle']:checked")?.value === "bw" ? "bw" : "color";
+}
+
+function calculateNfpa1142(values) {
+  const area = Number.parseFloat(values.area);
+  const areaHeight = Number.parseFloat(values.areaHeight);
+  const length = Number.parseFloat(values.length);
+  const width = Number.parseFloat(values.width);
+  const dimensionHeight = Number.parseFloat(values.dimensionHeight);
+  const ohc = Number.parseInt(values.ohc, 10);
+  const cc = Number.parseFloat(values.cc);
+  const hasArea = Number.isFinite(area) && area > 0;
+  const hasDimensions = [length, width, dimensionHeight].every((value) => Number.isFinite(value) && value > 0);
+
+  if (!Number.isFinite(ohc) || ohc <= 0 || !Number.isFinite(cc) || cc <= 0) {
+    throw new Error("Choose valid OHC and construction classification values.");
+  }
+
+  let volume = 0;
+  let source = "";
+  if (hasArea) {
+    volume = area * (Number.isFinite(areaHeight) && areaHeight > 0 ? areaHeight : 1);
+    source = Number.isFinite(areaHeight) && areaHeight > 0
+      ? `${area.toLocaleString()} sq ft x ${areaHeight.toLocaleString()} ft`
+      : `${area.toLocaleString()} sq ft x assumed 1 ft`;
+  } else if (hasDimensions) {
+    volume = length * width * dimensionHeight;
+    source = `${length.toLocaleString()} ft x ${width.toLocaleString()} ft x ${dimensionHeight.toLocaleString()} ft`;
+  } else {
+    throw new Error("Enter either fire-flow calculation area or length, width, and height.");
+  }
+
+  const multiplier = values.exposure === "with" ? 1.5 : 1;
+  const minimumGallons = values.exposure === "with" ? 3000 : 2000;
+  const calculatedSupply = (volume / ohc) * cc * multiplier;
+  const gallons = Math.max(Math.round(calculatedSupply), minimumGallons);
+  let gpm = 250;
+  if (gallons > 30000) gpm = 1000;
+  else if (gallons > 22500) gpm = 750;
+  else if (gallons > 15000) gpm = 500;
+
+  return {
+    title: (values.title || "").trim() || "Structure",
+    source,
+    volume,
+    ohc,
+    cc,
+    ccLabel: selectedNfpa1142OptionText(dom.nfpa1142CcSelect),
+    ohcLabel: selectedNfpa1142OptionText(dom.nfpa1142OhcSelect),
+    exposure: values.exposure === "with" ? "With exposure hazards" : "Without exposure hazards",
+    multiplier,
+    minimumGallons,
+    calculatedSupply,
+    gallons,
+    gpm,
+  };
+}
+
+function selectedNfpa1142OptionText(select) {
+  return select?.selectedOptions?.[0]?.textContent?.trim() || "";
+}
+
+function renderNfpa1142Result(result) {
+  if (!dom.nfpa1142Results || !dom.nfpa1142Steps) return;
+  dom.nfpa1142Results.innerHTML = `
+    <div class="calculator-result-card">
+      <span>${escapeHtml(result.title)}</span>
+      <strong>${result.gallons.toLocaleString()} gal</strong>
+    </div>
+    <div class="calculator-result-card water-result-card">
+      <span>Water Delivery Rate</span>
+      <strong>${result.gpm.toLocaleString()} GPM</strong>
+    </div>
+  `;
+  dom.nfpa1142Steps.innerHTML = `
+    <div class="layout-result-line">
+      <span>Volume Source</span>
+      <strong>${escapeHtml(result.source)}</strong>
+    </div>
+    <div class="layout-result-line">
+      <span>Calculated Volume</span>
+      <strong>${result.volume.toLocaleString(undefined, { maximumFractionDigits: 1 })} ft³</strong>
+    </div>
+    <div class="layout-result-line">
+      <span>Formula</span>
+      <strong>(${result.volume.toFixed(1)} / ${result.ohc}) x ${result.cc} x ${result.multiplier} = ${result.calculatedSupply.toFixed(1)}</strong>
+    </div>
+    <div class="layout-result-line highlight">
+      <span>Minimum Check</span>
+      <strong>max(${result.calculatedSupply.toFixed(1)}, ${result.minimumGallons.toLocaleString()}) = ${result.gallons.toLocaleString()} gallons</strong>
+    </div>
+    <div class="layout-result-line">
+      <span>Reference</span>
+      <strong>Based on NFPA 1142 Sections 4.2, 4.3 and Table 4.6.1</strong>
+    </div>
+  `;
+  renderNfpa1142Report(result);
+}
+
+function currentNfpa1142Result() {
+  return calculateNfpa1142({
+    title: dom.nfpa1142TitleInput?.value,
+    area: dom.nfpa1142AreaInput?.value,
+    areaHeight: dom.nfpa1142HeightInput?.value,
+    length: dom.nfpa1142LengthInput?.value,
+    width: dom.nfpa1142WidthInput?.value,
+    dimensionHeight: dom.nfpa1142DimensionHeightInput?.value,
+    ohc: dom.nfpa1142OhcSelect?.value,
+    cc: dom.nfpa1142CcSelect?.value,
+    exposure: nfpa1142Exposure(),
+  });
+}
+
+function setNfpa1142Status(message, type = "info") {
+  if (!dom.nfpa1142Status) return;
+  dom.nfpa1142Status.textContent = message || "";
+  dom.nfpa1142Status.dataset.status = type;
+  scheduleStatusAutoClear(dom.nfpa1142Status, message, type, () => setNfpa1142Status(""));
+}
+
+function nfpa1142ReportRows(result) {
+  return [
+    ["Structure / Building", result.title],
+    ["Volume Source", result.source],
+    ["Calculated Volume", `${result.volume.toLocaleString(undefined, { maximumFractionDigits: 1 })} cu ft`],
+    ["Occupancy Hazard Classification", result.ohcLabel || `OHC ${result.ohc}`],
+    ["Construction Classification", result.ccLabel || `CC ${result.cc}`],
+    ["Exposure Hazards", result.exposure],
+    ["Formula", `(${result.volume.toFixed(1)} / ${result.ohc}) x ${result.cc} x ${result.multiplier} = ${result.calculatedSupply.toFixed(1)} gal`],
+    ["Minimum Check", `max(${result.calculatedSupply.toFixed(1)}, ${result.minimumGallons.toLocaleString()})`],
+    ["Minimum Water Supply", `${result.gallons.toLocaleString()} gallons`],
+    ["Required Delivery Rate", `${result.gpm.toLocaleString()} GPM`],
+    ["Reference", "NFPA 1142 Sections 4.2, 4.3 and Table 4.6.1"],
+  ];
+}
+
+function wrapSvgText(value, maxChars = 58) {
+  const words = String(value || "").split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = "";
+  for (const word of words) {
+    const next = line ? `${line} ${word}` : word;
+    if (next.length > maxChars && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = next;
+    }
+  }
+  if (line) lines.push(line);
+  return lines.length ? lines : [""];
+}
+
+function nfpa1142SvgMultilineText(x, y, value, maxChars, className, lineHeight = 17) {
+  return wrapSvgText(value, maxChars)
+    .map((line, index) => waterSvgElement("text", { x, y: y + index * lineHeight, class: className }, line))
+    .join("");
+}
+
+function nfpa1142ReportSvgMarkup(result, style = nfpa1142ExportStyle()) {
+  const monochrome = style === "bw";
+  const rows = nfpa1142ReportRows(result);
+  const width = 940;
+  const rowHeight = 42;
+  const headerHeight = 118;
+  const tableX = 54;
+  const tableY = 154;
+  const tableWidth = 832;
+  const labelWidth = 280;
+  const tableHeight = rows.length * rowHeight;
+  const accent = monochrome ? "#111111" : "#ff5a2f";
+  const accent2 = monochrome ? "#111111" : "#37b7e4";
+  const bg = monochrome ? "#ffffff" : "#10161d";
+  const panel = monochrome ? "#ffffff" : "#17222b";
+  const rowFill = monochrome ? "#f6f6f6" : "#121b23";
+  const line = monochrome ? "#111111" : "#314351";
+  const labelFill = monochrome ? "#000000" : "#aeb9c3";
+  const valueFill = monochrome ? "#000000" : "#f4f7f8";
+  const mutedFill = monochrome ? "#333333" : "#9ba9b4";
+  const parts = [
+    waterSvgElement("rect", { width, height: 640, fill: bg }),
+    waterSvgElement("rect", { x: 28, y: 28, width: 884, height: 584, rx: 16, fill: panel, stroke: line, "stroke-width": 2 }),
+    waterSvgElement("rect", { x: 28, y: 28, width: 884, height: 20, rx: 10, fill: accent }),
+    waterSvgElement("text", { x: 54, y: 84, fill: accent2, "font-family": "Arial, sans-serif", "font-size": 14, "font-weight": 700 }, "NFPA 1142 WATER SUPPLY CALCULATION"),
+    waterSvgElement("text", { x: 54, y: 122, fill: valueFill, "font-family": "Arial, sans-serif", "font-size": 34, "font-weight": 800 }, result.title),
+    waterSvgElement("text", { x: 886, y: 92, fill: valueFill, "font-family": "Arial, sans-serif", "font-size": 30, "font-weight": 800, "text-anchor": "end" }, `${result.gallons.toLocaleString()} GAL`),
+    waterSvgElement("text", { x: 886, y: 122, fill: mutedFill, "font-family": "Arial, sans-serif", "font-size": 18, "font-weight": 700, "text-anchor": "end" }, `${result.gpm.toLocaleString()} GPM DELIVERY RATE`),
+    waterSvgElement("rect", { x: tableX, y: tableY, width: tableWidth, height: tableHeight, fill: "none", stroke: line, "stroke-width": 2 }),
+  ];
+  rows.forEach(([label, value], index) => {
+    const y = tableY + index * rowHeight;
+    parts.push(waterSvgElement("rect", { x: tableX, y, width: tableWidth, height: rowHeight, fill: index % 2 ? panel : rowFill }));
+    parts.push(waterSvgElement("line", { x1: tableX, y1: y + rowHeight, x2: tableX + tableWidth, y2: y + rowHeight, stroke: line, "stroke-width": 1 }));
+    parts.push(waterSvgElement("line", { x1: tableX + labelWidth, y1: y, x2: tableX + labelWidth, y2: y + rowHeight, stroke: line, "stroke-width": 1 }));
+    parts.push(waterSvgElement("text", { x: tableX + 18, y: y + 26, fill: labelFill, "font-family": "Arial, sans-serif", "font-size": 13, "font-weight": 800 }, label.toUpperCase()));
+    const valueClass = index >= rows.length - 3 ? "nfpa1142-major-value" : "nfpa1142-table-value";
+    parts.push(nfpa1142SvgMultilineText(tableX + labelWidth + 18, y + 24, value, 54, valueClass));
+  });
+  parts.push(waterSvgElement("text", { x: 54, y: 594, fill: mutedFill, "font-family": "Arial, sans-serif", "font-size": 12, "font-weight": 700 }, "Generated by SprinkFlow"));
+  return parts.join("");
+}
+
+function nfpa1142ReportStyles(style = nfpa1142ExportStyle()) {
+  const monochrome = style === "bw";
+  return monochrome
+    ? `
+      .nfpa1142-table-value{fill:#000;font-family:Arial,sans-serif;font-size:14px;font-weight:700}
+      .nfpa1142-major-value{fill:#000;font-family:Arial,sans-serif;font-size:16px;font-weight:900}
+    `
+    : `
+      .nfpa1142-table-value{fill:#f4f7f8;font-family:Arial,sans-serif;font-size:14px;font-weight:700}
+      .nfpa1142-major-value{fill:#ffb03a;font-family:Arial,sans-serif;font-size:16px;font-weight:900}
+    `;
+}
+
+function renderNfpa1142Report(result = null) {
+  if (!dom.nfpa1142ReportSvg) return;
+  const style = nfpa1142ExportStyle();
+  dom.nfpa1142ReportSvg.dataset.nfpa1142Style = style;
+  if (!result) {
+    dom.nfpa1142ReportSvg.innerHTML = `
+      <rect width="940" height="640" class="nfpa1142-empty-bg" fill="${style === "bw" ? "#ffffff" : "#10161d"}"></rect>
+      <text x="470" y="312" text-anchor="middle" class="water-chart-empty">Run a calculation to build the export table.</text>
+    `;
+    return;
+  }
+  dom.nfpa1142ReportSvg.innerHTML = `<style>${nfpa1142ReportStyles(style)}</style>${nfpa1142ReportSvgMarkup(result, style)}`;
+}
+
+function serializedNfpa1142ReportSvg(style = nfpa1142ExportStyle()) {
+  const result = currentNfpa1142Result();
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  svg.setAttribute("viewBox", "0 0 940 640");
+  svg.setAttribute("width", "1880");
+  svg.setAttribute("height", "1280");
+  svg.insertAdjacentHTML("afterbegin", `<style>${nfpa1142ReportStyles(style)}</style>${nfpa1142ReportSvgMarkup(result, style)}`);
+  return new XMLSerializer().serializeToString(svg);
+}
+
+async function exportNfpa1142Svg() {
+  try {
+    const style = nfpa1142ExportStyle();
+    const svgText = serializedNfpa1142ReportSvg(style);
+    setNfpa1142Status("Choose where to save the SVG export...", "info");
+    await saveGeneratedWaterFile({
+      defaultName: `nfpa-1142-water-supply-table${style === "bw" ? "-black-white" : ""}.svg`,
+      outputType: "svg",
+      content: svgText,
+    });
+  } catch (error) {
+    setNfpa1142Status(error.message || "SVG export failed.", "error");
+  }
+}
+
+async function exportNfpa1142Png() {
+  try {
+    const style = nfpa1142ExportStyle();
+    const svgText = serializedNfpa1142ReportSvg(style);
+    setNfpa1142Status("Rendering PNG export...", "info");
+    const blob = await waterSvgToPngBlob(svgText);
+    const content = await blobToBase64(blob);
+    setNfpa1142Status("Choose where to save the PNG export...", "info");
+    await saveGeneratedWaterFile({
+      defaultName: `nfpa-1142-water-supply-table${style === "bw" ? "-black-white" : ""}.png`,
+      outputType: "png",
+      content,
+      encoding: "base64",
+    });
+  } catch (error) {
+    setNfpa1142Status(error.message || "PNG export failed.", "error");
+  }
+}
+
+function printNfpa1142Report() {
+  try {
+    const style = nfpa1142ExportStyle();
+    const svgText = serializedNfpa1142ReportSvg(style);
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      setNfpa1142Status("Allow popups to print the NFPA 1142 table.", "error");
+      return;
+    }
+    printWindow.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>NFPA 1142 Water Supply Table</title>
+          <style>
+            @page { size: Letter landscape; margin: 0.35in; }
+            body { background: #fff; margin: 0; }
+            svg { display: block; height: auto; max-width: 100%; width: 100%; }
+          </style>
+        </head>
+        <body>${svgText}<script>window.addEventListener("load",()=>setTimeout(()=>{window.print();window.close();},100));<\/script></body>
+      </html>
+    `);
+    printWindow.document.close();
+  } catch (error) {
+    setNfpa1142Status(error.message || "Print export failed.", "error");
+  }
+}
+
+async function exportNfpa1142Dxf() {
+  try {
+    const result = currentNfpa1142Result();
+    const monochrome = nfpa1142ExportStyle() === "bw";
+    const rows = nfpa1142ReportRows(result);
+    const codes = ["0", "SECTION", "2", "ENTITIES"];
+    const color = monochrome ? 7 : 30;
+    const accent = monochrome ? 7 : 1;
+    const addColor = (value) => (value ? ["62", String(value)] : []);
+    const line = (x1, y1, x2, y2, lineColor = color) => codes.push("0", "LINE", "8", "0", ...addColor(lineColor), "10", x1.toFixed(4), "20", y1.toFixed(4), "30", "0", "11", x2.toFixed(4), "21", y2.toFixed(4), "31", "0");
+    const text = (tx, ty, size, value, textColor = color) => codes.push("0", "TEXT", "8", "0", ...addColor(textColor), "10", tx.toFixed(4), "20", ty.toFixed(4), "30", "0", "40", size.toFixed(4), "1", String(value).slice(0, 240));
+    text(0.35, 7.65, 0.22, "NFPA 1142 WATER SUPPLY CALCULATION", accent);
+    text(0.35, 7.25, 0.34, result.title, color);
+    text(8.25, 7.25, 0.26, `${result.gallons.toLocaleString()} GAL`, accent);
+    text(8.25, 6.9, 0.18, `${result.gpm.toLocaleString()} GPM`, color);
+    const left = 0.35;
+    const top = 6.55;
+    const rowHeight = 0.42;
+    const labelWidth = 2.75;
+    const totalWidth = 9.35;
+    line(left, top, left + totalWidth, top, color);
+    line(left, top - rows.length * rowHeight, left + totalWidth, top - rows.length * rowHeight, color);
+    line(left, top, left, top - rows.length * rowHeight, color);
+    line(left + labelWidth, top, left + labelWidth, top - rows.length * rowHeight, color);
+    line(left + totalWidth, top, left + totalWidth, top - rows.length * rowHeight, color);
+    rows.forEach(([label, value], index) => {
+      const y = top - (index + 1) * rowHeight;
+      line(left, y, left + totalWidth, y, color);
+      text(left + 0.12, y + 0.14, 0.11, label.toUpperCase(), color);
+      text(left + labelWidth + 0.12, y + 0.14, 0.11, value, index >= rows.length - 3 ? accent : color);
+    });
+    codes.push("0", "ENDSEC", "0", "EOF");
+    setNfpa1142Status("Choose where to save the DXF export...", "info");
+    await saveGeneratedWaterFile({
+      defaultName: `nfpa-1142-water-supply-table${monochrome ? "-black-white" : ""}.dxf`,
+      outputType: "dxf",
+      content: codes.join("\n"),
+    });
+  } catch (error) {
+    setNfpa1142Status(error.message || "DXF export failed.", "error");
+  }
+}
+
+function calculateAndRenderNfpa1142() {
+  try {
+    const result = currentNfpa1142Result();
+    renderNfpa1142Result(result);
+    setNfpa1142Status("Water supply calculation complete.", "success");
+  } catch (error) {
+    setNfpa1142Status(error.message || "Please check your inputs.", "error");
+    renderNfpa1142Report(null);
+  }
+}
+
+function clearNfpa1142Calculator() {
+  [
+    dom.nfpa1142TitleInput,
+    dom.nfpa1142AreaInput,
+    dom.nfpa1142HeightInput,
+    dom.nfpa1142LengthInput,
+    dom.nfpa1142WidthInput,
+    dom.nfpa1142DimensionHeightInput,
+  ].filter(Boolean).forEach((input) => {
+    input.value = "";
+  });
+  if (dom.nfpa1142OhcSelect) dom.nfpa1142OhcSelect.value = "5";
+  if (dom.nfpa1142CcSelect) dom.nfpa1142CcSelect.value = "1.0";
+  const exposure = document.querySelector("input[name='nfpa1142Exposure'][value='without']");
+  if (exposure) exposure.checked = true;
+  if (dom.nfpa1142Status) {
+    dom.nfpa1142Status.textContent = "";
+    dom.nfpa1142Status.dataset.status = "";
+  }
+  if (dom.nfpa1142Results) {
+    dom.nfpa1142Results.innerHTML = `
+      <div class="calculator-result-card">
+        <span>Minimum Water Supply</span>
+        <strong>-</strong>
+      </div>
+      <div class="calculator-result-card">
+        <span>Delivery Rate</span>
+        <strong>-</strong>
+      </div>
+    `;
+  }
+  if (dom.nfpa1142Steps) {
+    dom.nfpa1142Steps.innerHTML = `
+      <div class="layout-result-line">
+        <span>Reference</span>
+        <strong>Based on NFPA 1142 Sections 4.2, 4.3 and Table 4.6.1</strong>
+      </div>
+    `;
+  }
+  renderNfpa1142Report(null);
+}
+
+function wireEvents() {
+  if (dom.manualCategoryInput) {
+    dom.manualCategoryInput.innerHTML = CATEGORIES.map((category) => `<option value="${category}">${category}</option>`).join("");
+  }
+
+  dom.toolTabs.forEach((button) => {
+    button.addEventListener("click", () => activateTool(button.dataset.toolTab));
+  });
+  initEstimator();
+  dom.viewModeButtons?.forEach((button) => {
+    button.addEventListener("click", () => setViewMode(button.dataset.viewMode));
+  });
+  dom.themeSelect?.addEventListener("change", () => setTheme(dom.themeSelect.value));
+  dom.simpleToolCards?.forEach((button) => {
+    button.addEventListener("click", () => handleSimpleToolChoice(button.dataset.simpleToolChoice));
+  });
+  dom.simpleBackButton?.addEventListener("click", handleSimpleBack);
+  dom.simpleStartOverButton?.addEventListener("click", () => {
+    if (dom.startOverDialog?.showModal) {
+      openDialogSafely(dom.startOverDialog);
+    } else if (window.confirm("Are you sure you want to start over? You will lose current progress.")) {
+      resetProject();
+      setSimpleStep("intake");
+    }
+  });
+  dom.startOverCancelButton?.addEventListener("click", () => dom.startOverDialog?.close());
+  dom.startOverConfirmButton?.addEventListener("click", () => {
+    dom.startOverDialog?.close();
+    resetProject();
+    setSimpleStep("intake");
+  });
+  // Project card tabs (New Project / Saved Projects)
+  document.querySelectorAll("[data-project-tab]").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const target = tab.dataset.projectTab;
+      document.querySelectorAll("[data-project-tab]").forEach((t) => {
+        const on = t === tab;
+        t.classList.toggle("active", on);
+        t.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      document.querySelectorAll("[data-project-tabpanel]").forEach((pnl) => {
+        pnl.hidden = pnl.dataset.projectTabpanel !== target;
+      });
+    });
+  });
+  // Keep the cart's read-only project readout in sync as the fields are edited
+  document.querySelector(".project-controls-section")?.addEventListener("input", updateCartProjectReadout);
+  // Session-in-progress banner actions
+  dom.sessionContinueButton?.addEventListener("click", () => { sessionBannerDismissed = true; maybeShowSessionBanner(); });
+  dom.sessionStartFreshButton?.addEventListener("click", () => { sessionBannerDismissed = true; resetProject(); setSimpleStep("intake"); });
+  dom.simpleContinueButton?.addEventListener("click", handleSimpleContinue);
+  [
+    dom.spacingXWallInput,
+    dom.spacingXBetweenInput,
+    dom.spacingYWallInput,
+    dom.spacingYBetweenInput,
+    dom.spacingCustomDensityInput,
+  ].filter(Boolean).forEach((input) => input.addEventListener("input", updateSpacingCalculator));
+  [
+    dom.spacingKFactorInput,
+    dom.spacingFlowInput,
+    dom.spacingPressureInput,
+  ].filter(Boolean).forEach((input) => input.addEventListener("input", updateFlowCalculator));
+  document.querySelectorAll("input[name='spacingFlowMode']").forEach((input) => {
+    input.addEventListener("change", updateFlowCalculator);
+  });
+  dom.spacingClearButton?.addEventListener("click", clearSpacingCalculator);
+  dom.spacingHazardTableBody?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-copy-gpm]");
+    if (!button) return;
+    copyRequiredFlow(button.dataset.copyGpm);
+  });
+  [
+    dom.layoutLengthInput,
+    dom.layoutWidthInput,
+    dom.layoutCustomCoverageInput,
+    dom.layoutMaxSpacingInput,
+  ].filter(Boolean).forEach((input) => {
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") calculateAndRenderHeadLayout();
+    });
+    input.addEventListener("input", () => {
+      if (dom.layoutLengthInput?.value && dom.layoutWidthInput?.value) calculateAndRenderHeadLayout();
+    });
+  });
+  dom.layoutCoverageSelect?.addEventListener("change", () => {
+    updateLayoutCoverageLock();
+    if (dom.layoutLengthInput?.value && dom.layoutWidthInput?.value) calculateAndRenderHeadLayout();
+  });
+  dom.layoutClearButton?.addEventListener("click", clearHeadLayoutGenerator);
+  dom.layoutExportDxfButton?.addEventListener("click", exportHeadLayoutDxf);
+  [
+    dom.bracingLengthInput,
+    dom.bracingSpacingInput,
+  ].filter(Boolean).forEach((input) => {
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") calculateAndRenderBracing();
+    });
+  });
+  document.querySelectorAll("input[name='bracingType']").forEach((input) => {
+    input.addEventListener("change", () => {
+      if (dom.bracingLengthInput?.value && dom.bracingSpacingInput?.value) calculateAndRenderBracing();
+    });
+  });
+  dom.bracingClearButton?.addEventListener("click", clearBracingSpacer);
+  initHangerSpacing();
+  initVicinityTool();
+  initHydreport();
+  initPdfcad();
+  initSeismic();
+  initEarlyAccess();
+  initDemoStage();
+  initCadx();
+  dom.pdfMergeImportButton?.addEventListener("click", () => dom.pdfMergeInput?.click());
+  dom.pdfMergeInput?.addEventListener("change", (event) => addPdfMergeFiles([...(event.target.files || [])]));
+  dom.pdfMergeButton?.addEventListener("click", mergePdfWorkspace);
+  dom.pdfCompressButton?.addEventListener("click", compressPdfWorkspace);
+  dom.pdfAbortCompressionButton?.addEventListener("click", abortPdfCompression);
+  dom.pdfMergeClearButton?.addEventListener("click", clearPdfMergeWorkspace);
+  dom.pdfModeInputs?.forEach((input) => {
+    input.addEventListener("change", () => { if (input.checked) applyPdfMode(input.value); });
+  });
+  dom.pdfRecentRefreshButton?.addEventListener("click", loadRecentOutputs);
+  dom.pdfRecentList?.addEventListener("click", (event) => {
+    const addButton = event.target.closest("[data-pdf-recent-add]");
+    if (addButton) addRecentOutputToWorkspace(Number(addButton.dataset.pdfRecentAdd));
+  });
+  dom.pdfRecentList?.addEventListener("dragstart", (event) => {
+    const item = event.target.closest("[data-pdf-recent-index]");
+    if (item && event.dataTransfer) {
+      event.dataTransfer.setData("application/x-sprinkflow-recent", item.dataset.pdfRecentIndex);
+      event.dataTransfer.effectAllowed = "copy";
+    }
+  });
+  applyPdfMode("merge");
+  dom.pdfCompressionOptions.forEach((input) => {
+    input.addEventListener("change", syncPdfCompressionOptions);
+  });
+  dom.pdfMergeDrop?.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    dom.pdfMergeDrop.classList.add("drag-over");
+  });
+  dom.pdfMergeDrop?.addEventListener("dragleave", (event) => {
+    if (!event.currentTarget.contains(event.relatedTarget)) {
+      dom.pdfMergeDrop.classList.remove("drag-over");
+    }
+  });
+  dom.pdfMergeDrop?.addEventListener("drop", handlePdfMergeDrop);
+  dom.pdfMergeList?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-pdf-merge-action]");
+    if (!button) return;
+    const action = button.dataset.pdfMergeAction;
+    const id = button.dataset.pdfMergeId;
+    if (action === "remove") removePdfMergeFile(id);
+    if (action === "up" || action === "down") movePdfMergeFile(id, action);
+  });
+  dom.hydraulicImportButton?.addEventListener("click", () => dom.hydraulicInput?.click());
+  dom.hydraulicInput?.addEventListener("change", (event) => addHydraulicCalcFiles([...(event.target.files || [])]));
+  dom.hydraulicSortRemoteButton?.addEventListener("click", sortHydraulicFilesByRemoteArea);
+  document.getElementById("hydraulicProjectSelect")?.addEventListener("change", (event) => {
+    const project = loadProjects().find((entry) => entry.id === event.target.value);
+    if (!project) return;
+    const info = project.project || {};
+    if (dom.hydraulicProjectNameInput) dom.hydraulicProjectNameInput.value = info.name || project.name || "";
+    if (dom.hydraulicProjectAddressInput) dom.hydraulicProjectAddressInput.value = info.address || "";
+    setHydraulicStatus(`Pulled "${info.name || project.name}" from saved projects.`, "success");
+  });
+  dom.hydraulicGenerateButton?.addEventListener("click", generateHydraulicPackage);
+  document.querySelectorAll("[data-package-export]").forEach((btn) => btn.addEventListener("click", exportProjectPackage));
+  dom.hydraulicEmailDraftButton?.addEventListener("click", () => openPackageEmailDialog("hydraulic"));
+  dom.hydraulicClearButton?.addEventListener("click", clearHydraulicWorkspace);
+  dom.hydraulicDrop?.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    dom.hydraulicDrop.classList.add("drag-over");
+  });
+  dom.hydraulicDrop?.addEventListener("dragleave", (event) => {
+    if (!event.currentTarget.contains(event.relatedTarget)) {
+      dom.hydraulicDrop.classList.remove("drag-over");
+    }
+  });
+  dom.hydraulicDrop?.addEventListener("drop", handleHydraulicDrop);
+  dom.hydraulicList?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-hydraulic-action]");
+    if (!button) return;
+    const action = button.dataset.hydraulicAction;
+    const id = button.dataset.hydraulicId;
+    if (action === "remove") removeHydraulicFile(id);
+    if (action === "up" || action === "down") moveHydraulicFile(id, action);
+  });
+  dom.hydraulicList?.addEventListener("input", (event) => {
+    const labelInput = event.target.closest("[data-hydraulic-label-id]");
+    if (labelInput) {
+      updateHydraulicLabel(labelInput.dataset.hydraulicLabelId, labelInput.value);
+      return;
+    }
+    const metaInput = event.target.closest("[data-hydraulic-meta-id]");
+    if (!metaInput) return;
+    updateHydraulicMetadata(metaInput.dataset.hydraulicMetaId, metaInput.dataset.hydraulicMetaField, metaInput.value);
+  });
+  dom.feetCalculateButton?.addEventListener("click", calculateFeetExpression);
+  dom.feetExampleButton?.addEventListener("click", loadFeetExample);
+  dom.feetClearButton?.addEventListener("click", clearFeetCalculator);
+  dom.feetExpressionInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") calculateFeetExpression();
+  });
+  dom.feetCopyFeetButton?.addEventListener("click", () => copyFeetResult("feet"));
+  dom.feetCopyDecimalButton?.addEventListener("click", () => copyFeetResult("decimal"));
+  document.querySelector(".scale-chart-table tbody")?.addEventListener("click", (event) => {
+    const row = event.target.closest("tr");
+    if (!row) return;
+    row.classList.toggle("is-highlighted");
+  });
+  dom.codeConverterButton?.addEventListener("click", convertNfpaCode);
+  dom.codeConverterClearButton?.addEventListener("click", clearCodeConverter);
+  dom.codeConverterInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") convertNfpaCode();
+  });
+  dom.addCommonCodeReferenceButton?.addEventListener("click", openCommonCodeReferenceDialog);
+  dom.commonCodeRuleCancelButton?.addEventListener("click", () => closeDialogSafely(dom.commonCodeReferenceDialog));
+  dom.commonCodeRuleSaveButton?.addEventListener("click", saveCustomCommonReference);
+  dom.commonCodeReferenceDialog?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && event.target?.tagName !== "TEXTAREA") {
+      event.preventDefault();
+      saveCustomCommonReference();
+    }
+  });
+  dom.commonCodeReferenceSearch?.addEventListener("input", renderCommonCodeReferences);
+  dom.commonCodeReferenceList?.addEventListener("click", (event) => {
+    const deleteButton = event.target.closest("[data-common-code-reference-delete]");
+    if (deleteButton) {
+      deleteCustomCommonReference(deleteButton.dataset.commonCodeReferenceDelete);
+      return;
+    }
+    const row = event.target.closest("[data-common-code-reference-open]");
+    if (!row) return;
+    const reference = allCommonReferences().find((item) => item.id === row.dataset.commonCodeReferenceOpen);
+    renderCommonReferencePreview(reference);
+  });
+  dom.codeConverterResults?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-nfpa-copy]");
+    if (!button) return;
+    handleNfpaCopy(button).catch((error) => {
+      if (dom.codeConverterStatus) {
+        dom.codeConverterStatus.textContent = `Could not copy code reference: ${error.message || "Clipboard failed."}`;
+        dom.codeConverterStatus.dataset.status = "error";
+      }
+    });
+  });
+  document.querySelectorAll("input[name='codeConvertDirection']").forEach((input) => {
+    input.addEventListener("change", () => {
+      if (dom.codeConverterInput?.value.trim()) convertNfpaCode();
+    });
+  });
+  dom.waterModeInputs?.forEach((input) => {
+    input.addEventListener("change", () => {
+      const nextMode = waterMode();
+      convertWaterDisplayedValues(currentWaterMode, nextMode);
+      currentWaterMode = nextMode;
+      updateWaterUnitLabels();
+      calculateWaterSupply();
+    });
+  });
+  [
+    dom.waterSiteNameInput,
+    dom.waterAddressInput,
+    dom.waterDateInput,
+    dom.waterTimeInput,
+    dom.waterByInput,
+    dom.waterStaticInput,
+    dom.waterResidualInput,
+    dom.waterTargetPressureInput,
+    dom.waterPressureHydrantLocationInput,
+    dom.waterElevationInput,
+    dom.waterFh1OverrideInput,
+    dom.waterFh1PitotInput,
+    dom.waterFh1OutletsInput,
+    dom.waterFh1DiameterInput,
+    dom.waterFh1CoeffInput,
+    dom.waterFh1LocationInput,
+    dom.waterFh2OverrideInput,
+    dom.waterFh2PitotInput,
+    dom.waterFh2OutletsInput,
+    dom.waterFh2DiameterInput,
+    dom.waterFh2CoeffInput,
+    dom.waterFh2LocationInput,
+  ].filter(Boolean).forEach((input) => {
+    input.addEventListener("input", calculateWaterSupply);
+    input.addEventListener("change", calculateWaterSupply);
+  });
+  dom.waterDemandList?.addEventListener("input", calculateWaterSupply);
+  dom.waterDemandList?.addEventListener("click", (event) => {
+    const removeButton = event.target.closest("[data-water-demand-remove]");
+    if (!removeButton) return;
+    removeButton.closest(".water-demand-row")?.remove();
+    calculateWaterSupply();
+  });
+  dom.waterAddDemandButton?.addEventListener("click", () => addWaterDemandRow());
+  dom.waterResetButton?.addEventListener("click", resetWaterSupplyTool);
+  dom.waterExportStyleInputs?.forEach((input) => {
+    input.addEventListener("change", calculateWaterSupply);
+  });
+  dom.waterPrintButton?.addEventListener("click", printWaterGraph);
+  dom.waterPngButton?.addEventListener("click", exportWaterPng);
+  dom.waterSvgButton?.addEventListener("click", exportWaterSvg);
+  dom.waterDxfButton?.addEventListener("click", exportWaterDxf);
+  dom.waterPdfButton?.addEventListener("click", generateWaterFlowSheetPdf);
+  dom.waterSheetButton?.addEventListener("click", generateWaterFlowSheetPdf);
+  dom.waterSheetDisclaimerToggle?.addEventListener("change", () => {
+    if (dom.waterSheetDisclaimer) dom.waterSheetDisclaimer.disabled = !dom.waterSheetDisclaimerToggle.checked;
+    saveWaterSheetPrefs();
+  });
+  dom.waterSheetDisclaimer?.addEventListener("input", saveWaterSheetPrefs);
+  loadWaterSheetPrefs();
+  [
+    dom.nfpa1142TitleInput,
+    dom.nfpa1142AreaInput,
+    dom.nfpa1142HeightInput,
+    dom.nfpa1142LengthInput,
+    dom.nfpa1142WidthInput,
+    dom.nfpa1142DimensionHeightInput,
+  ].filter(Boolean).forEach((input) => {
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") calculateAndRenderNfpa1142();
+    });
+    input.addEventListener("input", () => {
+      if (dom.nfpa1142AreaInput?.value || dom.nfpa1142LengthInput?.value) calculateAndRenderNfpa1142();
+    });
+  });
+  [
+    dom.nfpa1142OhcSelect,
+    dom.nfpa1142CcSelect,
+  ].filter(Boolean).forEach((input) => {
+    input.addEventListener("change", () => {
+      if (dom.nfpa1142AreaInput?.value || dom.nfpa1142LengthInput?.value) calculateAndRenderNfpa1142();
+    });
+  });
+  document.querySelectorAll("input[name='nfpa1142Exposure']").forEach((input) => {
+    input.addEventListener("change", () => {
+      if (dom.nfpa1142AreaInput?.value || dom.nfpa1142LengthInput?.value) calculateAndRenderNfpa1142();
+    });
+  });
+  dom.nfpa1142ExportStyleInputs?.forEach((input) => {
+    input.addEventListener("change", () => {
+      try {
+        renderNfpa1142Report(currentNfpa1142Result());
+      } catch {
+        renderNfpa1142Report(null);
+      }
+    });
+  });
+  dom.nfpa1142PrintButton?.addEventListener("click", printNfpa1142Report);
+  dom.nfpa1142PngButton?.addEventListener("click", exportNfpa1142Png);
+  dom.nfpa1142SvgButton?.addEventListener("click", exportNfpa1142Svg);
+  dom.nfpa1142DxfButton?.addEventListener("click", exportNfpa1142Dxf);
+  dom.nfpa1142ClearButton?.addEventListener("click", clearNfpa1142Calculator);
+
+  dom.imageIntake.addEventListener("paste", handlePaste);
+  dom.imageIntake.addEventListener("click", () => dom.plansPdfInput.click());
+  dom.plansPdfInput.addEventListener("change", (event) => {
+    const files = [...(event.target.files || [])];
+    event.target.value = "";
+    analyzeProjectInfoFile(files);
+  });
+  document.addEventListener("paste", handlePaste);
+  dom.imageIntake.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    dom.imageIntake.classList.add("drag-over");
+  });
+  dom.imageIntake.addEventListener("dragleave", () => dom.imageIntake.classList.remove("drag-over"));
+  dom.imageIntake.addEventListener("drop", handleDrop);
+  dom.catalogSearchInput.addEventListener("input", () => {
+    state.catalogSearch = dom.catalogSearchInput.value;
+    renderCatalog();
+  });
+  dom.catalogSortSelect?.addEventListener("change", () => {
+    state.catalogSort = dom.catalogSortSelect.value || "manufacturer";
+    renderCatalog();
+    saveState();
+  });
+  dom.catalogSelectedOnlyInput?.addEventListener("change", () => {
+    state.catalogSelectedOnly = Boolean(dom.catalogSelectedOnlyInput.checked);
+    renderCatalog();
+    saveState();
+  });
+  dom.loadoutSelect?.addEventListener("change", renderLoadouts);
+  dom.applyLoadoutButton?.addEventListener("click", applySelectedLoadout);
+  dom.saveLoadoutButton?.addEventListener("click", () => saveCurrentSelectionAsLoadout());
+  dom.editLoadoutButton?.addEventListener("click", () => {
+    const loadout = currentLoadout();
+    if (loadout) saveCurrentSelectionAsLoadout(loadout);
+  });
+  dom.exportLoadoutButton?.addEventListener("click", exportSelectedLoadout);
+  dom.importLoadoutButton?.addEventListener("click", () => dom.loadoutImportInput?.click());
+  dom.loadoutImportInput?.addEventListener("change", (event) => {
+    importLoadoutFile(event.target.files?.[0]);
+    event.target.value = "";
+  });
+  dom.deleteLoadoutButton?.addEventListener("click", deleteSelectedLoadout);
+  dom.spacingPressureHazardSelect?.addEventListener("change", updateSpacingCalculator);
+  const handleCoverTemplateChange = (event) => {
+    const select = event.target.closest("[data-cover-template-select]");
+    if (!select) return;
+    const tpl = coverTemplateById(select.value);
+    if (!tpl) return;
+    state.coverTemplate = tpl.id;
+    renderCoverTemplateOptions();
+    renderHydraulicCoverTemplateOptions();
+    renderPreview();
+    saveState();
+  };
+  dom.coverTemplateOptions?.addEventListener("change", handleCoverTemplateChange);
+  dom.hydraulicCoverTemplateOptions?.addEventListener("change", handleCoverTemplateChange);
+
+  dom.appRefreshButton?.addEventListener("click", () => {
+    window.location.reload();
+  });
+  dom.hangerDetailFrame?.addEventListener("load", updateEmbeddedToolThemes);
+  document.querySelectorAll("[data-preview-view-btn]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.previewView = btn.dataset.previewViewBtn;
+      applyPreviewView();
+      saveState();
+    });
+  });
+  applyPreviewView();
+  dom.licenseAccountButton?.addEventListener("click", openLicenseDialog);
+  dom.updateAvailablePill?.addEventListener("click", () => {
+    openLicenseDialog();
+    checkLicenseUpdates();
+  });
+  dom.licenseDialog?.querySelectorAll("[data-account-tab]").forEach((tab) => {
+    tab.addEventListener("click", () => switchAccountTab(tab.dataset.accountTab));
+  });
+  dom.accountOverviewSignInButton?.addEventListener("click", () => switchAccountTab("signin"));
+  dom.licenseToolGateAccountButton?.addEventListener("click", openLicenseDialog);
+  dom.startupLoginButton?.addEventListener("click", signInFromStartupPrompt);
+  dom.startupLoginSkipButton?.addEventListener("click", dismissStartupLoginPrompt);
+  dom.startupLoginDialog?.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    dismissStartupLoginPrompt();
+  });
+  dom.startupLoginPasswordInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") signInFromStartupPrompt();
+  });
+  dom.startupLoginEmailInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") dom.startupLoginPasswordInput?.focus();
+  });
+  dom.licenseDialogCloseButton?.addEventListener("click", closeLicenseDialog);
+  dom.licenseDialog?.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeLicenseDialog();
+  });
+  dom.licenseMockLoginButton?.addEventListener("click", activateMockLicense);
+  dom.licenseSignInButton?.addEventListener("click", signInCloudLicense);
+  dom.licensePasswordInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") signInCloudLicense();
+  });
+  dom.licenseConnectCloudButton?.addEventListener("click", connectCloudLicense);
+  dom.licenseRefreshButton?.addEventListener("click", refreshLicenseStatus);
+  dom.licenseLogoutButton?.addEventListener("click", logoutLicense);
+  dom.licenseCheckUpdatesButton?.addEventListener("click", checkLicenseUpdates);
+  dom.licenseDownloadUpdateButton?.addEventListener("click", downloadVerifiedUpdate);
+  dom.licenseSaveProfileButton?.addEventListener("click", saveCloudProfile);
+  dom.licenseCheckoutButton?.addEventListener("click", openBillingCheckout);
+  dom.licenseBillingPortalButton?.addEventListener("click", openBillingPortal);
+  dom.betaInviteGrantButton?.addEventListener("click", grantBetaInvites);
+  dom.betaInviteCopyButton?.addEventListener("click", copyBetaInviteEmail);
+  dom.betaInviteGmailButton?.addEventListener("click", openBetaInviteGmailCompose);
+  dom.refreshCatalogButton?.addEventListener("click", refreshCatalog);
+  dom.saveProjectButton?.addEventListener("click", saveCurrentProject);
+  dom.legacySaveProjectButton?.addEventListener("click", () => {
+    saveCurrentProject();
+    const btn = dom.legacySaveProjectButton;
+    btn.innerHTML = "&#10003; Saved";
+    btn.disabled = true;
+    window.setTimeout(() => { btn.innerHTML = "&#128190; Save Project"; btn.disabled = false; }, 2200);
+  });
+  dom.simpleSaveProjectButton?.addEventListener("click", () => {
+    saveCurrentProject();
+    const btn = dom.simpleSaveProjectButton;
+    btn.innerHTML = "&#10003; Saved";
+    btn.disabled = true;
+    window.setTimeout(() => { btn.innerHTML = "&#128190; Save Project"; btn.disabled = false; }, 2200);
+  });
+  dom.materialOpenFolderButton?.addEventListener("click", () => openGeneratedOutputFolder("material", setGenerateStatus));
+  dom.materialCopyPathButton?.addEventListener("click", () => copyGeneratedOutputPath("material", setGenerateStatus));
+  dom.hydraulicOpenFolderButton?.addEventListener("click", () => openGeneratedOutputFolder("hydraulic", setHydraulicStatus));
+  dom.hydraulicCopyPathButton?.addEventListener("click", () => copyGeneratedOutputPath("hydraulic", setHydraulicStatus));
+  dom.loadProjectButton?.addEventListener("click", loadSelectedProject);
+  dom.deleteProjectButton?.addEventListener("click", deleteSelectedProject);
+  dom.clearSelectionsButton.addEventListener("click", () => {
+    state.selectedIds = [];
+    annotatedPdfOverrides.clear();
+    setGenerateStatus("", false);
+    renderAll();
+  });
+  dom.deleteSelectedDatasheetsButton?.addEventListener("click", deleteSelectedCatalogItems);
+  dom.printButton.addEventListener("click", generateMaterialDataSubmittal);
+  dom.submittalEmailDraftButton?.addEventListener("click", generateAndEmailFullSubmittal);
+  dom.goToHydraulicButton?.addEventListener("click", () => activateTool("hydraulic"));
+  if (dom.generateOpenAfterInput) {
+    dom.generateOpenAfterInput.checked = state.settings.openGeneratedPdf !== false;
+    dom.generateOpenAfterInput.addEventListener("change", () => {
+      state.settings.openGeneratedPdf = dom.generateOpenAfterInput.checked;
+      if (dom.settingsOpenGeneratedPdfInput) dom.settingsOpenGeneratedPdfInput.checked = dom.generateOpenAfterInput.checked;
+      saveState();
+    });
+  }
+  dom.emailDraftCancelButton?.addEventListener("click", () => closeDialogSafely(dom.emailDraftDialog));
+  dom.emailDraftCreateButton?.addEventListener("click", createPackageEmailDraft);
+  dom.emailDraftNameInput?.addEventListener("input", refreshEmailDraftTemplate);
+  dom.settingsSaveButton?.addEventListener("click", saveSettingsFromInputs);
+  dom.settingsResetButton?.addEventListener("click", resetSettings);
+  dom.settingsLegacyModeInput?.addEventListener("change", () => {
+    state.viewMode = dom.settingsLegacyModeInput.checked ? "standard" : "simple";
+    if (state.viewMode === "simple" && !SIMPLE_STEPS.includes(state.simpleStep)) state.simpleStep = "intake";
+    updateViewModeUI();
+    renderPreview();
+    updatePreviewScale();
+    saveState();
+  });
+  dom.settingsChooseOutputFolderButton?.addEventListener("click", chooseOutputFolder);
+  dom.settingsClearOutputFolderButton?.addEventListener("click", clearOutputFolder);
+  [
+    dom.settingsOpenGeneratedPdfInput,
+    dom.settingsTocStyleSelect,
+    dom.settingsEmailSubjectInput,
+    dom.settingsEmailBodyInput,
+  ].filter(Boolean).forEach((input) => {
+    input.addEventListener("change", () => {
+      syncSettingsFromInputs();
+      renderPreview();
+      saveState();
+    });
+  });
+  dom.resetProjectButton.addEventListener("click", requestNewProject);
+  dom.newProjectCancelButton?.addEventListener("click", () => dom.newProjectDialog.close());
+  dom.newProjectDiscardButton?.addEventListener("click", () => {
+    dom.newProjectDialog.close();
+    resetProject();
+  });
+  dom.newProjectSaveButton?.addEventListener("click", () => {
+    dom.newProjectDialog.close();
+    saveCurrentProject();
+    resetProject();
+  });
+  dom.closeDatasheetPreviewButton?.addEventListener("click", closeDatasheetPreview);
+  dom.datasheetPreviewDialog?.addEventListener("close", () => {
+    if (dom.datasheetPreviewFrame) dom.datasheetPreviewFrame.src = "about:blank";
+  });
+  dom.pdfAnnotationCloseButton?.addEventListener("click", closePdfAnnotationWorkspace);
+  dom.pdfAnnotationDialog?.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closePdfAnnotationWorkspace();
+  });
+  dom.pdfAnnotationToolButtons?.forEach((button) => {
+    button.addEventListener("click", () => setPdfAnnotationTool(button.dataset.annotationTool));
+  });
+  dom.pdfAnnotationUndoButton?.addEventListener("click", undoPdfAnnotation);
+  dom.pdfAnnotationDeleteButton?.addEventListener("click", deleteSelectedPdfAnnotation);
+  dom.pdfAnnotationZoomOutButton?.addEventListener("click", () => setPdfAnnotationZoom(pdfAnnotationState.zoom - 0.15));
+  dom.pdfAnnotationZoomInButton?.addEventListener("click", () => setPdfAnnotationZoom(pdfAnnotationState.zoom + 0.15));
+  dom.pdfAnnotationHighlightColorInput?.addEventListener("input", (event) => setPdfAnnotationHighlightColor(event.target.value));
+  dom.pdfAnnotationWorkspace?.addEventListener("wheel", handlePdfAnnotationWheel, { passive: false });
+  dom.pdfAnnotationSaveButton?.addEventListener("click", saveAnnotatedPdf);
+  document.addEventListener("keydown", handleDebugShortcut);
+  dom.debugCloseButton?.addEventListener("click", closeDebugDialog);
+  dom.debugExportDiagnosticsButton?.addEventListener("click", exportDiagnosticsFromDebug);
+  dom.debugResetDatabaseButton?.addEventListener("click", resetDatabaseFromDebug);
+  dom.debugResetConfirmInput?.addEventListener("input", () => {
+    if (dom.debugResetDatabaseButton) dom.debugResetDatabaseButton.disabled = resetConfirmText() !== "RESET";
+  });
+  window.addEventListener("resize", schedulePreviewScaleUpdate);
+  if ("ResizeObserver" in window && dom.documentPreview) {
+    const previewResizeObserver = new ResizeObserver(() => schedulePreviewScaleUpdate());
+    previewResizeObserver.observe(dom.documentPreview.closest(".preview-panel") || dom.documentPreview);
+  }
+  dom.importButton.addEventListener("click", () => dom.datasheetInput.click());
+  dom.addCategoryButton?.addEventListener("click", promptForCustomCategory);
+  dom.datasheetInput.addEventListener("change", (event) => importDatasheets([...event.target.files]));
+  dom.datasheetDrop.addEventListener("click", () => dom.datasheetInput.click());
+  dom.datasheetDrop.addEventListener("dragenter", (event) => {
+    event.preventDefault();
+    dom.datasheetDrop.classList.add("drag-over");
+  });
+  dom.datasheetDrop.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    dom.datasheetDrop.classList.add("drag-over");
+  });
+  dom.datasheetDrop.addEventListener("dragleave", () => dom.datasheetDrop.classList.remove("drag-over"));
+  dom.datasheetDrop.addEventListener("drop", handleDatasheetDrop);
+  document.addEventListener("dragover", (event) => event.preventDefault());
+  document.addEventListener("drop", (event) => {
+    if (!dom.datasheetDrop.contains(event.target) && !dom.imageIntake.contains(event.target) && !dom.contractorLogoDrop?.contains(event.target)) {
+      event.preventDefault();
+    }
+  });
+  dom.addManualItemButton?.addEventListener("click", addManualItem);
+  dom.saveContractorButton.addEventListener("click", saveContractor);
+  dom.deleteContractorButton.addEventListener("click", deleteContractor);
+  dom.contractorLogoInput.addEventListener("change", (event) => readLogo(event.target.files[0]));
+  dom.contractorLogoDrop?.addEventListener("click", () => dom.contractorLogoDrop.focus());
+  dom.contractorLogoDrop?.addEventListener("paste", handlePaste);
+  dom.contractorLogoDrop?.addEventListener("dragenter", (event) => {
+    event.preventDefault();
+    dom.contractorLogoDrop.classList.add("drag-over");
+  });
+  dom.contractorLogoDrop?.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    dom.contractorLogoDrop.classList.add("drag-over");
+  });
+  dom.contractorLogoDrop?.addEventListener("dragleave", () => dom.contractorLogoDrop.classList.remove("drag-over"));
+  dom.contractorLogoDrop?.addEventListener("drop", handleLogoDrop);
+  dom.clearContractorLogoButton?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    clearContractorLogo();
+  });
+  dom.pasteContractorLogoButton?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    pasteContractorLogoFromClipboard();
+  });
+  setupPasswordToggles();
+
+  dom.contractorSelect.addEventListener("change", () => {
+    state.activeContractorId = dom.contractorSelect.value;
+    syncInputsFromState();
+    renderAll();
+  });
+
+  for (const input of [
+    dom.projectNameInput,
+    dom.projectAddressInput,
+    dom.projectSubtitleInput,
+    dom.contractorNameInput,
+    dom.contractorPhoneInput,
+    dom.contractorLicenseInput,
+    dom.contractorAddressInput,
+    dom.disclaimerInput,
+  ].filter(Boolean)) {
+    input.addEventListener("input", renderPreview);
+    input.addEventListener("change", () => {
+      syncStateFromInputs();
+      renderAll();
+    });
+  }
+
+  for (const input of [
+    dom.coverAdditionalInfoNameInput,
+    dom.coverAdditionalInfoAddressInput,
+    dom.coverAdditionalInfoPhoneInput,
+    dom.coverAdditionalInfoLicenseInput,
+  ].filter(Boolean)) {
+    input.addEventListener("input", () => {
+      syncCoverAdditionalInfoEditorToState(activeCoverAdditionalInfoType);
+      renderCoverAdditionalInfoSummary();
+      renderPreview();
+    });
+    input.addEventListener("change", () => {
+      syncStateFromInputs();
+      renderAll();
+    });
+  }
+
+  dom.coverAdditionalInfoToggle?.addEventListener("change", () => {
+    syncStateFromInputs();
+    renderCoverAdditionalInfoControls();
+    renderAll();
+  });
+
+  dom.coverDisclaimerToggle?.addEventListener("change", () => {
+    syncStateFromInputs();
+    renderAll();
+  });
+
+  dom.coverAdditionalInfoTypeSelect?.addEventListener("change", () => {
+    syncCoverAdditionalInfoEditorToState(activeCoverAdditionalInfoType);
+    activeCoverAdditionalInfoType = coverAdditionalInfoTypeExists(dom.coverAdditionalInfoTypeSelect.value)
+      ? dom.coverAdditionalInfoTypeSelect.value
+      : "ahj";
+    renderCoverAdditionalInfoControls();
+    renderAll();
+  });
+
+  dom.hydraulicHideContractorInput?.addEventListener("change", () => {
+    setHydraulicStatus(
+      dom.hydraulicHideContractorInput.checked
+        ? "Contractor block will be omitted from the hydraulic cover sheet."
+        : "Contractor block will be shown on the hydraulic cover sheet.",
+      "info",
+    );
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest(".row-menu-wrap")) closeAllRowMenus();
+  });
+  dom.catalogList.addEventListener("change", (event) => {
+    if (event.target.hasAttribute && event.target.hasAttribute("data-select-all")) {
+      const table = event.target.closest(".catalog-table");
+      const ids = table ? [...table.querySelectorAll("[data-select-id]")].filter((cb) => !cb.disabled).map((cb) => cb.dataset.selectId) : [];
+      const selected = new Set(state.selectedIds);
+      ids.forEach((id) => {
+        if (event.target.checked) {
+          selected.add(id);
+          const item = state.catalog.find((entry) => entry.id === id);
+          if (item && !state.tocTitles[id]) state.tocTitles[id] = displayName(item);
+        } else {
+          selected.delete(id);
+          annotatedPdfOverrides.delete(id);
+        }
+      });
+      state.selectedIds = [...selected];
+      renderAllPreservingCatalogScroll();
+      return;
+    }
+    const filterKey = event.target.dataset.filterKey;
+    if (filterKey) {
+      const filters = categoryFilterState(state.activeCategory);
+      filters[filterKey] = event.target.value;
+      renderCatalog();
+      saveState();
+      return;
+    }
+
+    const id = event.target.dataset.selectId;
+    if (!id) return;
+    const item = state.catalog.find((entry) => entry.id === id);
+    if (item && isRemoteCatalogItem(item)) {
+      event.target.checked = false;
+      setGenerateStatus("Download or import this datasheet before adding it to the submittal.", "error");
+      return;
+    }
+    const selected = new Set(state.selectedIds);
+    if (event.target.checked) {
+      selected.add(id);
+      if (item && !state.tocTitles[id]) {
+        state.tocTitles[id] = displayName(item);
+      }
+    } else {
+      selected.delete(id);
+      annotatedPdfOverrides.delete(id);
+    }
+    state.selectedIds = [...selected];
+    renderAllPreservingCatalogScroll();
+  });
+
+  dom.catalogList.addEventListener("input", (event) => {
+    const id = event.target.dataset.titleId;
+    if (!id) return;
+    const value = event.target.value.trim();
+    if (value) state.tocTitles[id] = value;
+    else delete state.tocTitles[id];
+    renderPreview();
+    saveState();
+  });
+
+  dom.catalogList.addEventListener("click", (event) => {
+    // Row "⋯" actions menu: toggle this one, close the rest.
+    const menuButton = event.target.closest("[data-row-menu]");
+    if (menuButton) {
+      const wrap = menuButton.closest(".row-menu-wrap");
+      const menu = wrap?.querySelector(".row-menu");
+      const willOpen = menu?.hidden;
+      closeAllRowMenus();
+      if (menu && willOpen) {
+        menu.hidden = false;
+        menuButton.setAttribute("aria-expanded", "true");
+        menu.classList.remove("open-up");
+        const scroller = menu.closest(".catalog-results");
+        if (scroller && menu.getBoundingClientRect().bottom > scroller.getBoundingClientRect().bottom) {
+          menu.classList.add("open-up");
+        }
+      }
+      return;
+    }
+    // Any other catalog click closes open menus.
+    closeAllRowMenus();
+
+    const sortButton = event.target.closest("[data-catalog-sort]");
+    if (sortButton) {
+      const key = sortButton.dataset.catalogSort;
+      state.catalogSort = key === "name" && state.catalogSort === "name" ? "name-desc" : key;
+      renderCatalog();
+      saveState();
+      return;
+    }
+
+    const clearFiltersButton = event.target.closest("[data-clear-catalog-filters]");
+    if (clearFiltersButton) {
+      resetActiveCatalogFilters();
+      return;
+    }
+
+    const filterSummary = event.target.closest(".catalog-filters-disclosure > summary");
+    if (filterSummary) {
+      // remember the open state so re-renders (filter changes, imports)
+      // don't snap the panel shut under the user
+      const details = filterSummary.parentElement;
+      state.catalogFiltersOpen = !details.open;
+    }
+
+    const aiFindButton = event.target.closest("[data-ai-find]");
+    if (aiFindButton) {
+      findDatasheetWithAI(aiFindButton.dataset.aiFind);
+      return;
+    }
+    const aiImportButton = event.target.closest("[data-ai-import]");
+    if (aiImportButton) {
+      importFetchedDatasheet();
+      return;
+    }
+    const aiOpenButton = event.target.closest("[data-ai-open]");
+    if (aiOpenButton) {
+      const aiOpenUrl = aiOpenButton.dataset.aiOpen;
+      if (aiOpenUrl) window.open(aiOpenUrl, "_blank", "noopener");
+      return;
+    }
+
+    const categoryTab = event.target.closest("[data-category-tab]");
+    if (categoryTab) {
+      state.activeCategory = categoryTab.dataset.categoryTab;
+      renderCatalog();
+      saveState();
+      return;
+    }
+
+    const actionButton = event.target.closest("[data-catalog-action]");
+    if (!actionButton) return;
+    handleCatalogAction(actionButton.dataset.catalogAction, actionButton.dataset.catalogId);
+  });
+
+  window.addEventListener("focus", () => {
+    refreshCatalog();
+  });
+  window.addEventListener("beforeunload", handleBeforeUnload);
+
+  document.addEventListener("keydown", (event) => {
+    if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey) return;
+    if ((event.key || "").toLowerCase() !== "s") return;
+    event.preventDefault();
+    saveCurrentProject();
+  });
+}
+
+let clientErrorReportCount = 0;
+let clientErrorToastShown = false;
+
+function showAppToast(message, { duration = 8000 } = {}) {
+  const existing = document.querySelector(".app-toast");
+  if (existing) existing.remove();
+  const toast = document.createElement("div");
+  toast.className = "app-toast";
+  const text = document.createElement("span");
+  text.textContent = message;
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "app-toast-close";
+  close.setAttribute("aria-label", "Dismiss notification");
+  close.textContent = "×";
+  close.addEventListener("click", () => toast.remove());
+  toast.append(text, close);
+  document.body.appendChild(toast);
+  window.setTimeout(() => toast.remove(), duration);
+}
+
+function installClientErrorReporting() {
+  if (window.__sprinkflowClientErrorReportingInstalled) return;
+  window.__sprinkflowClientErrorReportingInstalled = true;
+
+  window.addEventListener("error", (event) => {
+    reportClientError({
+      type: "frontend_error",
+      message: event.message || "Unhandled frontend error",
+      source: event.filename || "",
+      line: event.lineno || 0,
+      column: event.colno || 0,
+      stack: event.error?.stack || "",
+    });
+  });
+
+  window.addEventListener("unhandledrejection", (event) => {
+    const reason = event.reason || {};
+    reportClientError({
+      type: "frontend_unhandled_rejection",
+      message: reason.message || String(reason || "Unhandled promise rejection"),
+      stack: reason.stack || "",
+    });
+  });
+}
+
+function reportClientError(payload) {
+  if (!clientErrorToastShown) {
+    clientErrorToastShown = true;
+    try {
+      showAppToast("Something went wrong, but your work is safe. If the app misbehaves, save your project and restart SprinkFlow.");
+    } catch (_) {}
+  }
+  if (clientErrorReportCount >= 5) return;
+  clientErrorReportCount += 1;
+  const report = {
+    ...payload,
+    href: window.location.href,
+    activeTab: state?.activeTool || "",
+    viewMode: state?.viewMode || "",
+    appVersion: runtime?.app?.version || "",
+    timestamp: new Date().toISOString(),
+  };
+  const body = JSON.stringify(report);
+  try {
+    if (navigator.sendBeacon) {
+      const blob = new Blob([body], { type: "application/json" });
+      if (navigator.sendBeacon("./api/client-error", blob)) return;
+    }
+  } catch (_) {}
+  fetch("./api/client-error", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+    keepalive: true,
+  }).catch(() => {});
+}
+
+// ---------------------------------------------------------------------------
+// Bid Estimator
+// ---------------------------------------------------------------------------
+
+const ESTIMATOR_SYSTEM_TYPES = [
+  { id: "wet", label: "Wet" },
+  { id: "dry", label: "Dry" },
+  { id: "preaction", label: "Preaction" },
+  { id: "esfr", label: "ESFR" },
+  { id: "underground", label: "Underground" },
+  { id: "antifreeze", label: "Antifreeze" },
+  { id: "other", label: "Other" },
+];
+const ESTIMATOR_MONEY = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+
+// Head-count estimate: max protection area per sprinkler (sq ft) by occupancy/hazard.
+const HEAD_COVERAGE = { light: 225, ordinary: 130, extra: 100, storage: 100, res13d: 144, res13r: 144 };
+const HEAD_OCCUPANCY = [
+  { id: "light", label: "Light hazard" },
+  { id: "ordinary", label: "Ordinary hazard" },
+  { id: "extra", label: "Extra hazard" },
+  { id: "storage", label: "Storage / ESFR" },
+  { id: "res13d", label: "Residential (13D)" },
+  { id: "res13r", label: "Residential (13R)" },
+];
+// 5 layout levels — a cut-up building needs more heads per area (effective coverage drops).
+const HEAD_COMPLEXITY = [
+  { pct: 0, label: "Wide open — warehouse or one big room" },
+  { pct: 25, label: "Mostly open — a few offices or walls" },
+  { pct: 50, label: "Average — typical office / retail mix" },
+  { pct: 75, label: "Cut up — lots of separate rooms" },
+  { pct: 100, label: "Very cut up — tons of small rooms" },
+];
+function ceilEven(n) {
+  const c = Math.ceil(n - 1e-9);
+  return c % 2 === 0 ? c : c + 1;
+}
+
+function estNum(value) {
+  const n = parseFloat(value);
+  return Number.isFinite(n) ? n : 0;
+}
+function estNumVal(value) {
+  return value ? String(value) : "";
+}
+function estMoney(value) {
+  const n = Number(value);
+  return ESTIMATOR_MONEY.format(Number.isFinite(n) ? n : 0);
+}
+function estEscapeAttr(value) {
+  return String(value == null ? "" : value)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function defaultSystemMultipliers() {
+  return { wet: 1.0, dry: 1.25, preaction: 1.35, esfr: 1.2, underground: 1.1, antifreeze: 1.15, other: 1.0 };
+}
+function estTodayISO() {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+function estRoundTotal(value, step) {
+  const s = estNum(step);
+  const v = estNum(value);
+  return s > 0 ? Math.round(v / s) * s : v;
+}
+function defaultEstimatorRates() {
+  return {
+    laborRate: 85,
+    laborBurdenPct: 0,
+    materialMarkupPct: 15,
+    overheadPct: 10,
+    profitPct: 10,
+    simpleMarginPct: 25,
+    sqftPriceDefault: 0,
+    perHeadPriceDefault: 0,
+    allInSqft: 0,
+    allInHead: 0,
+    systemMultipliers: defaultSystemMultipliers(),
+    advancedMode: false,
+  };
+}
+function defaultEstimatorQuick() {
+  return { basis: "sqft", sqft: 0, heads: 0, systemType: "wet" };
+}
+function estimatorSectionId() {
+  return `sec-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+function blankEstimatorSection(overrides = {}) {
+  return {
+    id: estimatorSectionId(),
+    name: "Wet System",
+    systemType: "wet",
+    materialMode: "sqft",
+    sqft: 0,
+    sqftPrice: 0,
+    headCount: 0,
+    perHeadPrice: 0,
+    items: [],
+    laborHours: 0,
+    laborRateOverride: null,
+    ...overrides,
+  };
+}
+function defaultEstimatorBid() {
+  return {
+    bidNumber: "",
+    bidDate: estTodayISO(),
+    validDays: 30,
+    customerName: "",
+    projectName: "",
+    projectAddress: "",
+    scopeText: "",
+    inclusions: [],
+    exclusions: [],
+    sections: [blankEstimatorSection()],
+    permitFee: 0,
+    bondPct: 0,
+    taxPct: 0,
+    otherFees: [],
+    includeBreakdown: true,
+    intake: { squareFeet: "", buildingHeight: "", occupancy: "" },
+    headEst: { sqft: 0, occupancy: "light", complexity: 0 },
+  };
+}
+function defaultEstimator() {
+  return {
+    rates: defaultEstimatorRates(),
+    bid: defaultEstimatorBid(),
+    mode: "detailed",
+    roundTo: 0,
+    quick: defaultEstimatorQuick(),
+    savedBids: [],
+  };
+}
+
+function normalizeEstimatorSection(raw) {
+  const base = blankEstimatorSection();
+  const sec = { ...base, ...(raw && typeof raw === "object" ? raw : {}) };
+  sec.id = sec.id || base.id;
+  sec.name = String(sec.name || "");
+  sec.systemType = ESTIMATOR_SYSTEM_TYPES.some((t) => t.id === sec.systemType) ? sec.systemType : "wet";
+  sec.materialMode = ["itemized", "sqft", "perhead"].includes(sec.materialMode) ? sec.materialMode : "sqft";
+  sec.sqft = estNum(sec.sqft);
+  sec.sqftPrice = estNum(sec.sqftPrice);
+  sec.headCount = estNum(sec.headCount);
+  sec.perHeadPrice = estNum(sec.perHeadPrice);
+  sec.laborHours = estNum(sec.laborHours);
+  sec.laborRateOverride =
+    sec.laborRateOverride === null || sec.laborRateOverride === "" || sec.laborRateOverride === undefined
+      ? null
+      : estNum(sec.laborRateOverride);
+  sec.items = Array.isArray(sec.items)
+    ? sec.items.map((it) => ({ desc: String(it?.desc || ""), qty: estNum(it?.qty), unitCost: estNum(it?.unitCost) }))
+    : [];
+  return sec;
+}
+function normalizeEstimatorQuick(raw) {
+  const base = defaultEstimatorQuick();
+  const q = { ...base, ...(raw && typeof raw === "object" ? raw : {}) };
+  q.basis = q.basis === "heads" ? "heads" : "sqft";
+  q.sqft = estNum(q.sqft);
+  q.heads = estNum(q.heads);
+  q.systemType = ESTIMATOR_SYSTEM_TYPES.some((t) => t.id === q.systemType) ? q.systemType : "wet";
+  return q;
+}
+function normalizeEstimator(raw) {
+  const base = defaultEstimator();
+  if (!raw || typeof raw !== "object") return base;
+  const rates = { ...base.rates, ...(raw.rates && typeof raw.rates === "object" ? raw.rates : {}) };
+  rates.systemMultipliers = { ...defaultSystemMultipliers(), ...(raw.rates?.systemMultipliers || {}) };
+  rates.advancedMode = Boolean(rates.advancedMode);
+  const bid = { ...base.bid, ...(raw.bid && typeof raw.bid === "object" ? raw.bid : {}) };
+  bid.inclusions = Array.isArray(bid.inclusions) ? bid.inclusions.map((v) => String(v)) : [];
+  bid.exclusions = Array.isArray(bid.exclusions) ? bid.exclusions.map((v) => String(v)) : [];
+  bid.otherFees = Array.isArray(bid.otherFees)
+    ? bid.otherFees.map((f) => ({ label: String(f?.label || ""), amount: estNum(f?.amount) }))
+    : [];
+  bid.includeBreakdown = bid.includeBreakdown !== false;
+  const rawIntake = bid.intake && typeof bid.intake === "object" ? bid.intake : {};
+  bid.intake = {
+    squareFeet: String(rawIntake.squareFeet || ""),
+    buildingHeight: String(rawIntake.buildingHeight || ""),
+    occupancy: String(rawIntake.occupancy || ""),
+  };
+  const rawHe = bid.headEst && typeof bid.headEst === "object" ? bid.headEst : {};
+  bid.headEst = {
+    sqft: estNum(rawHe.sqft),
+    occupancy: HEAD_OCCUPANCY.some((o) => o.id === rawHe.occupancy) ? rawHe.occupancy : "light",
+    complexity: Math.max(0, Math.min(HEAD_COMPLEXITY.length - 1, estNum(rawHe.complexity))),
+  };
+  if (!bid.bidDate) bid.bidDate = estTodayISO();
+  const sections = Array.isArray(raw.bid?.sections) ? raw.bid.sections.map(normalizeEstimatorSection) : [];
+  bid.sections = sections.length ? sections : [blankEstimatorSection()];
+  const mode = raw.mode === "quick" ? "quick" : "detailed";
+  const roundTo = [0, 50, 100, 500, 1000].includes(estNum(raw.roundTo)) ? estNum(raw.roundTo) : 0;
+  const quick = normalizeEstimatorQuick(raw.quick);
+  const savedBids = Array.isArray(raw.savedBids)
+    ? raw.savedBids
+        .filter((b) => b && typeof b === "object")
+        .map((b) => ({
+          id: String(b.id || estimatorSectionId()),
+          name: String(b.name || "Saved bid"),
+          savedAt: String(b.savedAt || ""),
+          total: estNum(b.total),
+          mode: b.mode === "quick" ? "quick" : "detailed",
+          rates: b.rates && typeof b.rates === "object" ? b.rates : {},
+          bid: b.bid && typeof b.bid === "object" ? b.bid : {},
+          quick: b.quick && typeof b.quick === "object" ? b.quick : defaultEstimatorQuick(),
+          roundTo: estNum(b.roundTo),
+        }))
+    : [];
+  return { rates, bid, mode, roundTo, quick, savedBids };
+}
+
+function estimatorSectionMaterial(sec) {
+  if (sec.materialMode === "itemized") {
+    return (sec.items || []).reduce((sum, it) => sum + estNum(it.qty) * estNum(it.unitCost), 0);
+  }
+  if (sec.materialMode === "perhead") return estNum(sec.headCount) * estNum(sec.perHeadPrice);
+  return estNum(sec.sqft) * estNum(sec.sqftPrice);
+}
+
+function computeEstimator() {
+  const { rates, bid } = state.estimator;
+  const advanced = Boolean(rates.advancedMode);
+  const sections = bid.sections.map((sec) => {
+    const material = estimatorSectionMaterial(sec);
+    const laborRate = sec.laborRateOverride != null ? sec.laborRateOverride : estNum(rates.laborRate);
+    const labor = estNum(sec.laborHours) * laborRate;
+    const multiplier = estNum(rates.systemMultipliers[sec.systemType]) || 1;
+    const materialAdj = advanced ? material * (1 + estNum(rates.materialMarkupPct) / 100) : material;
+    const laborAdj = advanced ? labor * (1 + estNum(rates.laborBurdenPct) / 100) : labor;
+    const baseCost = (materialAdj + laborAdj) * multiplier;
+    return { id: sec.id, name: sec.name, systemType: sec.systemType, material, labor, multiplier, base: baseCost };
+  });
+  const sectionsSubtotal = sections.reduce((sum, s) => sum + s.base, 0);
+  let subtotal = sectionsSubtotal;
+  let marginAmt = 0;
+  let overhead = 0;
+  let profit = 0;
+  if (advanced) {
+    overhead = subtotal * (estNum(rates.overheadPct) / 100);
+    const afterOverhead = subtotal + overhead;
+    profit = afterOverhead * (estNum(rates.profitPct) / 100);
+    subtotal = afterOverhead + profit;
+  } else {
+    marginAmt = sectionsSubtotal * (estNum(rates.simpleMarginPct) / 100);
+    subtotal = sectionsSubtotal + marginAmt;
+  }
+  const permit = estNum(bid.permitFee);
+  const bond = subtotal * (estNum(bid.bondPct) / 100);
+  const otherFeesTotal = (bid.otherFees || []).reduce((sum, f) => sum + estNum(f.amount), 0);
+  const taxable = subtotal + permit + bond + otherFeesTotal;
+  const tax = taxable * (estNum(bid.taxPct) / 100);
+  const rawTotal = taxable + tax;
+  const total = estRoundTotal(rawTotal, state.estimator.roundTo);
+  return {
+    advanced,
+    rawTotal,
+    rounding: total - rawTotal,
+    sections,
+    sectionsSubtotal,
+    marginAmt,
+    overhead,
+    profit,
+    subtotal,
+    permit,
+    bond,
+    otherFeesTotal,
+    tax,
+    total,
+  };
+}
+
+function computeQuick() {
+  const { rates, quick, roundTo } = state.estimator;
+  const multiplier = estNum(rates.systemMultipliers[quick.systemType]) || 1;
+  const basis = quick.basis === "heads" ? "heads" : "sqft";
+  const qty = basis === "heads" ? estNum(quick.heads) : estNum(quick.sqft);
+  const rate = basis === "heads" ? estNum(rates.allInHead) : estNum(rates.allInSqft);
+  const rawTotal = qty * rate * multiplier;
+  const total = estRoundTotal(rawTotal, roundTo);
+  return { basis, qty, rate, multiplier, rawTotal, total, sqft: estNum(quick.sqft), heads: estNum(quick.heads) };
+}
+
+function computeHeadCount() {
+  const he = state.estimator.bid.headEst || {};
+  const sqft = estNum(he.sqft);
+  const cov = HEAD_COVERAGE[he.occupancy] || 225;
+  const idx = Math.max(0, Math.min(HEAD_COMPLEXITY.length - 1, estNum(he.complexity)));
+  const pct = HEAD_COMPLEXITY[idx].pct;
+  const raw = cov > 0 ? (sqft / cov) * (1 + pct / 100) : 0;
+  const heads = raw > 0 ? ceilEven(raw) : 0;
+  return { sqft, cov, pct, raw, heads };
+}
+
+// $/sq ft and $/head sanity check on the live total, for whichever denominators exist.
+function estimatorSanity() {
+  const est = state.estimator;
+  if (est.mode === "quick") {
+    const q = computeQuick();
+    return {
+      total: q.total,
+      perSqft: q.sqft > 0 ? q.total / q.sqft : null,
+      perHead: q.heads > 0 ? q.total / q.heads : null,
+    };
+  }
+  const c = computeEstimator();
+  let sqft = 0;
+  let heads = 0;
+  est.bid.sections.forEach((s) => {
+    if (s.materialMode === "sqft") sqft += estNum(s.sqft);
+    else if (s.materialMode === "perhead") heads += estNum(s.headCount);
+  });
+  return {
+    total: c.total,
+    perSqft: sqft > 0 ? c.total / sqft : null,
+    perHead: heads > 0 ? c.total / heads : null,
+  };
+}
+
+// Gentle guardrails: short, plain-language warnings before someone sends a bad number.
+function estimatorWarnings() {
+  const est = state.estimator;
+  const warnings = [];
+  if (est.mode === "quick") {
+    const q = computeQuick();
+    if (q.qty <= 0) warnings.push(q.basis === "heads" ? "Enter a head count." : "Enter the square footage.");
+    if (q.rate <= 0) warnings.push(q.basis === "heads" ? "Your all-in $/head is $0 — set it in Company Rate Defaults." : "Your all-in $/sq ft is $0 — set it in Company Rate Defaults.");
+    return warnings;
+  }
+  const c = computeEstimator();
+  const usesLabor = est.bid.sections.some((s) => estNum(s.laborHours) > 0);
+  if (usesLabor && estNum(est.rates.laborRate) <= 0 && est.bid.sections.every((s) => s.laborRateOverride == null)) {
+    warnings.push("Labor rate is $0 — labor hours won't add any cost.");
+  }
+  if (c.total <= 0) warnings.push("Total is $0 — check your rates and quantities.");
+  if (!est.rates.advancedMode && estNum(est.rates.simpleMarginPct) <= 0) warnings.push("Margin is 0% — you're bidding at cost.");
+  return warnings;
+}
+
+function estimatorItemRowHtml(secId, item, index) {
+  return `<div class="estimator-item-row">
+    <input data-field="itemDesc" data-sec-id="${secId}" data-index="${index}" type="text" placeholder="Description" value="${estEscapeAttr(item.desc)}" />
+    <input data-field="itemQty" data-sec-id="${secId}" data-index="${index}" type="number" min="0" step="1" placeholder="Qty" value="${estNumVal(item.qty)}" />
+    <input data-field="itemUnit" data-sec-id="${secId}" data-index="${index}" type="number" min="0" step="0.01" placeholder="Unit $" value="${estNumVal(item.unitCost)}" />
+    <button class="ghost-button" data-action="remove-item" data-sec-id="${secId}" data-index="${index}" type="button" title="Remove line">&#10005;</button>
+  </div>`;
+}
+
+function estimatorSectionBodyHtml(sec) {
+  const laborField = `<label>Labor hours<input data-field="laborHours" data-sec-id="${sec.id}" type="number" min="0" step="0.5" value="${estNumVal(sec.laborHours)}" /></label>`;
+  if (sec.materialMode === "itemized") {
+    return `<div class="estimator-items">
+      <div class="estimator-item-row estimator-item-head"><span>Description</span><span>Qty</span><span>Unit $</span><span></span></div>
+      ${sec.items.map((it, i) => estimatorItemRowHtml(sec.id, it, i)).join("")}
+    </div>
+    <button class="ghost-button estimator-add-item" data-action="add-item" data-sec-id="${sec.id}" type="button">+ Add line item</button>
+    <div class="estimator-field-grid">${laborField}</div>`;
+  }
+  const matFields =
+    sec.materialMode === "perhead"
+      ? `<label>Head count<input data-field="headCount" data-sec-id="${sec.id}" type="number" min="0" step="1" value="${estNumVal(sec.headCount)}" /></label>
+         <label>$ / head<input data-field="perHeadPrice" data-sec-id="${sec.id}" type="number" min="0" step="1" value="${estNumVal(sec.perHeadPrice)}" /></label>`
+      : `<label>Square feet<input data-field="sqft" data-sec-id="${sec.id}" type="number" min="0" step="1" value="${estNumVal(sec.sqft)}" /></label>
+         <label>$ / sq ft<input data-field="sqftPrice" data-sec-id="${sec.id}" type="number" min="0" step="0.01" value="${estNumVal(sec.sqftPrice)}" /></label>`;
+  return `<div class="estimator-field-grid">${matFields}${laborField}</div>`;
+}
+
+function estimatorSectionCardHtml(sec) {
+  const typeOptions = ESTIMATOR_SYSTEM_TYPES.map(
+    (t) => `<option value="${t.id}" ${t.id === sec.systemType ? "selected" : ""}>${t.label}</option>`,
+  ).join("");
+  const radio = (value, label) =>
+    `<label class="estimator-radio"><input type="radio" name="mode-${sec.id}" data-field="materialMode" data-sec-id="${sec.id}" value="${value}" ${
+      sec.materialMode === value ? "checked" : ""
+    } />${label}</label>`;
+  return `<div class="estimator-section-card" data-sec-id="${sec.id}">
+    <div class="estimator-section-head">
+      <input class="estimator-section-name" data-field="name" data-sec-id="${sec.id}" type="text" value="${estEscapeAttr(sec.name)}" placeholder="System name" />
+      <select data-field="systemType" data-sec-id="${sec.id}" title="System type">${typeOptions}</select>
+      <button class="ghost-button estimator-remove-section" data-action="remove-section" data-sec-id="${sec.id}" type="button" title="Remove system">&#10005;</button>
+    </div>
+    <div class="estimator-mode-row">${radio("sqft", "$/sq ft")}${radio("perhead", "$/head")}${radio("itemized", "Itemized")}</div>
+    ${estimatorSectionBodyHtml(sec)}
+    <div class="estimator-section-footer"><span class="estimator-section-cost" data-sec-cost="${sec.id}"></span></div>
+  </div>`;
+}
+
+function renderEstimatorSections() {
+  const wrap = document.getElementById("estimatorSections");
+  if (!wrap) return;
+  wrap.innerHTML = state.estimator.bid.sections.map(estimatorSectionCardHtml).join("");
+}
+
+function renderEstimatorMultipliers() {
+  const grid = document.getElementById("systemMultiplierGrid");
+  if (!grid) return;
+  grid.innerHTML = ESTIMATOR_SYSTEM_TYPES.map(
+    (t) =>
+      `<label>${t.label} &times;<input data-mult="${t.id}" type="number" min="0" step="0.05" value="${estNumVal(
+        state.estimator.rates.systemMultipliers[t.id],
+      )}" /></label>`,
+  ).join("");
+}
+
+function renderEstimatorLists() {
+  [
+    ["inclusions", "bidInclusions", "Included item"],
+    ["exclusions", "bidExclusions", "Excluded item"],
+  ].forEach(([key, elId, placeholder]) => {
+    const wrap = document.getElementById(elId);
+    if (!wrap) return;
+    wrap.innerHTML = state.estimator.bid[key]
+      .map(
+        (value, i) =>
+          `<div class="estimator-line-item"><input data-index="${i}" type="text" value="${estEscapeAttr(
+            value,
+          )}" placeholder="${placeholder}" /><button class="ghost-button" data-action="remove-line" data-index="${i}" type="button" title="Remove">&#10005;</button></div>`,
+      )
+      .join("");
+  });
+}
+
+function estimatorBreakdownRow(label, value, strong) {
+  return `<div class="estimator-breakdown-row${strong ? " strong" : ""}"><span>${estEscapeAttr(label)}</span><span>${value}</span></div>`;
+}
+
+function renderEstimatorTotals() {
+  const c = computeEstimator();
+  const { rates, bid } = state.estimator;
+  c.sections.forEach((s) => {
+    const el = document.querySelector(`[data-sec-cost="${s.id}"]`);
+    if (el) {
+      el.textContent = `Material ${estMoney(s.material)} · Labor ${estMoney(s.labor)} · ×${s.multiplier} = ${estMoney(s.base)}`;
+    }
+  });
+  const breakdown = document.getElementById("estimatorBreakdown");
+  if (breakdown) {
+    const lines = [];
+    c.sections.forEach((s) => lines.push(estimatorBreakdownRow(s.name || "System", estMoney(s.base))));
+    lines.push(estimatorBreakdownRow("Sections subtotal", estMoney(c.sectionsSubtotal), true));
+    if (c.advanced) {
+      if (estNum(rates.overheadPct)) lines.push(estimatorBreakdownRow(`Overhead (${estNum(rates.overheadPct)}%)`, estMoney(c.overhead)));
+      if (estNum(rates.profitPct)) lines.push(estimatorBreakdownRow(`Profit (${estNum(rates.profitPct)}%)`, estMoney(c.profit)));
+    } else {
+      lines.push(estimatorBreakdownRow(`Margin (${estNum(rates.simpleMarginPct)}%)`, estMoney(c.marginAmt)));
+    }
+    if (c.permit) lines.push(estimatorBreakdownRow("Permit", estMoney(c.permit)));
+    if (c.bond) lines.push(estimatorBreakdownRow(`Bond (${estNum(bid.bondPct)}%)`, estMoney(c.bond)));
+    if (c.otherFeesTotal) lines.push(estimatorBreakdownRow("Other fees", estMoney(c.otherFeesTotal)));
+    if (c.tax) lines.push(estimatorBreakdownRow(`Tax (${estNum(bid.taxPct)}%)`, estMoney(c.tax)));
+    if (Math.abs(c.rounding) >= 0.005) lines.push(estimatorBreakdownRow("Rounding", estMoney(c.rounding)));
+    breakdown.innerHTML = lines.join("");
+  }
+  const totalEl = document.getElementById("estimatorGrandTotal");
+  const grand = state.estimator.mode === "quick" ? computeQuick().total : c.total;
+  if (totalEl) totalEl.textContent = estMoney(grand);
+  renderEstimatorSanity();
+  renderEstimatorWarnings();
+}
+
+function renderEstimatorSanity() {
+  const el = document.getElementById("estimatorSanity");
+  if (!el) return;
+  const s = estimatorSanity();
+  const parts = [];
+  if (s.perSqft != null && Number.isFinite(s.perSqft)) parts.push(`${estMoney(s.perSqft)} / sq ft`);
+  if (s.perHead != null && Number.isFinite(s.perHead)) parts.push(`${estMoney(s.perHead)} / head`);
+  el.textContent = parts.length ? "≈ " + parts.join("  ·  ") : "";
+  el.classList.toggle("active", parts.length > 0);
+}
+
+function renderEstimatorWarnings() {
+  const el = document.getElementById("estimatorWarnings");
+  if (!el) return;
+  const w = estimatorWarnings();
+  el.innerHTML = w.map((m) => `<div class="estimator-warning">⚠ ${estEscapeAttr(m)}</div>`).join("");
+  el.classList.toggle("active", w.length > 0);
+}
+
+function renderQuickEstimator() {
+  const { quick, rates } = state.estimator;
+  estimatorSetVal("quickSqftInput", quick.sqft || "");
+  estimatorSetVal("quickHeadsInput", quick.heads || "");
+  estimatorSetVal("quickRateSqftInput", rates.allInSqft || "");
+  estimatorSetVal("quickRateHeadInput", rates.allInHead || "");
+  const typeSel = document.getElementById("quickSystemTypeSelect");
+  if (typeSel) typeSel.value = quick.systemType;
+  const panel = document.querySelector('[data-tool-panel="estimator"]');
+  if (panel) panel.classList.toggle("estimator-quick-heads", quick.basis === "heads");
+  document.querySelectorAll("[data-quick-basis]").forEach((b) => {
+    const on = b.dataset.quickBasis === quick.basis;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+  });
+}
+
+function renderHeadCount() {
+  const he = state.estimator.bid.headEst || {};
+  estimatorSetVal("hcSqftInput", he.sqft || "");
+  const occ = document.getElementById("hcOccupancySelect");
+  if (occ) occ.value = he.occupancy;
+  const cx = document.getElementById("hcComplexitySelect");
+  if (cx) cx.value = String(he.complexity);
+  const c = computeHeadCount();
+  const val = document.getElementById("hcHeadsValue");
+  const detail = document.getElementById("hcHeadsDetail");
+  if (val) val.textContent = c.heads > 0 ? `${c.heads} heads` : "— heads";
+  if (detail) {
+    detail.textContent = c.heads > 0
+      ? `${c.sqft.toLocaleString()} sq ft ÷ ${c.cov} sq ft/head${c.pct ? `, +${c.pct}% for layout` : ""}, rounded up to even`
+      : "Enter the building area to estimate heads.";
+  }
+  const useBtn = document.getElementById("hcUseButton");
+  if (useBtn) useBtn.disabled = c.heads <= 0;
+}
+
+function renderSavedBids() {
+  const wrap = document.getElementById("estimatorSavedBids");
+  if (!wrap) return;
+  const bids = state.estimator.savedBids || [];
+  const countEl = document.getElementById("estimatorSavedCount");
+  if (countEl) countEl.textContent = bids.length ? `(${bids.length})` : "";
+  if (!bids.length) {
+    wrap.innerHTML = '<p class="estimator-hint">No saved bids yet. Build a bid, then tap “Save this bid” to reuse it later.</p>';
+    return;
+  }
+  wrap.innerHTML = bids
+    .map(
+      (b) => `<div class="estimator-saved-row">
+        <div class="estimator-saved-meta"><strong>${estEscapeAttr(b.name)}</strong><span>${estEscapeAttr(b.savedAt)} · ${estMoney(b.total)}</span></div>
+        <div class="estimator-saved-actions">
+          <button class="secondary-button" data-saved-action="open" data-bid-id="${estEscapeAttr(b.id)}" type="button">Open</button>
+          <button class="ghost-button" data-saved-action="duplicate" data-bid-id="${estEscapeAttr(b.id)}" type="button">Duplicate</button>
+          <button class="ghost-button" data-saved-action="delete" data-bid-id="${estEscapeAttr(b.id)}" type="button" title="Delete">&#10005;</button>
+        </div>
+      </div>`,
+    )
+    .join("");
+}
+
+function applyEstimatorModeVisibility() {
+  const panel = document.querySelector('[data-tool-panel="estimator"]');
+  if (panel) panel.classList.toggle("estimator-mode-quick", state.estimator.mode === "quick");
+  document.querySelectorAll("[data-estimator-mode]").forEach((b) => {
+    const on = b.dataset.estimatorMode === state.estimator.mode;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+  });
+  const roundSel = document.getElementById("estimatorRoundSelect");
+  if (roundSel) roundSel.value = String(state.estimator.roundTo);
+}
+
+function estimatorSetVal(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value === 0 || value ? value : "";
+}
+
+function syncEstimatorInputs() {
+  const { rates, bid } = state.estimator;
+  estimatorSetVal("bidCustomerInput", bid.customerName);
+  estimatorSetVal("bidProjectNameInput", bid.projectName);
+  estimatorSetVal("bidProjectAddressInput", bid.projectAddress);
+  estimatorSetVal("bidNumberInput", bid.bidNumber);
+  estimatorSetVal("bidDateInput", bid.bidDate);
+  estimatorSetVal("bidValidDaysInput", bid.validDays || "");
+  estimatorSetVal("bidScopeInput", bid.scopeText);
+  estimatorSetVal("bidPermitInput", bid.permitFee || "");
+  estimatorSetVal("bidBondInput", bid.bondPct || "");
+  estimatorSetVal("bidTaxInput", bid.taxPct || "");
+  estimatorSetVal("rateLaborInput", rates.laborRate || "");
+  estimatorSetVal("rateSqftInput", rates.sqftPriceDefault || "");
+  estimatorSetVal("ratePerHeadInput", rates.perHeadPriceDefault || "");
+  estimatorSetVal("rateSimpleMarginInput", rates.simpleMarginPct || "");
+  estimatorSetVal("rateMaterialMarkupInput", rates.materialMarkupPct || "");
+  estimatorSetVal("rateLaborBurdenInput", rates.laborBurdenPct || "");
+  estimatorSetVal("rateOverheadInput", rates.overheadPct || "");
+  estimatorSetVal("rateProfitInput", rates.profitPct || "");
+  const adv = document.getElementById("estimatorAdvancedToggle");
+  if (adv) adv.checked = Boolean(rates.advancedMode);
+  const inc = document.getElementById("bidIncludeBreakdownInput");
+  if (inc) inc.checked = bid.includeBreakdown !== false;
+}
+
+function applyEstimatorAdvancedVisibility() {
+  const panel = document.querySelector('[data-tool-panel="estimator"]');
+  if (panel) panel.classList.toggle("estimator-advanced", Boolean(state.estimator.rates.advancedMode));
+}
+
+function renderEstimator() {
+  syncEstimatorInputs();
+  applyEstimatorAdvancedVisibility();
+  applyEstimatorModeVisibility();
+  renderEstimatorMultipliers();
+  renderEstimatorSections();
+  renderEstimatorLists();
+  renderQuickEstimator();
+  renderSavedBids();
+  renderBidIntakeExtras();
+  renderHeadCount();
+  renderEstimatorTotals();
+}
+
+function setEstimatorStatus(message, type = "info") {
+  const el = document.getElementById("estimatorStatus");
+  if (!el) return;
+  const active = Boolean(message);
+  el.textContent = message;
+  el.classList.toggle("active", active);
+  el.classList.toggle("error", active && type === "error");
+  el.classList.toggle("success", active && type === "success");
+  el.classList.toggle("info", active && type === "info");
+}
+
+function findEstimatorSection(secId) {
+  return state.estimator.bid.sections.find((s) => s.id === secId);
+}
+
+function onEstimatorSectionInput(event) {
+  const target = event.target;
+  const secId = target.dataset.secId;
+  if (!secId) return;
+  const sec = findEstimatorSection(secId);
+  if (!sec) return;
+  const field = target.dataset.field;
+  if (field === "name") sec.name = target.value;
+  else if (field === "laborHours") sec.laborHours = estNum(target.value);
+  else if (field === "sqft") sec.sqft = estNum(target.value);
+  else if (field === "sqftPrice") sec.sqftPrice = estNum(target.value);
+  else if (field === "headCount") sec.headCount = estNum(target.value);
+  else if (field === "perHeadPrice") sec.perHeadPrice = estNum(target.value);
+  else if (field === "itemDesc" || field === "itemQty" || field === "itemUnit") {
+    const item = sec.items[Number(target.dataset.index)];
+    if (!item) return;
+    if (field === "itemDesc") item.desc = target.value;
+    else if (field === "itemQty") item.qty = estNum(target.value);
+    else item.unitCost = estNum(target.value);
+  } else return;
+  renderEstimatorTotals();
+  saveState();
+}
+
+function onEstimatorSectionChange(event) {
+  const target = event.target;
+  const secId = target.dataset.secId;
+  if (!secId) return;
+  const sec = findEstimatorSection(secId);
+  if (!sec) return;
+  if (target.dataset.field === "systemType") {
+    sec.systemType = target.value;
+    renderEstimatorTotals();
+    saveState();
+  } else if (target.dataset.field === "materialMode") {
+    sec.materialMode = target.value;
+    renderEstimatorSections();
+    renderEstimatorTotals();
+    saveState();
+  }
+}
+
+function onEstimatorSectionClick(event) {
+  const btn = event.target.closest("[data-action]");
+  if (!btn) return;
+  const action = btn.dataset.action;
+  const secId = btn.dataset.secId;
+  if (action === "remove-section") {
+    state.estimator.bid.sections = state.estimator.bid.sections.filter((s) => s.id !== secId);
+    if (!state.estimator.bid.sections.length) state.estimator.bid.sections.push(blankEstimatorSection());
+    renderEstimatorSections();
+    renderEstimatorTotals();
+    saveState();
+    return;
+  }
+  const sec = findEstimatorSection(secId);
+  if (!sec) return;
+  if (action === "add-item") {
+    sec.items.push({ desc: "", qty: 0, unitCost: 0 });
+    renderEstimatorSections();
+    renderEstimatorTotals();
+    saveState();
+  } else if (action === "remove-item") {
+    sec.items.splice(Number(btn.dataset.index), 1);
+    renderEstimatorSections();
+    renderEstimatorTotals();
+    saveState();
+  }
+}
+
+function onEstimatorListInput(event, key) {
+  const index = Number(event.target.dataset.index);
+  if (Number.isNaN(index)) return;
+  state.estimator.bid[key][index] = event.target.value;
+  saveState();
+}
+
+function onEstimatorListClick(event, key) {
+  const btn = event.target.closest("[data-action='remove-line']");
+  if (!btn) return;
+  state.estimator.bid[key].splice(Number(btn.dataset.index), 1);
+  renderEstimatorLists();
+  saveState();
+}
+
+function resetEstimatorBid() {
+  if (!window.confirm("Clear the current bid? Your company rate defaults are kept.")) return;
+  state.estimator.bid = defaultEstimatorBid();
+  renderEstimator();
+  saveState();
+  setEstimatorStatus("Bid cleared.", "info");
+}
+
+// Map a Quick estimate to a single-section bid so the same PDF/engine renders it.
+function quickToBid() {
+  const { quick, rates, bid } = state.estimator;
+  const heads = quick.basis === "heads";
+  const section = blankEstimatorSection({
+    name: "Fire Sprinkler System",
+    systemType: quick.systemType,
+    materialMode: heads ? "perhead" : "sqft",
+    sqft: quick.sqft,
+    sqftPrice: rates.allInSqft,
+    headCount: quick.heads,
+    perHeadPrice: rates.allInHead,
+    laborHours: 0,
+  });
+  return {
+    ...defaultEstimatorBid(),
+    bidNumber: bid.bidNumber,
+    bidDate: bid.bidDate || estTodayISO(),
+    validDays: bid.validDays,
+    customerName: bid.customerName,
+    projectName: bid.projectName,
+    projectAddress: bid.projectAddress,
+    scopeText: bid.scopeText || "Furnish and install a complete fire sprinkler system per the contract documents and applicable NFPA standards.",
+    inclusions: bid.inclusions,
+    exclusions: bid.exclusions,
+    sections: [section],
+    includeBreakdown: false,
+  };
+}
+
+function quickBidPayload(openGeneratedPdf) {
+  const q = computeQuick();
+  const bid = quickToBid();
+  return {
+    contractor: formContractor(),
+    project: { coverTemplate: state.coverTemplate },
+    settings: { ...normalizeSettings(state.settings), openGeneratedPdf },
+    bid,
+    rates: { ...state.estimator.rates, advancedMode: false, simpleMarginPct: 0 },
+    computed: {
+      advanced: false,
+      sections: [{ name: bid.sections[0].name, systemType: state.estimator.quick.systemType, material: q.qty * q.rate, labor: 0, multiplier: q.multiplier, base: q.rawTotal }],
+      sectionsSubtotal: q.rawTotal,
+      marginAmt: 0,
+      overhead: 0,
+      profit: 0,
+      subtotal: q.rawTotal,
+      permit: 0,
+      bond: 0,
+      otherFeesTotal: 0,
+      tax: 0,
+      total: q.total,
+    },
+  };
+}
+
+function estimatorBidPayload(openGeneratedPdf) {
+  if (state.estimator.mode === "quick") return quickBidPayload(openGeneratedPdf);
+  const c = computeEstimator();
+  return {
+    contractor: formContractor(),
+    project: { coverTemplate: state.coverTemplate },
+    settings: { ...normalizeSettings(state.settings), openGeneratedPdf },
+    bid: state.estimator.bid,
+    rates: state.estimator.rates,
+    computed: {
+      advanced: c.advanced,
+      sections: c.sections.map((s) => ({
+        name: s.name,
+        systemType: s.systemType,
+        material: s.material,
+        labor: s.labor,
+        multiplier: s.multiplier,
+        base: s.base,
+      })),
+      sectionsSubtotal: c.sectionsSubtotal,
+      marginAmt: c.marginAmt,
+      overhead: c.overhead,
+      profit: c.profit,
+      subtotal: c.subtotal,
+      permit: c.permit,
+      bond: c.bond,
+      otherFeesTotal: c.otherFeesTotal,
+      tax: c.tax,
+      total: c.total,
+    },
+  };
+}
+
+function estimatorActiveTotal() {
+  return state.estimator.mode === "quick" ? computeQuick().total : computeEstimator().total;
+}
+
+function estimatorSnapshot() {
+  return {
+    mode: state.estimator.mode,
+    roundTo: estNum(state.estimator.roundTo),
+    rates: JSON.parse(JSON.stringify(state.estimator.rates)),
+    bid: JSON.parse(JSON.stringify(state.estimator.bid)),
+    quick: JSON.parse(JSON.stringify(state.estimator.quick)),
+  };
+}
+function saveCurrentBid() {
+  const suggested = state.estimator.bid.projectName || state.estimator.bid.customerName || "Bid";
+  const name = (window.prompt("Name this saved bid:", suggested) || "").trim();
+  if (!name) return;
+  state.estimator.savedBids.unshift({ id: estimatorSectionId(), name, savedAt: estTodayISO(), total: estimatorActiveTotal(), ...estimatorSnapshot() });
+  renderSavedBids();
+  saveState();
+  setEstimatorStatus(`Saved “${name}”.`, "success");
+}
+function loadSavedBid(id, asCopy) {
+  const b = (state.estimator.savedBids || []).find((x) => x.id === id);
+  if (!b) return;
+  if (!asCopy && !window.confirm("Open this saved bid? Your current unsaved bid will be replaced.")) return;
+  state.estimator.mode = b.mode === "quick" ? "quick" : "detailed";
+  state.estimator.roundTo = estNum(b.roundTo);
+  state.estimator.rates = normalizeEstimator({ rates: b.rates }).rates;
+  state.estimator.bid = normalizeEstimator({ bid: b.bid }).bid;
+  state.estimator.quick = normalizeEstimatorQuick(b.quick);
+  if (asCopy) state.estimator.bid.projectName = `${b.bid && b.bid.projectName ? b.bid.projectName : b.name} (copy)`;
+  renderEstimator();
+  saveState();
+  setEstimatorStatus(asCopy ? "Duplicated into the working bid." : `Opened “${b.name}”.`, "info");
+}
+function deleteSavedBid(id) {
+  const b = (state.estimator.savedBids || []).find((x) => x.id === id);
+  if (b && !window.confirm(`Delete saved bid “${b.name}”?`)) return;
+  state.estimator.savedBids = (state.estimator.savedBids || []).filter((x) => x.id !== id);
+  renderSavedBids();
+  saveState();
+}
+
+async function generateBid() {
+  if (!ensureLicensedToolAccess(setEstimatorStatus)) return;
+  const licenseBlock = commercialOutputBlockMessage();
+  if (licenseBlock) {
+    openLicenseDialog();
+    setEstimatorStatus(licenseBlock, "error");
+    return;
+  }
+  if (estimatorActiveTotal() <= 0 && !window.confirm("The total is $0 right now. Generate the bid anyway?")) return;
+  setEstimatorStatus("Generating bid PDF…", "info");
+  try {
+    const result = await readApiJson("./api/generate-bid", {
+      method: "POST",
+      body: JSON.stringify(estimatorBidPayload(state.settings.openGeneratedPdf)),
+    });
+    setEstimatorStatus(`Bid saved: ${result.path}`, "success");
+  } catch (error) {
+    setEstimatorStatus(`Could not generate bid: ${error.message}`, "error");
+  }
+}
+
+function setBidIntakeStatus(message, type = "info") {
+  const el = document.getElementById("bidIntakeStatus");
+  if (!el) return;
+  el.textContent = message || "";
+  el.classList.toggle("active", Boolean(message));
+  el.classList.toggle("error", Boolean(message) && type === "error");
+  el.classList.toggle("success", Boolean(message) && type === "success");
+}
+
+function renderBidIntakeExtras() {
+  const el = document.getElementById("bidIntakeExtras");
+  if (!el) return;
+  const ex = state.estimator.bid.intake || {};
+  const chips = [];
+  if (ex.squareFeet) chips.push(`<span class="estimator-intake-chip">${estEscapeAttr(Number(ex.squareFeet).toLocaleString())} sq ft</span>`);
+  if (ex.buildingHeight) chips.push(`<span class="estimator-intake-chip">${estEscapeAttr(ex.buildingHeight)} tall</span>`);
+  if (ex.occupancy) chips.push(`<span class="estimator-intake-chip">${estEscapeAttr(ex.occupancy)}</span>`);
+  if (!chips.length) {
+    el.innerHTML = "";
+    el.classList.remove("active");
+    return;
+  }
+  el.classList.add("active");
+  el.innerHTML = `<div class="estimator-intake-extras-head">From the plans <span>(verify — don't bid on these alone)</span></div>
+    <div class="estimator-intake-chips">${chips.join("")}</div>
+    ${ex.squareFeet ? `<button class="secondary-button" id="bidIntakeUseSqftButton" type="button">Use ${estEscapeAttr(Number(ex.squareFeet).toLocaleString())} sq ft in the estimate</button>` : ""}`;
+  const useBtn = document.getElementById("bidIntakeUseSqftButton");
+  if (useBtn) useBtn.addEventListener("click", useIntakeSquareFeet);
+}
+
+function useIntakeSquareFeet() {
+  const sf = estNum(state.estimator.bid.intake.squareFeet);
+  if (sf <= 0) return;
+  state.estimator.quick.sqft = sf;
+  state.estimator.quick.basis = "sqft";
+  state.estimator.bid.headEst.sqft = sf;
+  const sec0 = state.estimator.bid.sections[0];
+  if (sec0 && sec0.materialMode === "sqft") sec0.sqft = sf;
+  renderEstimator();
+  saveState();
+  setBidIntakeStatus(`Square footage applied (${sf.toLocaleString()} sq ft). Verify before bidding.`, "success");
+}
+
+function applyBidIntakeResult(result) {
+  const project = result.project || {};
+  const extras = result.extras || {};
+  const filled = [];
+  if (project.name) {
+    state.estimator.bid.projectName = project.name;
+    filled.push("project name");
+  }
+  if (project.address) {
+    state.estimator.bid.projectAddress = project.address;
+    filled.push("address");
+  }
+  state.estimator.bid.intake = {
+    squareFeet: String(extras.squareFeet || ""),
+    buildingHeight: String(extras.buildingHeight || ""),
+    occupancy: String(extras.occupancy || ""),
+  };
+  if (extras.squareFeet) filled.push("square footage");
+  syncEstimatorInputs();
+  renderBidIntakeExtras();
+  saveState();
+  if (filled.length) setBidIntakeStatus(`Auto-filled ${filled.join(", ")} — please verify.`, "success");
+  else setBidIntakeStatus("Couldn't read project info from that PDF. Try the cover/title sheet, or enter it manually.", "error");
+}
+
+async function analyzeBidPlans(file) {
+  if (!file) return;
+  if (!ensureLicensedToolAccess(setBidIntakeStatus)) return;
+  setBidIntakeStatus("Reading the plans… this takes a few seconds.", "info");
+  try {
+    const dataUrl = await readFileAsDataUrl(file);
+    const result = await readApiJson("./api/bid-plan-intake", {
+      method: "POST",
+      body: JSON.stringify({ file: { name: file.name, dataUrl } }),
+    });
+    applyBidIntakeResult(result);
+  } catch (error) {
+    setBidIntakeStatus(`Could not read the plans: ${error.message}`, "error");
+  }
+}
+
+function initEstimator() {
+  const bindText = (id, apply) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const handler = () => {
+      apply(el.value);
+      saveState();
+    };
+    el.addEventListener(el.tagName === "SELECT" || el.type === "date" ? "change" : "input", handler);
+  };
+  const bindNum = (id, apply) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("input", () => {
+      apply(estNum(el.value));
+      renderEstimatorTotals();
+      saveState();
+    });
+  };
+  bindText("bidCustomerInput", (v) => (state.estimator.bid.customerName = v));
+  bindText("bidProjectNameInput", (v) => (state.estimator.bid.projectName = v));
+  bindText("bidProjectAddressInput", (v) => (state.estimator.bid.projectAddress = v));
+  bindText("bidNumberInput", (v) => (state.estimator.bid.bidNumber = v));
+  bindText("bidDateInput", (v) => (state.estimator.bid.bidDate = v));
+  bindText("bidScopeInput", (v) => (state.estimator.bid.scopeText = v));
+  bindNum("bidValidDaysInput", (v) => (state.estimator.bid.validDays = v));
+  bindNum("bidPermitInput", (v) => (state.estimator.bid.permitFee = v));
+  bindNum("bidBondInput", (v) => (state.estimator.bid.bondPct = v));
+  bindNum("bidTaxInput", (v) => (state.estimator.bid.taxPct = v));
+  bindNum("rateLaborInput", (v) => (state.estimator.rates.laborRate = v));
+  bindNum("rateSqftInput", (v) => (state.estimator.rates.sqftPriceDefault = v));
+  bindNum("ratePerHeadInput", (v) => (state.estimator.rates.perHeadPriceDefault = v));
+  bindNum("rateSimpleMarginInput", (v) => (state.estimator.rates.simpleMarginPct = v));
+  bindNum("rateMaterialMarkupInput", (v) => (state.estimator.rates.materialMarkupPct = v));
+  bindNum("rateLaborBurdenInput", (v) => (state.estimator.rates.laborBurdenPct = v));
+  bindNum("rateOverheadInput", (v) => (state.estimator.rates.overheadPct = v));
+  bindNum("rateProfitInput", (v) => (state.estimator.rates.profitPct = v));
+
+  const adv = document.getElementById("estimatorAdvancedToggle");
+  adv?.addEventListener("change", () => {
+    state.estimator.rates.advancedMode = adv.checked;
+    applyEstimatorAdvancedVisibility();
+    renderEstimatorTotals();
+    saveState();
+  });
+  const includeBreakdown = document.getElementById("bidIncludeBreakdownInput");
+  includeBreakdown?.addEventListener("change", () => {
+    state.estimator.bid.includeBreakdown = includeBreakdown.checked;
+    saveState();
+  });
+  document.getElementById("estimatorAddSectionButton")?.addEventListener("click", () => {
+    const count = state.estimator.bid.sections.length + 1;
+    state.estimator.bid.sections.push(blankEstimatorSection({ name: `System ${count}` }));
+    renderEstimatorSections();
+    renderEstimatorTotals();
+    saveState();
+  });
+  document.getElementById("bidAddInclusionButton")?.addEventListener("click", () => {
+    state.estimator.bid.inclusions.push("");
+    renderEstimatorLists();
+    saveState();
+  });
+  document.getElementById("bidAddExclusionButton")?.addEventListener("click", () => {
+    state.estimator.bid.exclusions.push("");
+    renderEstimatorLists();
+    saveState();
+  });
+  document.getElementById("estimatorResetButton")?.addEventListener("click", resetEstimatorBid);
+  document.getElementById("estimatorGenerateButton")?.addEventListener("click", generateBid);
+  document.getElementById("systemMultiplierGrid")?.addEventListener("input", (event) => {
+    const id = event.target.dataset.mult;
+    if (!id) return;
+    state.estimator.rates.systemMultipliers[id] = estNum(event.target.value);
+    renderEstimatorTotals();
+    saveState();
+  });
+
+  const sectionsWrap = document.getElementById("estimatorSections");
+  sectionsWrap?.addEventListener("input", onEstimatorSectionInput);
+  sectionsWrap?.addEventListener("change", onEstimatorSectionChange);
+  sectionsWrap?.addEventListener("click", onEstimatorSectionClick);
+  document.getElementById("bidInclusions")?.addEventListener("input", (e) => onEstimatorListInput(e, "inclusions"));
+  document.getElementById("bidInclusions")?.addEventListener("click", (e) => onEstimatorListClick(e, "inclusions"));
+  document.getElementById("bidExclusions")?.addEventListener("input", (e) => onEstimatorListInput(e, "exclusions"));
+  document.getElementById("bidExclusions")?.addEventListener("click", (e) => onEstimatorListClick(e, "exclusions"));
+
+  // Quick Estimate mode
+  bindNum("quickSqftInput", (v) => (state.estimator.quick.sqft = v));
+  bindNum("quickHeadsInput", (v) => (state.estimator.quick.heads = v));
+  bindNum("quickRateSqftInput", (v) => (state.estimator.rates.allInSqft = v));
+  bindNum("quickRateHeadInput", (v) => (state.estimator.rates.allInHead = v));
+  document.getElementById("quickSystemTypeSelect")?.addEventListener("change", (e) => {
+    state.estimator.quick.systemType = e.target.value;
+    renderEstimatorTotals();
+    saveState();
+  });
+  document.querySelectorAll("[data-quick-basis]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.estimator.quick.basis = btn.dataset.quickBasis === "heads" ? "heads" : "sqft";
+      renderQuickEstimator();
+      renderEstimatorTotals();
+      saveState();
+    });
+  });
+  document.querySelectorAll("[data-estimator-mode]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.estimator.mode = btn.dataset.estimatorMode === "quick" ? "quick" : "detailed";
+      applyEstimatorModeVisibility();
+      renderEstimatorTotals();
+      saveState();
+    });
+  });
+  document.getElementById("estimatorRoundSelect")?.addEventListener("change", (e) => {
+    state.estimator.roundTo = estNum(e.target.value);
+    renderEstimatorTotals();
+    saveState();
+  });
+  document.getElementById("estimatorSaveBidButton")?.addEventListener("click", saveCurrentBid);
+  document.getElementById("estimatorSavedBids")?.addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-saved-action]");
+    if (!btn) return;
+    const id = btn.dataset.bidId;
+    const action = btn.dataset.savedAction;
+    if (action === "open") loadSavedBid(id, false);
+    else if (action === "duplicate") loadSavedBid(id, true);
+    else if (action === "delete") deleteSavedBid(id);
+  });
+
+  // Plan intake: drop a bid set to auto-fill project info
+  const intakeDrop = document.getElementById("bidIntakeDrop");
+  const intakeInput = document.getElementById("bidIntakeInput");
+  if (intakeDrop && intakeInput) {
+    const openPicker = () => intakeInput.click();
+    intakeDrop.addEventListener("click", (e) => { if (e.target !== intakeInput) openPicker(); });
+    intakeDrop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPicker(); } });
+    intakeInput.addEventListener("change", () => {
+      const f = intakeInput.files && intakeInput.files[0];
+      if (f) analyzeBidPlans(f);
+      intakeInput.value = "";
+    });
+    ["dragover", "dragenter"].forEach((ev) => intakeDrop.addEventListener(ev, (e) => { e.preventDefault(); intakeDrop.classList.add("dragover"); }));
+    intakeDrop.addEventListener("dragleave", (e) => { e.preventDefault(); intakeDrop.classList.remove("dragover"); });
+    intakeDrop.addEventListener("drop", (e) => {
+      e.preventDefault();
+      intakeDrop.classList.remove("dragover");
+      const f = e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files[0] : null;
+      if (f && /\.pdf$/i.test(f.name)) analyzeBidPlans(f);
+    });
+  }
+
+  // Head Count Estimator
+  document.getElementById("hcSqftInput")?.addEventListener("input", (e) => {
+    state.estimator.bid.headEst.sqft = estNum(e.target.value);
+    renderHeadCount();
+    saveState();
+  });
+  document.getElementById("hcOccupancySelect")?.addEventListener("change", (e) => {
+    state.estimator.bid.headEst.occupancy = e.target.value;
+    renderHeadCount();
+    saveState();
+  });
+  document.getElementById("hcComplexitySelect")?.addEventListener("change", (e) => {
+    state.estimator.bid.headEst.complexity = estNum(e.target.value);
+    renderHeadCount();
+    saveState();
+  });
+  document.getElementById("hcUseButton")?.addEventListener("click", () => {
+    const c = computeHeadCount();
+    if (c.heads <= 0) return;
+    state.estimator.quick.heads = c.heads;
+    state.estimator.quick.basis = "heads";
+    renderEstimator();
+    saveState();
+    setEstimatorStatus(`${c.heads} heads applied to the head-count price — verify before bidding.`, "success");
+  });
+
+  // Default the bid date to today if it was never set.
+  if (!state.estimator.bid.bidDate) {
+    state.estimator.bid.bidDate = estTodayISO();
+    estimatorSetVal("bidDateInput", state.estimator.bid.bidDate);
+  }
+}
+
+async function initializeApp() {
+  installClientErrorReporting();
+  wireEvents();
+  await loadAppInfo();
+  await loadState();
+  await loadExternalCatalog();
+  renderProjectSelect();
+  syncInputsFromState();
+  if (dom.catalogSortSelect) dom.catalogSortSelect.value = state.catalogSort || "manufacturer";
+  renderAll();
+  await loadNfpaRoadmap();
+  syncInputsFromState();
+  if (dom.catalogSortSelect) dom.catalogSortSelect.value = state.catalogSort || "manufacturer";
+  renderAll();
+  renderEstimator();
+  updateSpacingCalculator();
+  updateFlowCalculator();
+  updateLayoutCoverageLock();
+  clearHeadLayoutGenerator();
+  calculateAndRenderBracing();
+  syncPdfCompressionOptions();
+  renderPdfMergeWorkspace();
+  resetWaterSupplyTool();
+  renderNfpa1142Report(null);
+  maybeOpenStartupLoginPrompt();
+  window.setInterval(refreshLicenseHeartbeat, 10 * 60 * 1000);
+  window.setTimeout(checkUpdatesInBackground, 8000);
+  window.setInterval(checkUpdatesInBackground, 6 * 60 * 60 * 1000);
+}
+
+initializeApp();
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.getRegistrations()
+      .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+      .catch(() => {});
+    if (window.caches) {
+      caches.keys()
+        .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+        .catch(() => {});
+    }
+  });
+}
+
+/* ===== Plan Reviewer (premium) - wired to the standalone beta service via the local proxy ===== */
+(function () {
+  const PR = { plans: null, calcs: null, material: [], jobId: null, polling: false, timer: null, startTime: null, elapsedTimer: null, projectName: "" };
+  const $ = (id) => document.getElementById(id);
+
+  function setPrStatus(message, type = "info") {
+    const el = $("prStatus");
+    if (!el) return;
+    el.textContent = message || "";
+    el.dataset.status = type;
+  }
+  function isPdf(file) { return file && /\.pdf$/i.test(file.name); }
+  function fileLabel(value) {
+    if (Array.isArray(value)) return value.map((f) => f.name).join(", ");
+    return value ? value.name : "";
+  }
+  function renderUploadState() {
+    const setZone = (zoneId, spanId, value, placeholder) => {
+      const zone = $(zoneId), span = $(spanId);
+      const has = Array.isArray(value) ? value.length > 0 : !!value;
+      if (zone) zone.classList.toggle("has-file", has);
+      if (span) span.textContent = has ? fileLabel(value) : placeholder;
+    };
+    setZone("prPlansZone", "prPlansFile", PR.plans, "PDF · required · click or drop");
+    setZone("prCalcsZone", "prCalcsFile", PR.calcs, "PDF · optional · click or drop");
+    setZone("prMaterialZone", "prMaterialFile", PR.material, "PDF(s) · optional · click or drop");
+  }
+  function wireZone(zoneId, inputId, onPick) {
+    const zone = $(zoneId), input = $(inputId);
+    if (!zone || !input) return;
+    const open = () => input.click();
+    zone.addEventListener("click", (e) => { if (e.target !== input) open(); });
+    zone.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
+    input.addEventListener("change", () => { onPick([...input.files]); input.value = ""; });
+    ["dragover", "dragenter"].forEach((ev) => zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.add("has-file"); }));
+    zone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      const files = [...(e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : [])].filter(isPdf);
+      if (files.length) onPick(files); else renderUploadState();
+    });
+    zone.addEventListener("dragleave", (e) => { e.preventDefault(); renderUploadState(); });
+  }
+  function stopPolling() { PR.polling = false; if (PR.timer) { clearTimeout(PR.timer); PR.timer = null; } stopElapsed(); }
+  function fmtElapsed(ms) {
+    const s = Math.max(0, Math.round(ms / 1000));
+    const m = Math.floor(s / 60), sec = s % 60;
+    return m > 0 ? (m + "min " + sec + "sec") : (sec + "sec");
+  }
+  function elapsedSoFar() { return PR.startTime ? Date.now() - PR.startTime : 0; }
+  function paintElapsed() { const el = $("prProcessingLabel"); if (el) el.textContent = "Working… " + fmtElapsed(elapsedSoFar()); }
+  function startElapsed() { PR.startTime = Date.now(); stopElapsed(); paintElapsed(); PR.elapsedTimer = setInterval(paintElapsed, 1000); }
+  function stopElapsed() { if (PR.elapsedTimer) { clearInterval(PR.elapsedTimer); PR.elapsedTimer = null; } }   // keeps startTime so the final duration can still be read
+  function showProcessing(label) {
+    $("prEmpty").hidden = true; $("prResults").hidden = true;
+    if (!PR.elapsedTimer) $("prProcessingLabel").textContent = label || "Working…";   // while the live timer runs it owns the label
+    $("prProcessing").hidden = false;
+  }
+  function clearAll() {
+    PR.plans = null; PR.calcs = null; PR.material = []; stopPolling(); PR.jobId = null;
+    renderUploadState();
+    $("prResults").hidden = true; $("prProcessing").hidden = true; $("prEmpty").hidden = false;
+    $("prComments").innerHTML = ""; $("prArtifacts").innerHTML = ""; $("prCommentCount").textContent = "0";
+    setPrStatus("Cleared. Add your plans to start a new review.");
+  }
+
+  const esc = (v) => (typeof escapeHtml === "function" ? escapeHtml(v) : String(v == null ? "" : v).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])));
+  function sevClass(sev) {
+    const s = String(sev || "").toLowerCase();
+    if (/correct/.test(s)) return "critical";       // beta severities: correction (most serious)
+    if (/clarif/.test(s)) return "moderate";        // clarification
+    if (/coordinat/.test(s)) return "info";         // coordination
+    if (/crit|high/.test(s)) return "critical";
+    if (/major/.test(s)) return "major";
+    if (/mod/.test(s)) return "moderate";
+    if (/minor|low/.test(s)) return "minor";
+    if (/note/.test(s)) return "note";
+    return "info";
+  }
+  async function parsePr(resp) {
+    const ct = resp.headers.get("Content-Type") || "";
+    if (ct.includes("application/json")) { try { return await resp.json(); } catch (e) { return null; } }
+    return null;
+  }
+  function prErr(resp, data) {
+    if (data && data.code === "service_unavailable") return data.error || "The Plan Reviewer service is not running. Start the beta service, then try again.";
+    if (data && data.error) return data.error;
+    if (resp.status === 503) return "The Plan Reviewer service is not running. Start the beta service, then try again.";
+    return "Request failed (" + resp.status + ").";
+  }
+  function applyPrLicense(data) {
+    try { if (data && data.license && typeof runtime === "object") { runtime.license = data.license; if (typeof renderLicenseUi === "function") renderLicenseUi(); } } catch (e) {}
+  }
+
+  async function submitReview() {
+    if (typeof ensureLicensedToolAccess === "function" && !ensureLicensedToolAccess(setPrStatus)) return;
+    if (typeof commercialOutputBlockMessage === "function") {
+      const block = commercialOutputBlockMessage();
+      if (block) { if (typeof openLicenseDialog === "function") openLicenseDialog(); setPrStatus(block, "error"); return; }
+    }
+    if (!PR.plans) { setPrStatus("Add the fire sprinkler plans PDF before running a review.", "error"); return; }
+
+    const nameEl = $("prProjectNameInput");
+    const projectName = ((nameEl && nameEl.value) || "").trim() || "Untitled Plan Review";
+    const editions = { "13": (($("prEdition13") || {}).value) || "2025" };
+    if ($("prInclude14") && $("prInclude14").checked) editions["14"] = $("prEdition14").value;
+    if ($("prInclude20") && $("prInclude20").checked) editions["20"] = $("prEdition20").value;
+    const form = new FormData();
+    form.append("project_name", projectName);
+    form.append("editions", JSON.stringify(editions));
+    form.append("plans", PR.plans, PR.plans.name);
+    if (PR.calcs) form.append("calcs", PR.calcs, PR.calcs.name);
+    (PR.material || []).forEach((f) => form.append("material_data", f, f.name));
+
+    const submit = $("prSubmitButton");
+    submit.disabled = true;
+    startElapsed();
+    showProcessing("Working…");
+    setPrStatus("Uploading and starting the review…");
+    try {
+      const resp = await fetch("./api/plan-review/jobs", { method: "POST", body: form });
+      const data = await parsePr(resp);
+      if (resp.status === 402 && data && data.license) { applyPrLicense(data); throw new Error(data.error || "Plan Reviewer is a premium feature."); }
+      if (!resp.ok || !data || !data.id) throw new Error(prErr(resp, data));
+      PR.jobId = data.id;
+      if (data.status === "completed") { renderJob(data); submit.disabled = false; return; }
+      if (data.status === "failed") { stopElapsed(); $("prProcessing").hidden = true; $("prEmpty").hidden = false; setPrStatus(data.error || "The review failed.", "error"); submit.disabled = false; return; }
+      setPrStatus("Review started. This can take a minute or two…");
+      pollJob();
+    } catch (error) {
+      stopPolling();
+      $("prProcessing").hidden = true; $("prEmpty").hidden = false;
+      setPrStatus(error.message || "Could not start the review.", "error");
+      submit.disabled = false;
+    }
+  }
+
+  function pollJob() {
+    PR.polling = true;
+    let elapsed = 0;
+    const interval = 2500;
+    const maxMs = 8 * 60 * 1000;
+    const tick = async () => {
+      if (!PR.polling || !PR.jobId) return;
+      try {
+        const resp = await fetch("./api/plan-review/jobs/" + encodeURIComponent(PR.jobId));
+        const data = await parsePr(resp);
+        if (resp.status === 402 && data && data.license) { applyPrLicense(data); throw new Error(data.error || "Plan Reviewer is a premium feature."); }
+        if (!resp.ok || !data) throw new Error(prErr(resp, data));
+        if (data.status === "completed") { stopPolling(); renderJob(data); $("prSubmitButton").disabled = false; return; }
+        if (data.status === "failed") { stopPolling(); $("prProcessing").hidden = true; $("prEmpty").hidden = false; setPrStatus(data.error || "The review failed. Check the submittal PDFs and try again.", "error"); $("prSubmitButton").disabled = false; return; }
+        $("prProcessing").hidden = false;
+        setPrStatus(data.status === "running" ? "The AI is reviewing your plans… this can take a couple minutes." : "Queued — starting shortly…");
+      } catch (error) {
+        stopPolling();
+        $("prProcessing").hidden = true; $("prEmpty").hidden = false;
+        setPrStatus(error.message || "Lost contact with the Plan Reviewer service.", "error");
+        $("prSubmitButton").disabled = false;
+        return;
+      }
+      elapsed += interval;
+      if (elapsed >= maxMs) {
+        stopPolling();
+        $("prProcessing").hidden = true; $("prEmpty").hidden = false;
+        setPrStatus("Timed out waiting for the review. The service may still be working - try again shortly.", "error");
+        $("prSubmitButton").disabled = false;
+        return;
+      }
+      PR.timer = setTimeout(tick, interval);
+    };
+    tick();
+  }
+
+  function artifactLabel(a) {
+    const map = { marked_plans: "Marked-up Plans", marked_calcs: "Marked-up Calcs", marked_material_data: "Marked-up Material Data", comment_letter: "Comment Letter", manifest: "Findings (JSON)" };
+    return map[a.kind] || a.name || "Download";
+  }
+  async function downloadArtifact(a, btn) {
+    if (!PR.jobId || !a || !a.name) return;
+    btn.disabled = true;
+    const original = btn.textContent;
+    btn.textContent = "Opening…";
+    setPrStatus("Opening " + artifactLabel(a) + "…");
+    try {
+      const resp = await fetch("./api/plan-review/open-artifact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_id: PR.jobId, name: a.name, project_name: PR.projectName || "" }),
+      });
+      const d = await parsePr(resp);
+      if (resp.status === 402 && d && d.license) { applyPrLicense(d); throw new Error("Plan Reviewer is a premium feature."); }
+      if (!resp.ok || !d || d.ok === false) throw new Error((d && d.error) || "Could not open that file (" + resp.status + ").");
+      setPrStatus("Opened " + artifactLabel(a) + ". Saved to your output folder.", "success");
+    } catch (error) {
+      setPrStatus(error.message || "Could not open that file.", "error");
+    } finally {
+      btn.textContent = original;
+      btn.disabled = false;
+    }
+  }
+
+  function renderJob(job) {
+    const findings = Array.isArray(job.findings) ? job.findings : [];
+    const artifacts = Array.isArray(job.artifacts) ? job.artifacts : [];
+    PR.projectName = job.project_name || "";
+    $("prProcessing").hidden = true; $("prEmpty").hidden = true; $("prResults").hidden = false;
+    $("prCommentCount").textContent = String(findings.length);
+    $("prComments").innerHTML = findings.length
+      ? findings.map((f) => {
+          const sc = sevClass(f.severity);
+          const refs = Array.isArray(f.references) ? f.references.join(", ") : (f.references || "");
+          const confVal = typeof f.confidence === "number" ? Math.round(f.confidence * 100) + "%" : esc(f.confidence);
+          const conf = f.confidence != null && f.confidence !== "" ? '<span class="pr-conf">confidence: ' + confVal + "</span>" : "";
+          return '<div class="pr-comment sev-' + sc + '">' +
+            '<div class="pr-comment-top">' +
+              '<span class="pr-pc">' + esc(f.id || "PC") + "</span>" +
+              '<span class="pr-comment-title">' + esc(f.title || "") + "</span>" +
+              (f.severity ? '<span class="pr-sev pr-sev-' + sc + '">' + esc(f.severity) + "</span>" : "") +
+            "</div>" +
+            (f.location ? '<div class="pr-comment-loc">' + esc(f.location) + "</div>" : "") +
+            '<p class="pr-comment-body">' + esc(f.comment || "") + "</p>" +
+            (refs ? '<div class="pr-comment-refs">Ref: ' + esc(refs) + " " + conf + "</div>" : (conf ? '<div class="pr-comment-refs">' + conf + "</div>" : "")) +
+          "</div>";
+        }).join("")
+      : '<div class="empty-state">No comments returned - the review found nothing to flag.</div>';
+    const wrap = $("prArtifacts");
+    wrap.innerHTML = "";
+    if (!artifacts.length) {
+      wrap.innerHTML = '<span class="pr-conf">No documents were produced.</span>';
+    } else {
+      artifacts.forEach((a) => {
+        const btn = document.createElement("button");
+        btn.type = "button"; btn.className = "pr-artifact"; btn.title = "Opens in your PDF viewer and saves a copy to your output folder";
+        btn.textContent = "📂 " + artifactLabel(a);
+        btn.addEventListener("click", () => downloadArtifact(a, btn));
+        wrap.appendChild(btn);
+      });
+    }
+    const dur = fmtElapsed(elapsedSoFar()); stopElapsed();
+    setPrStatus("Review complete in " + dur + " — " + findings.length + " comment" + (findings.length === 1 ? "" : "s") + ".", "success");
+  }
+
+  function setupPlanReviewer() {
+    if (!$("prSubmitButton")) return;
+    wireZone("prPlansZone", "prPlansInput", (files) => { PR.plans = files.find(isPdf) || null; renderUploadState(); });
+    wireZone("prCalcsZone", "prCalcsInput", (files) => { PR.calcs = files.find(isPdf) || null; renderUploadState(); });
+    wireZone("prMaterialZone", "prMaterialInput", (files) => { PR.material = files.filter(isPdf); renderUploadState(); });
+    $("prSubmitButton").addEventListener("click", submitReview);
+    const clear = $("prClearButton"); if (clear) clear.addEventListener("click", clearAll);
+    // The Plan Reviewer runs on a service whose free-tier dyno sleeps after ~15 min idle, so a
+    // user's first review can hit a 30-60s cold start. Ping health when the tab opens to wake it
+    // early (silent on success; a gentle hint only if it's unreachable while the user is idle).
+    let lastWarm = 0;
+    function warmService() {
+      if (PR.jobId) return;                            // a review is already running
+      const now = Date.now();
+      if (now - lastWarm < 4 * 60 * 1000) return;      // throttle to once per 4 minutes
+      lastWarm = now;
+      fetch("./api/plan-review/health").catch(() => {
+        if (!PR.jobId && $("prResults").hidden) {
+          setPrStatus("Couldn't reach the Plan Reviewer service yet - it may be waking up. Your first review can take a few extra seconds.", "info");
+        }
+      });
+    }
+    const prTab = document.querySelector('[data-tool-tab="planreviewer"]');
+    if (prTab) prTab.addEventListener("click", warmService);
+    renderUploadState();
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", setupPlanReviewer);
+  else setupPlanReviewer();
+})();

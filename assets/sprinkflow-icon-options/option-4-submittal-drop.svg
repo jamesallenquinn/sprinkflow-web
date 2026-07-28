@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">SprinkFlow Icon Option 4 - Submittal Drop</title>
+  <desc id="desc">A submittal document with a water drop and fire accent corner.</desc>
+  <defs>
+    <linearGradient id="bg" x1="26" y1="24" x2="230" y2="232" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#243642"/>
+      <stop offset="1" stop-color="#0b1118"/>
+    </linearGradient>
+    <linearGradient id="drop" x1="98" y1="89" x2="156" y2="180" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#45dcff"/>
+      <stop offset="1" stop-color="#176f9b"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="48" fill="url(#bg)"/>
+  <path d="M66 36h90l38 38v146H66V36Z" fill="#f4f9fb"/>
+  <path d="M156 36v38h38" fill="#bfced6"/>
+  <path d="M80 66h58M80 190h96M80 205h64" stroke="#5f7582" stroke-width="10" stroke-linecap="round"/>
+  <path d="M128 84c-19 27-43 51-43 79 0 26 19 45 43 45s43-19 43-45c0-28-24-52-43-79Z" fill="url(#drop)"/>
+  <path d="M139 118c11 13 17 27 17 42 0 18-12 30-31 33 17-17 21-38 14-75Z" fill="#c9f7ff" opacity="0.9"/>
+  <path d="M167 157c13 9 20 22 17 38-3 15-15 24-33 26 14-14 19-34 16-64Z" fill="#ff5634"/>
+  <path d="M69 38h40" stroke="#ffb13b" stroke-width="8" stroke-linecap="round"/>
+</svg>

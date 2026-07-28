@@ -1,0 +1,2022 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Contract Generator | Calculated Fire Suppression</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #17202a;
+        --muted: #5c6875;
+        --line: #d7dde5;
+        --panel: #ffffff;
+        --wash: #f4f7f9;
+        --wash-strong: #e9eef3;
+        --brand: #0f6b68;
+        --brand-dark: #0a4f4d;
+        --accent: #b85c2a;
+        --focus: #2364aa;
+        --shadow: 0 18px 45px rgba(23, 32, 42, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--ink);
+        background: var(--wash);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.45;
+      }
+
+      button,
+      input,
+      textarea,
+      select {
+        font: inherit;
+      }
+
+      button {
+        border: 0;
+        cursor: pointer;
+      }
+
+      .app-header {
+        display: flex;
+        gap: 24px;
+        align-items: flex-end;
+        justify-content: space-between;
+        padding: 28px clamp(18px, 4vw, 44px);
+        color: #ffffff;
+        background:
+          linear-gradient(120deg, rgba(15, 107, 104, 0.96), rgba(23, 32, 42, 0.94)),
+          url("assets/speedrun_timer_icon.png");
+        background-position: center;
+        background-size: cover;
+      }
+
+      .brand-block {
+        max-width: 820px;
+      }
+
+      .eyebrow {
+        margin: 0 0 6px;
+        color: rgba(255, 255, 255, 0.78);
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(2rem, 4vw, 4.4rem);
+        line-height: 0.98;
+        letter-spacing: 0;
+      }
+
+      .header-copy {
+        max-width: 680px;
+        margin: 12px 0 0;
+        color: rgba(255, 255, 255, 0.88);
+        font-size: 1rem;
+      }
+
+      .header-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        justify-content: flex-end;
+        min-width: min(420px, 100%);
+      }
+
+      .ghost-button,
+      .primary-button,
+      .secondary-button,
+      .icon-button {
+        display: inline-flex;
+        min-height: 42px;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        border-radius: 8px;
+        font-weight: 800;
+        transition:
+          transform 0.15s ease,
+          box-shadow 0.15s ease,
+          background 0.15s ease;
+      }
+
+      .primary-button {
+        padding: 0 16px;
+        color: #ffffff;
+        background: var(--accent);
+        box-shadow: 0 10px 22px rgba(77, 35, 15, 0.22);
+      }
+
+      .secondary-button {
+        padding: 0 14px;
+        color: var(--brand-dark);
+        background: #dcefeb;
+      }
+
+      .ghost-button {
+        padding: 0 14px;
+        color: #ffffff;
+        background: rgba(255, 255, 255, 0.14);
+        border: 1px solid rgba(255, 255, 255, 0.24);
+      }
+
+      .icon-button {
+        width: 42px;
+        color: var(--ink);
+        background: var(--wash-strong);
+      }
+
+      .primary-button:hover,
+      .secondary-button:hover,
+      .ghost-button:hover,
+      .icon-button:hover {
+        transform: translateY(-1px);
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(320px, 430px) minmax(0, 1fr);
+        gap: 22px;
+        padding: 22px clamp(16px, 3vw, 36px) 36px;
+      }
+
+      .input-panel,
+      .output-panel {
+        min-width: 0;
+      }
+
+      .input-panel {
+        align-self: start;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .panel-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 18px 18px 12px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      h2,
+      h3 {
+        margin: 0;
+        letter-spacing: 0;
+      }
+
+      h2 {
+        font-size: 1.25rem;
+      }
+
+      h3 {
+        font-size: 1rem;
+      }
+
+      .fine-print {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.88rem;
+      }
+
+      details {
+        border-bottom: 1px solid var(--line);
+      }
+
+      details:last-child {
+        border-bottom: 0;
+      }
+
+      summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 15px 18px;
+        color: var(--ink);
+        font-weight: 850;
+        list-style: none;
+        cursor: pointer;
+      }
+
+      summary::-webkit-details-marker {
+        display: none;
+      }
+
+      summary::after {
+        content: "+";
+        display: grid;
+        width: 24px;
+        height: 24px;
+        place-items: center;
+        color: var(--brand-dark);
+        background: var(--wash-strong);
+        border-radius: 50%;
+        font-weight: 900;
+      }
+
+      details[open] summary::after {
+        content: "-";
+      }
+
+      .fields {
+        display: grid;
+        gap: 12px;
+        padding: 0 18px 18px;
+      }
+
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .saved-manager {
+        display: grid;
+        gap: 10px;
+        padding: 12px;
+        background: var(--wash);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+
+      .manager-actions {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .danger-button {
+        color: #7d2716;
+        background: #f7ded7;
+      }
+
+      .invoice-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 12px;
+      }
+
+      label {
+        display: grid;
+        gap: 5px;
+        color: var(--muted);
+        font-size: 0.82rem;
+        font-weight: 800;
+      }
+
+      input,
+      textarea,
+      select {
+        width: 100%;
+        min-height: 40px;
+        color: var(--ink);
+        background: #ffffff;
+        border: 1px solid #c8d1db;
+        border-radius: 8px;
+        padding: 9px 10px;
+        outline: none;
+      }
+
+      textarea {
+        min-height: 86px;
+        resize: vertical;
+      }
+
+      input:focus,
+      textarea:focus,
+      select:focus {
+        border-color: var(--focus);
+        box-shadow: 0 0 0 3px rgba(35, 100, 170, 0.14);
+      }
+
+      .checklist {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 7px;
+      }
+
+      .check-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 9px;
+        color: var(--ink);
+        font-size: 0.9rem;
+        font-weight: 650;
+      }
+
+      .check-row input {
+        width: 17px;
+        min-width: 17px;
+        height: 17px;
+        min-height: 17px;
+        margin-top: 2px;
+        accent-color: var(--brand);
+      }
+
+      .output-panel {
+        display: grid;
+        grid-template-rows: auto auto minmax(520px, 1fr);
+        gap: 12px;
+      }
+
+      .notice {
+        padding: 12px 14px;
+        color: #553500;
+        background: #fff3d6;
+        border: 1px solid #efd28e;
+        border-radius: 8px;
+      }
+
+      .output-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+
+      .tab-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .tab-button {
+        min-height: 38px;
+        padding: 0 12px;
+        color: var(--muted);
+        background: var(--wash-strong);
+        border-radius: 8px;
+        font-weight: 850;
+      }
+
+      .tab-button[aria-selected="true"] {
+        color: #ffffff;
+        background: var(--brand);
+      }
+
+      .document-shell {
+        display: grid;
+        min-height: 520px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .document-output {
+        width: 100%;
+        min-height: 520px;
+        padding: 22px;
+        overflow: auto;
+        white-space: pre-wrap;
+        font-family: "Aptos", "Segoe UI", Arial, sans-serif;
+        font-size: 0.96rem;
+        line-height: 1.5;
+        background: #ffffff;
+      }
+
+      .status-line {
+        min-height: 20px;
+        color: var(--muted);
+        font-size: 0.86rem;
+        font-weight: 700;
+      }
+
+      @media (max-width: 1040px) {
+        .app-header {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .header-actions {
+          justify-content: flex-start;
+        }
+
+        .layout {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .grid-2 {
+          grid-template-columns: 1fr;
+        }
+
+        .manager-actions,
+        .invoice-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .output-toolbar {
+          align-items: stretch;
+        }
+
+        .tab-list,
+        .header-actions {
+          width: 100%;
+        }
+
+        .tab-button,
+        .primary-button,
+        .secondary-button,
+        .ghost-button {
+          flex: 1 1 auto;
+        }
+      }
+
+      @media print {
+        .app-header,
+        .input-panel,
+        .output-toolbar,
+        .notice,
+        .status-line {
+          display: none;
+        }
+
+        body,
+        .layout,
+        .output-panel,
+        .document-shell,
+        .document-output {
+          display: block;
+          padding: 0;
+          margin: 0;
+          border: 0;
+          box-shadow: none;
+          background: #ffffff;
+        }
+
+        .document-output {
+          min-height: auto;
+          white-space: pre-wrap;
+          color: #000000;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand-block">
+        <p class="eyebrow">Calculated Fire Suppression, LLC</p>
+        <h1>Contract Generator</h1>
+        <p class="header-copy">
+          Fill in project details once, then generate a Master Design Services Agreement, a Schedule of Work, and a practical review checklist.
+        </p>
+      </div>
+      <div class="header-actions">
+        <button class="ghost-button" type="button" id="resetButton">Reset</button>
+        <button class="primary-button" type="button" id="generateTopButton">Generate</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <form class="input-panel" id="contractForm">
+        <div class="panel-title">
+          <div>
+            <h2>Project Inputs</h2>
+            <p class="fine-print">Blank fields stay as bracketed placeholders in the generated documents.</p>
+          </div>
+        </div>
+
+        <details open>
+          <summary>Saved Contracts</summary>
+          <div class="fields">
+            <div class="saved-manager">
+              <label>
+                Saved contracts
+                <select id="savedContractSelect">
+                  <option value="">No saved contracts yet</option>
+                </select>
+              </label>
+              <div class="manager-actions">
+                <button class="secondary-button" type="button" id="loadContractButton">Load Contract</button>
+                <button class="secondary-button" type="button" id="saveContractButton">Save Contract</button>
+                <button class="secondary-button danger-button" type="button" id="deleteContractButton">Delete</button>
+              </div>
+              <p class="fine-print">Saved contracts store the full form, scope checks, invoice fields, and generated invoice number in this browser.</p>
+            </div>
+          </div>
+        </details>
+
+        <details open>
+          <summary>Business and Client</summary>
+          <div class="fields">
+            <label>
+              Business name
+              <input id="businessName" value="Calculated Fire Suppression, LLC" />
+            </label>
+            <div class="grid-2">
+              <label>
+                Owner
+                <input id="ownerName" value="James Quinn" />
+              </label>
+              <label>
+                Business location
+                <input id="businessLocation" value="Lodi, California" />
+              </label>
+            </div>
+            <div class="saved-manager">
+              <label>
+                Saved clients
+                <select id="savedClientSelect">
+                  <option value="">No saved clients yet</option>
+                </select>
+              </label>
+              <div class="manager-actions">
+                <button class="secondary-button" type="button" id="loadClientButton">Load Client</button>
+                <button class="secondary-button" type="button" id="saveClientButton">Save Client</button>
+                <button class="secondary-button danger-button" type="button" id="deleteClientButton">Delete</button>
+              </div>
+              <p class="fine-print">Saved clients stay in this browser on this computer.</p>
+            </div>
+            <label>
+              Client name
+              <input id="clientName" placeholder="[Client Name]" />
+            </label>
+            <div class="grid-2">
+              <label>
+                Client contact
+                <input id="clientContact" placeholder="[Client Contact]" />
+              </label>
+              <label>
+                Billing contact
+                <input id="billingContact" placeholder="[Billing Contact]" />
+              </label>
+            </div>
+            <label>
+              Client address
+              <textarea id="clientAddress" placeholder="[Client Address]"></textarea>
+            </label>
+          </div>
+        </details>
+
+        <details open>
+          <summary>Project</summary>
+          <div class="fields">
+            <div class="grid-2">
+              <label>
+                Schedule of Work number
+                <input id="sowNumber" placeholder="SOW-2026-001" />
+              </label>
+              <label>
+                Job number
+                <input id="jobNumber" placeholder="[Job Number]" />
+              </label>
+            </div>
+            <div class="grid-2">
+              <label>
+                Schedule date
+                <input id="sowDate" type="date" />
+              </label>
+              <label>
+                Master agreement date
+                <input id="masterDate" type="date" />
+              </label>
+            </div>
+            <label>
+              Project name
+              <input id="projectName" placeholder="[Project Name]" />
+            </label>
+            <label>
+              Project address
+              <textarea id="projectAddress" placeholder="[Project Address]"></textarea>
+            </label>
+            <div class="grid-2">
+              <label>
+                Building type
+                <input id="buildingType" placeholder="Commercial shell, multifamily, SFR, tenant improvement" />
+              </label>
+              <label>
+                System type
+                <select id="systemType">
+                  <option>NFPA 13 fire sprinkler system</option>
+                  <option>NFPA 13D residential fire sprinkler system</option>
+                  <option>NFPA 13R residential fire sprinkler system</option>
+                  <option>NFPA 14 standpipe system</option>
+                  <option>NFPA 20 fire pump system</option>
+                  <option>NFPA 33 paint booth fire protection design</option>
+                  <option>Mixed fire protection scope</option>
+                </select>
+              </label>
+            </div>
+            <div class="grid-2">
+              <label>
+                AHJ
+                <input id="ahj" placeholder="[AHJ]" />
+              </label>
+              <label>
+                Water purveyor
+                <input id="waterPurveyor" placeholder="[Water Purveyor, if applicable]" />
+              </label>
+            </div>
+            <label>
+              Applicable codes and standards
+              <textarea id="codes" placeholder="2022 CBC, 2022 CFC, NFPA 13 [edition], local amendments, AHJ requirements"></textarea>
+            </label>
+            <label>
+              Project description
+              <textarea id="projectDescription" placeholder="Briefly describe the work and design intent."></textarea>
+            </label>
+          </div>
+        </details>
+
+        <details open>
+          <summary>Scope Included</summary>
+          <div class="fields">
+            <p class="fine-print">Included only if checked.</p>
+            <div class="checklist" id="includedScope"></div>
+          </div>
+        </details>
+
+        <details>
+          <summary>Exclusions</summary>
+          <div class="fields">
+            <p class="fine-print">Checked items will be listed as excluded unless specifically included in the Schedule of Work.</p>
+            <div class="checklist" id="excludedScope"></div>
+          </div>
+        </details>
+
+        <details open>
+          <summary>Fee and Schedule</summary>
+          <div class="fields">
+            <div class="grid-2">
+              <label>
+                Fee structure
+                <select id="feeStructure">
+                  <option>Fixed fee</option>
+                  <option>Hourly, not to exceed</option>
+                  <option>Time and materials</option>
+                  <option>Retainer</option>
+                  <option>Rush fee add-on</option>
+                </select>
+              </label>
+              <label>
+                Fee
+                <input id="fee" placeholder="[Fee]" />
+              </label>
+            </div>
+            <div class="grid-2">
+              <label>
+                Deposit
+                <input id="deposit" value="50%" />
+              </label>
+              <label>
+                Hourly rate
+                <input id="hourlyRate" placeholder="[Hourly Rate]" />
+              </label>
+            </div>
+            <div class="grid-2">
+              <label>
+                Correction allowance
+                <input id="correctionAllowance" value="one ordinary plan check correction cycle" />
+              </label>
+              <label>
+                Client objection period
+                <input id="acceptanceDays" value="5 business days" />
+              </label>
+            </div>
+            <div class="grid-2">
+              <label>
+                Estimated start
+                <input id="startDate" placeholder="[Estimated Start Date]" />
+              </label>
+              <label>
+                Estimated delivery
+                <input id="deliveryDate" placeholder="[Estimated Delivery Date]" />
+              </label>
+            </div>
+            <label>
+              Payment schedule
+              <textarea id="paymentSchedule">50% due upon acceptance of Schedule of Work and before design begins
+40% due upon initial plan submittal or delivery of initial design package
+10% due upon approval, final delivery, or [X] days after initial submittal, whichever occurs first</textarea>
+            </label>
+            <label>
+              Rush work terms
+              <textarea id="rushTerms" placeholder="Rush work must be approved in writing and may require an additional fee."></textarea>
+            </label>
+            <div class="saved-manager">
+              <h3>Invoice</h3>
+              <div class="invoice-grid">
+                <label>
+                  Invoice prefix
+                  <input id="invoicePrefix" value="CFS-INV" />
+                </label>
+                <label>
+                  Invoice number
+                  <input id="invoiceNumber" placeholder="Auto-created" />
+                </label>
+                <label>
+                  Invoice amount
+                  <input id="invoiceAmount" placeholder="Defaults to fee" />
+                </label>
+              </div>
+              <div class="grid-2">
+                <label>
+                  Invoice date
+                  <input id="invoiceDate" type="date" />
+                </label>
+                <label>
+                  Due date
+                  <input id="invoiceDueDate" type="date" />
+                </label>
+              </div>
+              <label>
+                Invoice terms
+                <input id="invoiceTerms" value="Due upon receipt unless otherwise agreed in writing." />
+              </label>
+              <label>
+                Payment instructions
+                <textarea id="paymentInstructions" placeholder="ACH, check mailing address, Zelle, card link, or other payment instructions."></textarea>
+              </label>
+            </div>
+          </div>
+        </details>
+
+        <details>
+          <summary>Documents, Assumptions, and Notes</summary>
+          <div class="fields">
+            <label>
+              Client-provided documents required
+              <textarea id="clientDocs">Architectural drawings, reflected ceiling plans, structural drawings when relevant, site/civil drawings when relevant, water supply information, project specifications, occupancy/use information, ceiling heights, owner/architect/GC requirements, and AHJ comments or permit history if available.</textarea>
+            </label>
+            <label>
+              Design assumptions
+              <textarea id="designAssumptions">Design will be based on the documents and information provided by Client. Background drawings are assumed to be current, coordinated, and accurate unless Client advises otherwise in writing.</textarea>
+            </label>
+            <label>
+              AHJ-specific notes
+              <textarea id="ahjNotes" placeholder="[AHJ-specific notes, local amendments, submittal portal requirements, or known reviewer expectations]"></textarea>
+            </label>
+            <label>
+              Special project conditions
+              <textarea id="specialConditions" placeholder="[Special project conditions]"></textarea>
+            </label>
+            <label>
+              Native file terms
+              <textarea id="nativeFileTerms">Native files, CAD files, DWG files, AutoSPRINK files, Revit models, BIM files, calculation models, and editable source files are not included unless expressly stated in this Schedule of Work.</textarea>
+            </label>
+          </div>
+        </details>
+      </form>
+
+      <section class="output-panel" aria-label="Generated contract documents">
+        <div class="notice">
+          This generator creates business draft templates for attorney review. It is not legal advice and does not replace review by a qualified California business/contracts attorney.
+        </div>
+
+        <div class="output-toolbar">
+          <div class="tab-list" role="tablist" aria-label="Generated documents">
+            <button class="tab-button" type="button" role="tab" aria-selected="true" data-doc="master">Master Agreement</button>
+            <button class="tab-button" type="button" role="tab" aria-selected="false" data-doc="schedule">Schedule of Work</button>
+            <button class="tab-button" type="button" role="tab" aria-selected="false" data-doc="invoice">Invoice</button>
+            <button class="tab-button" type="button" role="tab" aria-selected="false" data-doc="notes">Use Notes</button>
+            <button class="tab-button" type="button" role="tab" aria-selected="false" data-doc="combined">Combined</button>
+          </div>
+          <div class="header-actions">
+            <button class="secondary-button" type="button" id="copyButton">Copy</button>
+            <button class="secondary-button" type="button" id="downloadButton">Download .txt</button>
+            <button class="secondary-button" type="button" id="openPdfButton">Open PDF</button>
+            <button class="secondary-button" type="button" id="createInvoiceButton">Create Invoice</button>
+            <button class="secondary-button" type="button" id="sendInvoiceButton">Send Invoice</button>
+            <button class="primary-button" type="button" id="generateButton">Generate</button>
+          </div>
+        </div>
+
+        <div class="document-shell">
+          <pre class="document-output" id="documentOutput"></pre>
+        </div>
+        <div class="status-line" id="statusLine" role="status" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <script>
+      const includedItems = [
+        ["Fire sprinkler design drawings", true],
+        ["Hydraulic calculations", true],
+        ["Standpipe design", false],
+        ["Fire pump design", false],
+        ["Underground fire service design", false],
+        ["Preliminary bid layout", false],
+        ["Plan check response", true],
+        ["Correction response letter", true],
+        ["Material data/submittal package", false],
+        ["Stocklisting/fabrication support", false],
+        ["BIM/Revit coordination", false],
+        ["As-built drawings", false],
+        ["Site visit or field survey", false],
+        ["Seismic calculations", false],
+        ["Hanger calculations/details", false],
+        ["Water supply coordination", false],
+        ["AHJ coordination", true],
+        ["Owner/architect/GC coordination meetings", false]
+      ];
+
+      const excludedItems = [
+        "Installation",
+        "Field verification",
+        "Site survey",
+        "Permit fees",
+        "Plan check fees",
+        "Wet stamp/engineering stamp",
+        "Fire alarm design",
+        "Fire pump acceptance testing",
+        "Underground utility locating",
+        "Structural engineering",
+        "Architectural design",
+        "Mechanical, electrical, or plumbing design",
+        "Full BIM clash coordination",
+        "Revit modeling",
+        "Fabrication listing",
+        "Material procurement",
+        "Construction management",
+        "Inspection scheduling",
+        "Final inspection approval",
+        "As-built drawings",
+        "Revisions caused by construction changes",
+        "Revisions caused by inaccurate backgrounds",
+        "Revisions caused by owner/architect/GC changes",
+        "Unusual or excessive AHJ comments"
+      ];
+
+      const state = {
+        activeDoc: "master",
+        docs: {},
+        currentContractKey: ""
+      };
+
+      const savedClientsKey = "cfs.contractGenerator.savedClients.v1";
+      const savedContractsKey = "cfs.contractGenerator.savedContracts.v1";
+      const invoiceSequenceKey = "cfs.contractGenerator.invoiceSequence.v1";
+      const clientFieldIds = ["clientName", "clientContact", "billingContact", "clientAddress"];
+      const skippedSnapshotIds = new Set(["savedClientSelect", "savedContractSelect"]);
+
+      const $ = (id) => document.getElementById(id);
+
+      function todayISO() {
+        const now = new Date();
+        const offset = now.getTimezoneOffset();
+        const local = new Date(now.getTime() - offset * 60000);
+        return local.toISOString().slice(0, 10);
+      }
+
+      function humanDate(value, fallback) {
+        if (!value) return fallback;
+        const date = new Date(value + "T00:00:00");
+        return date.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+      }
+
+      function addDaysISO(value, days) {
+        const date = new Date(value + "T00:00:00");
+        date.setDate(date.getDate() + days);
+        return date.toISOString().slice(0, 10);
+      }
+
+      function value(id, fallback) {
+        const raw = $(id).value.trim();
+        return raw || fallback;
+      }
+
+      function multiline(id, fallback) {
+        return value(id, fallback).replace(/\r\n/g, "\n");
+      }
+
+      function renderChecklist(containerId, items, groupName) {
+        const container = $(containerId);
+        container.innerHTML = "";
+        items.forEach((item, index) => {
+          const label = Array.isArray(item) ? item[0] : item;
+          const checked = Array.isArray(item) ? item[1] : true;
+          const id = `${groupName}-${index}`;
+          const row = document.createElement("label");
+          row.className = "check-row";
+          row.innerHTML = `<input type="checkbox" id="${id}" data-group="${groupName}" value="${escapeHtml(label)}" ${checked ? "checked" : ""} /><span>${escapeHtml(label)}</span>`;
+          container.appendChild(row);
+        });
+      }
+
+      function escapeHtml(text) {
+        return String(text)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function checkedValues(groupName) {
+        return Array.from(document.querySelectorAll(`input[data-group="${groupName}"]:checked`)).map((item) => item.value);
+      }
+
+      function readStoredObject(key) {
+        try {
+          const item = JSON.parse(localStorage.getItem(key) || "{}");
+          return item && typeof item === "object" && !Array.isArray(item) ? item : {};
+        } catch (error) {
+          return {};
+        }
+      }
+
+      function writeStoredObject(key, value) {
+        localStorage.setItem(key, JSON.stringify(value));
+      }
+
+      function clientStorageKey(name) {
+        return name.trim().toLowerCase();
+      }
+
+      function loadSavedClients() {
+        return readStoredObject(savedClientsKey);
+      }
+
+      function saveSavedClients(clients) {
+        writeStoredObject(savedClientsKey, clients);
+      }
+
+      function currentClientData() {
+        const client = {};
+        clientFieldIds.forEach((id) => {
+          client[id] = $(id).value.trim();
+        });
+        client.updatedAt = new Date().toISOString();
+        return client;
+      }
+
+      function setClientData(client) {
+        clientFieldIds.forEach((id) => {
+          $(id).value = client[id] || "";
+        });
+      }
+
+      function savedClientEntries(clients) {
+        return Object.entries(clients).sort((first, second) => {
+          const firstName = first[1].clientName || "";
+          const secondName = second[1].clientName || "";
+          return firstName.localeCompare(secondName);
+        });
+      }
+
+      function renderSavedClientOptions(selectedKey = "") {
+        const select = $("savedClientSelect");
+        const clients = loadSavedClients();
+        const entries = savedClientEntries(clients);
+        select.innerHTML = "";
+
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = entries.length ? "Select a saved client" : "No saved clients yet";
+        select.appendChild(placeholder);
+
+        entries.forEach(([key, client]) => {
+          const option = document.createElement("option");
+          option.value = key;
+          option.textContent = client.clientName || "[Unnamed Client]";
+          if (client.clientContact) {
+            option.textContent += ` - ${client.clientContact}`;
+          }
+          select.appendChild(option);
+        });
+
+        select.value = selectedKey;
+        $("loadClientButton").disabled = entries.length === 0;
+        $("deleteClientButton").disabled = entries.length === 0;
+      }
+
+      function saveCurrentClient() {
+        const client = currentClientData();
+        const name = client.clientName.trim();
+        if (!name) {
+          $("statusLine").textContent = "Enter a client name before saving.";
+          $("clientName").focus();
+          return;
+        }
+
+        const clients = loadSavedClients();
+        const key = clientStorageKey(name);
+        clients[key] = client;
+        saveSavedClients(clients);
+        renderSavedClientOptions(key);
+        generateAll();
+        $("statusLine").textContent = `Saved client: ${name}.`;
+      }
+
+      function loadSelectedClient() {
+        const key = $("savedClientSelect").value;
+        if (!key) {
+          $("statusLine").textContent = "Choose a saved client to load.";
+          return;
+        }
+
+        const clients = loadSavedClients();
+        const client = clients[key];
+        if (!client) {
+          renderSavedClientOptions();
+          $("statusLine").textContent = "That saved client was not found.";
+          return;
+        }
+
+        setClientData(client);
+        generateAll();
+        $("statusLine").textContent = `Loaded client: ${client.clientName || "[Unnamed Client]"}.`;
+      }
+
+      function deleteSelectedClient() {
+        const key = $("savedClientSelect").value;
+        if (!key) {
+          $("statusLine").textContent = "Choose a saved client to delete.";
+          return;
+        }
+
+        const clients = loadSavedClients();
+        const name = clients[key]?.clientName || "selected client";
+        if (!window.confirm(`Delete saved client "${name}" from this browser?`)) {
+          return;
+        }
+
+        delete clients[key];
+        saveSavedClients(clients);
+        renderSavedClientOptions();
+        $("statusLine").textContent = `Deleted saved client: ${name}.`;
+      }
+
+      function contractStorageKey(contract) {
+        const project = contract.fields.projectName || "contract";
+        const sow = contract.fields.sowNumber || contract.fields.jobNumber || "";
+        const base = `${project} ${sow}`.trim();
+        return fileSafe(base) || `contract-${Date.now()}`;
+      }
+
+      function loadSavedContracts() {
+        return readStoredObject(savedContractsKey);
+      }
+
+      function saveSavedContracts(contracts) {
+        writeStoredObject(savedContractsKey, contracts);
+      }
+
+      function captureFormSnapshot() {
+        const fields = {};
+        document.querySelectorAll("#contractForm input[id], #contractForm textarea[id], #contractForm select[id]").forEach((field) => {
+          if (skippedSnapshotIds.has(field.id) || field.type === "checkbox") {
+            return;
+          }
+          fields[field.id] = field.value;
+        });
+
+        const checks = {};
+        document.querySelectorAll("#contractForm input[type='checkbox'][id]").forEach((field) => {
+          checks[field.id] = field.checked;
+        });
+
+        return {
+          fields,
+          checks,
+          savedAt: new Date().toISOString()
+        };
+      }
+
+      function restoreFormSnapshot(contract) {
+        Object.entries(contract.fields || {}).forEach(([id, fieldValue]) => {
+          const field = $(id);
+          if (field) {
+            field.value = fieldValue;
+          }
+        });
+
+        Object.entries(contract.checks || {}).forEach(([id, checked]) => {
+          const field = $(id);
+          if (field) {
+            field.checked = Boolean(checked);
+          }
+        });
+      }
+
+      function savedContractEntries(contracts) {
+        return Object.entries(contracts).sort((first, second) => {
+          const firstDate = first[1].savedAt || "";
+          const secondDate = second[1].savedAt || "";
+          return secondDate.localeCompare(firstDate);
+        });
+      }
+
+      function renderSavedContractOptions(selectedKey = "") {
+        const select = $("savedContractSelect");
+        const contracts = loadSavedContracts();
+        const entries = savedContractEntries(contracts);
+        select.innerHTML = "";
+
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = entries.length ? "Select a saved contract" : "No saved contracts yet";
+        select.appendChild(placeholder);
+
+        entries.forEach(([key, contract]) => {
+          const option = document.createElement("option");
+          option.value = key;
+          const fields = contract.fields || {};
+          const label = fields.projectName || fields.clientName || "[Untitled Contract]";
+          const suffix = fields.sowNumber || fields.jobNumber || fields.clientName || "";
+          option.textContent = suffix && suffix !== label ? `${label} - ${suffix}` : label;
+          select.appendChild(option);
+        });
+
+        select.value = selectedKey;
+        $("loadContractButton").disabled = entries.length === 0;
+        $("deleteContractButton").disabled = entries.length === 0;
+      }
+
+      function saveCurrentContract() {
+        const contract = captureFormSnapshot();
+        const key = contractStorageKey(contract);
+        const contracts = loadSavedContracts();
+        contracts[key] = contract;
+        saveSavedContracts(contracts);
+        state.currentContractKey = key;
+        renderSavedContractOptions(key);
+        generateAll();
+        $("statusLine").textContent = `Saved contract: ${contract.fields.projectName || contract.fields.clientName || key}.`;
+      }
+
+      function loadSelectedContract() {
+        const key = $("savedContractSelect").value;
+        if (!key) {
+          $("statusLine").textContent = "Choose a saved contract to load.";
+          return;
+        }
+
+        const contracts = loadSavedContracts();
+        const contract = contracts[key];
+        if (!contract) {
+          renderSavedContractOptions();
+          $("statusLine").textContent = "That saved contract was not found.";
+          return;
+        }
+
+        restoreFormSnapshot(contract);
+        state.currentContractKey = key;
+        generateAll();
+        $("statusLine").textContent = `Loaded contract: ${contract.fields?.projectName || contract.fields?.clientName || key}.`;
+      }
+
+      function deleteSelectedContract() {
+        const key = $("savedContractSelect").value;
+        if (!key) {
+          $("statusLine").textContent = "Choose a saved contract to delete.";
+          return;
+        }
+
+        const contracts = loadSavedContracts();
+        const name = contracts[key]?.fields?.projectName || contracts[key]?.fields?.clientName || "selected contract";
+        if (!window.confirm(`Delete saved contract "${name}" from this browser?`)) {
+          return;
+        }
+
+        delete contracts[key];
+        saveSavedContracts(contracts);
+        if (state.currentContractKey === key) {
+          state.currentContractKey = "";
+        }
+        renderSavedContractOptions();
+        $("statusLine").textContent = `Deleted saved contract: ${name}.`;
+      }
+
+      function listLines(items, emptyText = "[None listed]") {
+        if (!items.length) return emptyText;
+        return items.map((item) => `- ${item}`).join("\n");
+      }
+
+      function numberedList(items) {
+        return items.map((item, index) => `${index + 1}. ${item}`).join("\n");
+      }
+
+      function fileSafe(text) {
+        return text
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "")
+          .slice(0, 80) || "contract";
+      }
+
+      function data() {
+        return {
+          businessName: value("businessName", "Calculated Fire Suppression, LLC"),
+          ownerName: value("ownerName", "James Quinn"),
+          businessLocation: value("businessLocation", "Lodi, California"),
+          clientName: value("clientName", "[Client Name]"),
+          clientContact: value("clientContact", "[Client Contact]"),
+          billingContact: value("billingContact", "[Billing Contact]"),
+          clientAddress: multiline("clientAddress", "[Client Address]"),
+          sowNumber: value("sowNumber", "[Schedule of Work Number]"),
+          jobNumber: value("jobNumber", "[Job Number]"),
+          sowDate: humanDate($("sowDate").value, "[Schedule Date]"),
+          masterDate: humanDate($("masterDate").value, "[Master Agreement Date]"),
+          projectName: value("projectName", "[Project Name]"),
+          projectAddress: multiline("projectAddress", "[Project Address]"),
+          buildingType: value("buildingType", "[Building Type]"),
+          systemType: value("systemType", "[System Type]"),
+          ahj: value("ahj", "[AHJ]"),
+          waterPurveyor: value("waterPurveyor", "[Water Purveyor, if applicable]"),
+          codes: multiline("codes", "[Applicable codes, standards, and local amendments]"),
+          projectDescription: multiline("projectDescription", "[Project Description]"),
+          feeStructure: value("feeStructure", "[Fee Structure]"),
+          fee: value("fee", "[Fee]"),
+          deposit: value("deposit", "50%"),
+          hourlyRate: value("hourlyRate", "[Hourly Rate]"),
+          correctionAllowance: value("correctionAllowance", "[Correction Allowance]"),
+          acceptanceDays: value("acceptanceDays", "[X] business days"),
+          startDate: value("startDate", "[Estimated Start Date]"),
+          deliveryDate: value("deliveryDate", "[Estimated Delivery Date]"),
+          paymentSchedule: multiline("paymentSchedule", "[Payment Schedule]"),
+          rushTerms: multiline("rushTerms", "Rush work must be approved in writing and may require additional fees."),
+          invoicePrefix: value("invoicePrefix", "CFS-INV"),
+          invoiceNumber: value("invoiceNumber", "[Invoice Number]"),
+          invoiceAmount: value("invoiceAmount", value("fee", "[Invoice Amount]")),
+          invoiceDate: humanDate($("invoiceDate").value, "[Invoice Date]"),
+          invoiceDueDate: humanDate($("invoiceDueDate").value, "[Due Date]"),
+          invoiceTerms: value("invoiceTerms", "Due upon receipt unless otherwise agreed in writing."),
+          paymentInstructions: multiline("paymentInstructions", "[Payment Instructions]"),
+          clientDocs: multiline("clientDocs", "[Client-provided documents required]"),
+          designAssumptions: multiline("designAssumptions", "[Design assumptions]"),
+          ahjNotes: multiline("ahjNotes", "[AHJ-specific notes]"),
+          specialConditions: multiline("specialConditions", "[Special project conditions]"),
+          nativeFileTerms: multiline("nativeFileTerms", "[Native file delivery terms]"),
+          included: checkedValues("included"),
+          excluded: checkedValues("excluded")
+        };
+      }
+
+      function generateMaster(d) {
+        return `MASTER DESIGN SERVICES AGREEMENT
+
+This Master Design Services Agreement ("Agreement") is intended as a professional business draft for attorney review. It is not legal advice.
+
+1. Parties
+This Agreement is between ${d.businessName}, a fire sprinkler design, drafting, consulting, and plan review support company located in ${d.businessLocation} ("Designer"), and ${d.clientName} ("Client").
+
+2. Effective Date
+This Agreement is effective as of ${d.masterDate} ("Effective Date").
+
+3. Purpose of Agreement
+This Agreement establishes the reusable business and legal terms that apply when Client engages Designer for fire sprinkler design, drafting, consulting, and related document preparation services.
+
+4. Relationship Between Master Agreement and Schedule of Work
+Each project must be authorized by a written Schedule of Work. The Schedule of Work identifies the project-specific scope, fee, deliverables, assumptions, schedule, correction allowance, and special conditions. This Agreement applies to every accepted Schedule of Work unless the Schedule of Work expressly states otherwise.
+
+5. How Individual Projects Are Authorized
+A project is authorized only when both parties accept the applicable Schedule of Work and Client pays the required deposit, unless Designer agrees otherwise in writing. Designer is not required to begin design work until pricing is agreed to in writing and the required deposit is received.
+
+6. Scope of Services
+Designer provides fire sprinkler design, drafting, consulting, plan review support, and document preparation services. Typical services may include NFPA 13, NFPA 13D, NFPA 13R, NFPA 14, NFPA 20, and NFPA 33 design support; hydraulic calculations when included; preliminary layouts for bids; plan check response; consulting; plan review; and related support expressly identified in a Schedule of Work.
+
+7. Services Included Only When Expressly Listed
+The following services are included only when expressly listed in the Schedule of Work: hydraulic calculations, material data or submittal support, BIM/Revit coordination, as-built drawings, stocklisting, fabrication support, seismic calculations, hanger calculations, field survey, site visits, water supply coordination, AHJ coordination, owner/architect/GC coordination meetings, alternate layouts, value engineering, rush work, and native file delivery.
+
+8. Excluded Services
+Unless expressly included in the Schedule of Work, Designer does not provide installation, field verification, construction supervision, construction management, inspection scheduling, inspection approval, permit fee payment, plan check fee payment, engineering stamps, wet stamps, architectural design, structural engineering, mechanical/electrical/plumbing design, fire alarm design, material procurement, fabrication listing, underground utility locating, fire pump acceptance testing, or full BIM clash coordination.
+
+9. No Installation or Contractor Role
+Designer is providing design, drafting, consulting, and document preparation services only. Designer is not acting as the installing contractor, general contractor, architect, engineer of record, inspector, code enforcement agency, water purveyor, or Authority Having Jurisdiction unless expressly stated in the Schedule of Work.
+
+10. Client Responsibilities
+Client must provide complete, accurate, current, and coordinated project information; identify project requirements; review deliverables; communicate known issues; respond promptly to questions; coordinate with owners, architects, engineers, contractors, installers, and AHJ personnel as needed; and pay all amounts when due.
+
+11. Required Project Information From Client
+Client must provide the project documents and information listed in the Schedule of Work. Required information may include architectural backgrounds, reflected ceiling plans, structural drawings, civil/site drawings, mechanical drawings, specifications, occupancy information, ceiling heights, water supply information, prior AHJ comments, owner requirements, contractor requirements, and any known field conditions.
+
+12. Reliance on Client-Provided Information
+Designer may rely on information provided by Client and other project parties. If Client provides incomplete, incorrect, outdated, conflicting, or uncoordinated information, Designer is not responsible for resulting errors, omissions, redesign, delay, additional coordination, or additional cost. Revised or corrected information after design begins may require additional services and additional fees.
+
+13. Design Assumptions
+Designer may state design assumptions in the Schedule of Work or deliverables. Client must promptly notify Designer in writing if any assumption is incorrect, incomplete, or inconsistent with the project requirements.
+
+14. Codes, Standards, and AHJ Requirements
+Designer will prepare the included services using the codes, standards, editions, and AHJ requirements identified in the Schedule of Work, as understood from the information available when the work begins. Client is responsible for identifying known local amendments, owner standards, insurance requirements, project specifications, and AHJ-specific requirements not apparent from the provided documents.
+
+15. AHJ Comments and Plan Check Corrections
+Designer will respond to ordinary AHJ plan check comments only to the extent included in the Schedule of Work. AHJ approval, permit issuance, inspection approval, and acceptance by others are not guaranteed.
+
+16. Ordinary Corrections Versus Additional Services
+Ordinary corrections are limited to reasonable comments on the included design scope that can be addressed without redesign, new project information, changed backgrounds, new calculations, unusual coordination, or work outside the correction allowance. Additional services may apply to additional correction cycles, comments caused by client changes, comments caused by missing or inaccurate information, comments caused by revised backgrounds, AHJ-specific requirements not disclosed before proposal, unusual or nonstandard AHJ comments, and redesign caused by owner, architect, GC, contractor, installer, or field changes.
+
+17. Additional Services
+Additional services include any work not expressly included in the Schedule of Work, including meetings, coordination, design changes, alternate layouts, value engineering, BIM coordination, as-builts, stocklisting, fabrication support, material submittals, added calculations, field condition response, added AHJ cycles, rush work, or work caused by revised project documents.
+
+18. Change Authorization Procedure
+Additional services must be approved in writing before they are performed, except when urgent work is requested by Client or a project representative and later confirmed in writing. Written authorization may be by signed change order, email approval, revised Schedule of Work, or other written confirmation that identifies the requested work and pricing basis.
+
+19. Fees and Payment Terms
+Fees are stated in the applicable Schedule of Work. Pricing must be agreed to before design begins. Unless the Schedule of Work states otherwise, fees exclude permit fees, plan check fees, printing, delivery, third-party charges, travel, reimbursable expenses, and taxes.
+
+20. Deposit Requirement
+Unless the Schedule of Work states otherwise, a deposit equal to 50% of the project fee is due upon acceptance of the Schedule of Work and before Designer begins work.
+
+21. Invoicing
+Designer may invoice according to the payment schedule stated in the Schedule of Work. If no payment schedule is stated, Designer may invoice for the deposit before work begins, progress payments during the work, and the remaining balance upon initial submittal, final delivery, approval, or the date stated in the Schedule of Work.
+
+22. Late Payment
+Amounts not paid when due may be subject to late charges, interest, collection costs, and suspension of services to the extent permitted by applicable law and as reviewed by counsel. A suggested late charge should be reviewed by a California attorney before use.
+
+23. Suspension of Services
+Designer may suspend services if payment is late, required information is missing, Client fails to respond, the project is placed on hold, or continued work would require out-of-scope services without written authorization. Schedule impacts caused by suspension are not Designer's responsibility.
+
+24. Project Schedule and Delays
+Schedules are estimates only. Timelines depend on receipt of the accepted Schedule of Work, required deposit, required project information, timely responses, coordinated drawings, AHJ processing, and workload availability. Missing information, late responses, revised drawings, client changes, AHJ delays, or other project delays may extend the schedule.
+
+25. Rush Work
+Rush work must be approved separately in writing. Rush work may require additional fees and may depend on Designer's workload and the completeness of project information.
+
+26. Deliverables
+Deliverables are only those listed in the Schedule of Work. Deliverables may include drawings, PDFs, hydraulic calculation reports, response letters, markups, review notes, or other stated documents.
+
+27. PDF Deliverables
+Unless the Schedule of Work states otherwise, final deliverables will be provided as PDF documents suitable for review, submittal, or coordination. Client is responsible for confirming submittal portal formatting, signature, naming, and upload requirements unless the Schedule of Work assigns that task to Designer.
+
+28. CAD, DWG, AutoSPRINK, Revit, BIM, and Native File Limitations
+Native files, editable CAD/DWG files, AutoSPRINK files, Revit models, BIM models, calculation models, and other source files are not included unless expressly stated in the Schedule of Work. If native files are provided, they are provided as a convenience for the specific project only and may contain software-specific elements, references, limitations, or dependencies.
+
+29. Ownership of Documents and Intellectual Property
+Designer retains ownership of its templates, details, notes, calculations, methods, layouts, drafting standards, workflows, source files, and intellectual property. Client receives only the limited license stated in this Agreement after payment of all amounts due.
+
+30. Limited License to Use Documents for the Specific Project
+After Client pays all amounts due, Client receives a limited, nonexclusive license to use the paid deliverables solely for the specific project identified in the Schedule of Work.
+
+31. Restrictions on Reuse of Documents
+Client may not reuse, modify, transfer, sell, publish, or rely on Designer's documents for another project, site, phase, building, owner, contractor, or purpose without Designer's prior written permission.
+
+32. No Guarantee of AHJ Approval
+Designer does not guarantee AHJ approval, permit issuance, plan check approval, construction acceptance, inspection approval, water purveyor approval, owner approval, architect approval, engineer approval, lender approval, insurer approval, or approval by any other party.
+
+33. Standard of Care
+Designer will perform services with the ordinary professional care and skill customarily used by similar fire sprinkler design service providers performing similar services under similar circumstances at the same time and in the same general region.
+
+34. Existing Conditions and Field Conflicts
+Designer is not responsible for existing conditions, concealed conditions, field verification, installation means and methods, construction sequencing, jobsite safety, construction defects, unauthorized field changes, existing system problems, inaccurate water supply information, or conflicts caused by information not provided to Designer.
+
+35. Client Review and Acceptance of Deliverables
+Client must review deliverables promptly and notify Designer in writing of known issues, missing information, project changes, or requested corrections. Client's review does not shift responsibility for installation, field verification, construction means and methods, or code enforcement to Designer.
+
+36. Deemed Acceptance
+Unless the Schedule of Work states otherwise, deliverables are deemed accepted if Client does not provide written objections within ${d.acceptanceDays} after delivery.
+
+37. Independent Contractor Relationship
+Designer is an independent contractor. This Agreement does not create a partnership, joint venture, employment relationship, agency relationship, or fiduciary relationship.
+
+38. Communications With Project Parties
+Client authorizes Designer to communicate with the AHJ, fire department, building department, water department, water purveyor, architect, engineer, owner, general contractor, project manager, installing contractor, and other project parties as reasonably needed for the included services. This authorization does not make Designer responsible for the duties of those parties.
+
+39. Confidentiality
+Designer and Client will use reasonable care to protect nonpublic project information that is marked confidential or should reasonably be understood as confidential. This obligation does not apply to information that is public, already known, independently developed, lawfully received from others, or required to be disclosed by law, AHJ process, permit process, or court order.
+
+40. Insurance
+Designer will maintain insurance coverage that Designer determines is appropriate for its business unless specific insurance requirements are listed in the Schedule of Work and accepted by Designer in writing.
+
+41. Indemnification
+To the extent permitted by law, each party will be responsible for claims, damages, losses, and expenses caused by that party's negligent acts, errors, omissions, willful misconduct, or breach of this Agreement. This section is intended to be balanced and should be reviewed by counsel before use.
+
+42. Limitation of Liability
+To the extent permitted by law and subject to attorney review, Designer's total liability arising out of or relating to a Schedule of Work will not exceed the fees actually paid to Designer for that Schedule of Work, or [Liability Cap], whichever is greater. This limitation does not apply where prohibited by law.
+
+43. Termination by Either Party
+Either party may terminate a Schedule of Work upon written notice if the other party materially breaches the Agreement and does not cure the breach within [Cure Period] after written notice. Either party may also terminate for convenience upon [Notice Period] written notice, subject to payment obligations.
+
+44. Cancellation After Work Has Started
+If Client cancels, pauses, or materially reduces the project after work begins, Client must pay Designer for work performed, committed time, authorized additional services, reimbursable expenses, and non-cancelable expenses incurred through the effective cancellation date.
+
+45. Payment Owed Upon Termination
+Termination does not eliminate Client's obligation to pay amounts due for work performed, committed time, additional services, reimbursable expenses, and non-cancelable expenses.
+
+46. Dispute Resolution
+The parties will first attempt in good faith to resolve disputes through direct business discussions. If unresolved, disputes will proceed according to the dispute resolution procedure selected in the Schedule of Work or, if none is selected, through a court of competent jurisdiction. Mediation, arbitration, attorney fee, and prevailing party provisions should be reviewed by counsel.
+
+47. Governing Law and Venue
+Unless changed in the Schedule of Work, this Agreement is governed by California law. Venue will be in the state or federal courts serving [County], California, unless another venue is required by law or agreed in writing.
+
+48. Notices
+Notices must be in writing and delivered by personal delivery, recognized courier, certified mail, or email to the addresses stated in the Schedule of Work or later written notice. Email notices are effective when sent unless the sender receives an automated delivery failure notice.
+
+49. Assignment
+Client may not assign this Agreement or any Schedule of Work without Designer's prior written consent. Designer may assign the right to receive payment and may use employees, consultants, or subcontractors to perform services while remaining responsible for the services provided by Designer.
+
+50. Force Majeure
+Neither party is responsible for delay or failure caused by events beyond that party's reasonable control, including fire, flood, earthquake, severe weather, illness, labor disruption, supply disruption, utility interruption, governmental action, AHJ delay, technology outage, or other circumstances beyond reasonable control.
+
+51. Entire Agreement
+This Agreement, the applicable Schedule of Work, and any written amendments are the entire agreement between the parties for the services and replace prior discussions, proposals, or understandings about the same services.
+
+52. Order of Precedence
+If documents conflict, the following order controls unless the Schedule of Work states otherwise: signed amendment, accepted Schedule of Work, this Master Design Services Agreement, then other referenced documents.
+
+53. Amendments Must Be in Writing
+Any amendment, waiver, or change to this Agreement or a Schedule of Work must be in writing and accepted by both parties.
+
+54. Severability
+If any provision is unenforceable, the remaining provisions remain in effect to the fullest extent permitted by law.
+
+55. Electronic Signatures and Counterparts
+This Agreement and any Schedule of Work may be signed electronically and in counterparts. Electronic signatures and counterpart copies are treated as originals.
+
+56. Signature Blocks
+
+DESIGNER:
+${d.businessName}
+
+By: ______________________________
+Name: ${d.ownerName}
+Title: ___________________________
+Date: ____________________________
+
+CLIENT:
+${d.clientName}
+
+By: ______________________________
+Name: ____________________________
+Title: ___________________________
+Date: ____________________________`;
+      }
+
+      function generateSchedule(d) {
+        const includedList = listLines(d.included);
+        const excludedList = listLines(d.excluded);
+        return `SCHEDULE OF WORK TEMPLATE
+
+This Schedule of Work is issued under the Master Design Services Agreement dated ${d.masterDate}. This Schedule is project-specific. If accepted by both parties, it authorizes only the services expressly included below.
+
+1. Schedule of Work Number
+${d.sowNumber}
+
+2. Date
+${d.sowDate}
+
+3. Related Master Design Services Agreement Date
+${d.masterDate}
+
+4. Services Performed By
+${d.businessName}
+${d.businessLocation}
+
+5. Services Performed For
+${d.clientName}
+${d.clientAddress}
+
+6. Project Name
+${d.projectName}
+
+7. Project Address
+${d.projectAddress}
+
+8. Job Number
+${d.jobNumber}
+
+9. Client Contact
+${d.clientContact}
+
+10. Billing Contact
+${d.billingContact}
+
+11. Project Description
+${d.projectDescription}
+
+12. Building Type
+${d.buildingType}
+
+13. System Type
+${d.systemType}
+
+14. Applicable Codes and Standards
+${d.codes}
+
+15. AHJ
+${d.ahj}
+
+16. Water Purveyor
+${d.waterPurveyor}
+
+17. Scope of Work Included
+Included only if checked or expressly listed:
+${includedList}
+
+18. Deliverables Included
+Unless changed below, Designer will provide PDF deliverables for the included scope. Deliverables may include design drawings, hydraulic calculation reports, plan check response documents, correction response letters, review comments, or other documents expressly identified here:
+[List project-specific deliverables]
+
+19. Deliverables Excluded
+Excluded unless specifically included above:
+${excludedList}
+
+20. Design Assumptions
+${d.designAssumptions}
+
+21. Client-Provided Documents Required
+${d.clientDocs}
+
+22. Client Responsibilities
+Client must provide complete, accurate, current, and coordinated project information; respond promptly to questions; identify known owner, architect, GC, installer, insurer, water purveyor, and AHJ requirements; review deliverables; and notify Designer in writing of known errors, missing information, field issues, or project changes.
+
+23. AHJ-Specific Notes
+${d.ahjNotes}
+
+24. Plan Check Correction Allowance
+The fee includes ${d.correctionAllowance}. Additional fees may apply for additional correction cycles; comments caused by Client changes; missing, inaccurate, outdated, or revised information; revised architectural, structural, mechanical, civil, or other backgrounds; AHJ-specific requirements not disclosed before proposal; unusual, unclear, contradictory, excessive, or nonstandard AHJ comments; and redesign caused by owner, architect, GC, contractor, installer, field, or construction changes.
+
+25. Additional Services
+Any service not expressly included in this Schedule of Work is an additional service. Additional services may include meetings, coordination, design changes, alternate layouts, value engineering, BIM/Revit work, as-builts, stocklisting, fabrication support, material submittals, added calculations, field condition response, added AHJ cycles, rush work, or work caused by revised project documents.
+
+26. Hourly Rate for Additional Services
+Additional services will be billed at ${d.hourlyRate}, unless a different written price is approved.
+
+27. Fixed Fee or Hourly Fee
+Fee structure: ${d.feeStructure}
+Fee: ${d.fee}
+
+28. Deposit Required
+Deposit required: ${d.deposit}
+No design work begins until this Schedule of Work is accepted and the required deposit is paid, unless Designer agrees otherwise in writing.
+
+29. Payment Schedule
+${d.paymentSchedule}
+
+30. Billing Terms
+Invoices are due upon receipt unless this Schedule states otherwise. Designer may suspend services for late payment, missing information, project holds, or unapproved out-of-scope work. Late fees, interest, collection costs, and attorney fee language should be reviewed by counsel before use.
+
+31. Estimated Schedule
+Estimated start: ${d.startDate}
+Estimated delivery: ${d.deliveryDate}
+Timelines are estimates only and depend on receipt of the accepted Schedule of Work, deposit, complete project information, timely responses, coordinated drawings, AHJ processing, and workload availability.
+
+32. Rush Work Terms
+${d.rushTerms}
+
+33. Native File Delivery Terms
+${d.nativeFileTerms}
+
+34. Special Project Conditions
+${d.specialConditions}
+
+35. Change Authorization Process
+Additional services must be approved in writing before they are performed, except where urgent work is requested by Client or a project representative and later confirmed in writing. Written authorization may be by signed change order, email approval, revised Schedule of Work, or other written confirmation.
+
+36. Completion Criteria
+Designer has completed the included services when one of the following occurs:
+- The listed deliverables are provided to Client.
+- The included correction allowance has been completed.
+- Client accepts the deliverables.
+- Client does not provide written objections within ${d.acceptanceDays} after delivery.
+- The project is terminated and Client has paid for work completed through termination.
+
+37. Client Acceptance of Deliverables
+Client must review deliverables promptly and notify Designer in writing of known issues, project changes, or missing information. Deliverables are deemed accepted if Client does not provide written objections within ${d.acceptanceDays} after delivery unless this Schedule states otherwise.
+
+38. Communication Authorization
+Client authorizes Designer to communicate with the AHJ, fire department, building department, water department, architect, engineer, owner, GC, project manager, installing contractor, and other project parties as reasonably needed for the included services. This authorization does not make Designer responsible for the duties of those parties.
+
+39. Signature Blocks
+
+DESIGNER:
+${d.businessName}
+
+By: ______________________________
+Name: ${d.ownerName}
+Title: ___________________________
+Date: ____________________________
+
+CLIENT:
+${d.clientName}
+
+By: ______________________________
+Name: ____________________________
+Title: ___________________________
+Date: ____________________________`;
+      }
+
+      function generateNotes(d) {
+        return `HOW THE DOCUMENTS WORK TOGETHER
+
+The Master Design Services Agreement contains the reusable business and legal terms that should apply across projects. The Schedule of Work is the shorter project-specific document. For each new job, complete and sign a new Schedule of Work that references the Master Agreement date. The Master Agreement stays mostly unchanged unless your attorney updates the standard terms.
+
+WHAT TO FILL IN BEFORE SENDING
+
+${numberedList([
+          "Client legal name, address, contact, and billing contact.",
+          "Project name, project address, job number, AHJ, water purveyor, building type, and system type.",
+          "Applicable codes, standards, editions, local amendments, and known AHJ requirements.",
+          "Included scope items and any excluded items that need special emphasis.",
+          "Deliverables, deliverable format, and whether native files are excluded or included.",
+          "Fee structure, fee amount, deposit, hourly rate, payment schedule, and late-payment language approved by counsel.",
+          "Correction allowance, estimated schedule, rush terms, special conditions, and completion criteria.",
+          "County/venue, notice addresses, cure periods, liability cap, and any insurance or dispute resolution selections.",
+          "All signature names, titles, and dates."
+        ])}
+
+ATTORNEY-REVIEW NOTES
+
+${numberedList([
+          "California governing law, venue, enforceability, and whether county-specific venue wording should be used.",
+          "Limitation of liability language, including whether a fee-based cap is enforceable and whether exclusions are needed.",
+          "Indemnification language, especially California construction contract restrictions and anti-indemnity rules.",
+          "Late fees, interest, collection costs, and attorney fee wording. California law may affect rate limits and reciprocal attorney fee treatment.",
+          "Mechanics lien, design professional lien, stop payment notice, preliminary notice, and payment bond rights, if applicable to the services and client relationship.",
+          "Licensing issues for fire sprinkler design and where the line sits between design support, engineering, contracting, and installation.",
+          "Whether stamps, engineering responsibility, delegation of design, and contractor design-build obligations need project-specific terms.",
+          "Dispute resolution selection: court, mediation, arbitration, prevailing party fees, small claims carveout, and collection actions.",
+          "Insurance requirements, professional liability availability, certificates, waiver of subrogation, and additional insured requests.",
+          "Consumer, residential, public works, or owner-direct projects, which may require different notices or contract language."
+        ])}
+
+RECOMMENDED IMPROVEMENTS OVER SHORT OR COMPETITOR FORMS
+
+${numberedList([
+          "Separate reusable legal terms from project-specific scope so each new job only needs a Schedule of Work.",
+          "Define what is included, what is excluded, and what becomes additional service before work starts.",
+          "Use a clear correction allowance to prevent unpaid plan check revision cycles.",
+          "Address incomplete or revised backgrounds, AHJ-specific requirements, native file limits, and no guarantee of approval.",
+          "Add practical completion and deemed acceptance language so projects do not remain open indefinitely."
+        ])}
+
+REPEATABLE NEW-PROJECT WORKFLOW
+
+${numberedList([
+          "Open this generator and enter the client and project information.",
+          "Check only the scope items included in the proposal.",
+          "Confirm the fee, deposit, hourly rate, correction allowance, schedule, and deliverables.",
+          "Generate the Schedule of Work and send it with the current Master Agreement.",
+          "Do not begin design until the Schedule of Work is accepted and the required deposit is paid, unless you approve an exception in writing.",
+          "Save the accepted Schedule of Work, deposit confirmation, client documents, and later change approvals in the project folder."
+        ])}
+
+PROJECT SNAPSHOT
+
+Business: ${d.businessName}
+Client: ${d.clientName}
+Project: ${d.projectName}
+Schedule: ${d.sowNumber}
+Fee: ${d.feeStructure} - ${d.fee}
+Deposit: ${d.deposit}
+Correction allowance: ${d.correctionAllowance}`;
+      }
+
+      function loadInvoiceSequence() {
+        const sequence = readStoredObject(invoiceSequenceKey);
+        const year = String(new Date().getFullYear());
+        if (sequence.year !== year) {
+          return { year, last: 0 };
+        }
+        return { year, last: Number(sequence.last) || 0 };
+      }
+
+      function nextInvoiceNumber(prefix) {
+        const sequence = loadInvoiceSequence();
+        sequence.last += 1;
+        writeStoredObject(invoiceSequenceKey, sequence);
+        return `${prefix}-${sequence.year}-${String(sequence.last).padStart(4, "0")}`;
+      }
+
+      function createInvoiceNumberIfNeeded() {
+        if (!$("invoiceNumber").value.trim()) {
+          $("invoiceNumber").value = nextInvoiceNumber(value("invoicePrefix", "CFS-INV"));
+        }
+
+        const today = todayISO();
+        if (!$("invoiceDate").value) {
+          $("invoiceDate").value = today;
+        }
+        if (!$("invoiceDueDate").value) {
+          $("invoiceDueDate").value = addDaysISO(today, 14);
+        }
+      }
+
+      function createInvoice() {
+        createInvoiceNumberIfNeeded();
+        state.activeDoc = "invoice";
+        generateAll();
+        openPdfPreview();
+        $("statusLine").textContent = `Created invoice ${$("invoiceNumber").value} and opened PDF preview.`;
+      }
+
+      function generateInvoice(d) {
+        const includedList = listLines(d.included);
+        return `INVOICE
+
+${d.businessName}
+${d.businessLocation}
+
+Invoice Number: ${d.invoiceNumber}
+Invoice Date: ${d.invoiceDate}
+Due Date: ${d.invoiceDueDate}
+
+BILL TO
+${d.clientName}
+${d.clientAddress}
+
+Billing Contact: ${d.billingContact}
+Client Contact: ${d.clientContact}
+
+PROJECT
+Project Name: ${d.projectName}
+Project Address: ${d.projectAddress}
+Job Number: ${d.jobNumber}
+Schedule of Work: ${d.sowNumber}
+System Type: ${d.systemType}
+AHJ: ${d.ahj}
+
+DESCRIPTION
+Fire sprinkler design, drafting, consulting, plan review support, and related document preparation services for the project listed above.
+
+Included scope:
+${includedList}
+
+AMOUNT DUE
+${d.invoiceAmount}
+
+PAYMENT TERMS
+${d.invoiceTerms}
+
+PAYMENT INSTRUCTIONS
+${d.paymentInstructions}
+
+NOTES
+This invoice is based on the related Schedule of Work and Master Design Services Agreement. Unless otherwise stated in writing, no design work begins until the Schedule of Work is accepted and the required deposit is paid.
+
+Thank you for your business.`;
+      }
+
+      function extractEmail(text) {
+        const match = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+        return match ? match[0] : "";
+      }
+
+      function sendInvoice() {
+        if (!$("invoiceNumber").value.trim() || $("invoiceNumber").value === "[Invoice Number]") {
+          createInvoiceNumberIfNeeded();
+          generateAll();
+        }
+
+        const d = data();
+        const invoiceText = generateInvoice(d);
+        state.docs.invoice = invoiceText;
+        state.activeDoc = "invoice";
+        renderOutput();
+
+        const to = extractEmail(d.billingContact) || extractEmail(d.clientContact);
+        const subject = `Invoice ${d.invoiceNumber} - ${d.projectName}`;
+        const body = `Hello,\n\nPlease see invoice ${d.invoiceNumber} below for ${d.projectName}.\n\n${invoiceText}`;
+        window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        $("statusLine").textContent = to ? `Opened email draft for invoice ${d.invoiceNumber}.` : `Opened email draft for invoice ${d.invoiceNumber}. Add recipient before sending.`;
+      }
+
+      function generateAll() {
+        const d = data();
+        const master = generateMaster(d);
+        const schedule = generateSchedule(d);
+        const invoice = generateInvoice(d);
+        const notes = generateNotes(d);
+        state.docs = {
+          master,
+          schedule,
+          invoice,
+          notes,
+          combined: `${master}\n\n\n${schedule}\n\n\n${invoice}\n\n\n${notes}`
+        };
+        renderOutput();
+        $("statusLine").textContent = `Generated ${new Date().toLocaleTimeString()}.`;
+      }
+
+      function renderOutput() {
+        $("documentOutput").textContent = state.docs[state.activeDoc] || "";
+        document.querySelectorAll(".tab-button").forEach((button) => {
+          button.setAttribute("aria-selected", String(button.dataset.doc === state.activeDoc));
+        });
+      }
+
+      function escapeDocumentHtml(text) {
+        return String(text)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      function documentLabel(docKey) {
+        const labels = {
+          master: "Master Design Services Agreement",
+          schedule: "Schedule of Work",
+          invoice: "Invoice",
+          notes: "Use Notes",
+          combined: "Contract Package"
+        };
+        return labels[docKey] || "Document";
+      }
+
+      function openPdfPreview() {
+        const text = state.docs[state.activeDoc] || "";
+        if (!text.trim()) {
+          $("statusLine").textContent = "Generate a document before opening PDF preview.";
+          return;
+        }
+
+        const d = data();
+        const title = `${documentLabel(state.activeDoc)} - ${d.projectName}`;
+        const preview = window.open("", "_blank");
+        if (!preview) {
+          $("statusLine").textContent = "PDF preview was blocked. Allow popups for this page and try again.";
+          return;
+        }
+
+        preview.document.open();
+        preview.document.write(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>${escapeDocumentHtml(title)}</title>
+    <style>
+      @page { margin: 0.65in; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        color: #111820;
+        background: #f3f6f8;
+        font-family: Aptos, Arial, sans-serif;
+        line-height: 1.45;
+      }
+      .preview-toolbar {
+        position: sticky;
+        top: 0;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 16px;
+        color: #ffffff;
+        background: #0f6b68;
+        box-shadow: 0 8px 24px rgba(17, 24, 32, 0.16);
+      }
+      .preview-toolbar strong { align-self: center; }
+      button {
+        min-height: 38px;
+        border: 0;
+        border-radius: 8px;
+        padding: 0 14px;
+        color: #ffffff;
+        background: #b85c2a;
+        font: inherit;
+        font-weight: 800;
+        cursor: pointer;
+      }
+      .page {
+        max-width: 8.5in;
+        min-height: 11in;
+        margin: 24px auto;
+        padding: 0.55in;
+        background: #ffffff;
+        box-shadow: 0 18px 45px rgba(17, 24, 32, 0.16);
+      }
+      pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        color: #111820;
+        font: 11pt/1.45 Aptos, Arial, sans-serif;
+      }
+      @media print {
+        body { background: #ffffff; }
+        .preview-toolbar { display: none; }
+        .page {
+          max-width: none;
+          min-height: auto;
+          margin: 0;
+          padding: 0;
+          box-shadow: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="preview-toolbar">
+      <strong>${escapeDocumentHtml(title)}</strong>
+      <button type="button" onclick="window.print()">Save as PDF / Print</button>
+    </div>
+    <main class="page">
+      <pre>${escapeDocumentHtml(text)}</pre>
+    </main>
+    <script>
+      window.addEventListener("load", () => {
+        setTimeout(() => window.print(), 250);
+      });
+    <\/script>
+  </body>
+</html>`);
+        preview.document.close();
+        $("statusLine").textContent = `Opened PDF preview for ${documentLabel(state.activeDoc)}.`;
+      }
+
+      function generateAndOpenPdf() {
+        generateAll();
+        openPdfPreview();
+      }
+
+      async function copyCurrent() {
+        const text = state.docs[state.activeDoc] || "";
+        try {
+          await navigator.clipboard.writeText(text);
+          $("statusLine").textContent = "Copied current document to clipboard.";
+        } catch (error) {
+          const range = document.createRange();
+          range.selectNodeContents($("documentOutput"));
+          const selection = window.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(range);
+          $("statusLine").textContent = "Clipboard was blocked. The text is selected so you can copy it.";
+        }
+      }
+
+      function downloadCurrent() {
+        const d = data();
+        const text = state.docs[state.activeDoc] || "";
+        const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `${fileSafe(d.projectName)}-${state.activeDoc}.txt`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(link.href);
+        $("statusLine").textContent = "Downloaded current document.";
+      }
+
+      function setDefaults() {
+        const today = todayISO();
+        $("sowDate").value = today;
+        $("masterDate").value = today;
+        if (!$("invoiceDate").value) {
+          $("invoiceDate").value = today;
+        }
+        if (!$("invoiceDueDate").value) {
+          $("invoiceDueDate").value = addDaysISO(today, 14);
+        }
+        if (!$("sowNumber").value) {
+          const year = today.slice(0, 4);
+          $("sowNumber").placeholder = `SOW-${year}-001`;
+        }
+      }
+
+      function resetForm() {
+        $("contractForm").reset();
+        renderChecklist("includedScope", includedItems, "included");
+        renderChecklist("excludedScope", excludedItems, "excluded");
+        setDefaults();
+        generateAll();
+      }
+
+      document.querySelectorAll(".tab-button").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.activeDoc = button.dataset.doc;
+          renderOutput();
+        });
+      });
+
+      $("generateButton").addEventListener("click", generateAndOpenPdf);
+      $("generateTopButton").addEventListener("click", generateAndOpenPdf);
+      $("copyButton").addEventListener("click", copyCurrent);
+      $("downloadButton").addEventListener("click", downloadCurrent);
+      $("openPdfButton").addEventListener("click", openPdfPreview);
+      $("createInvoiceButton").addEventListener("click", createInvoice);
+      $("sendInvoiceButton").addEventListener("click", sendInvoice);
+      $("resetButton").addEventListener("click", resetForm);
+      $("loadClientButton").addEventListener("click", loadSelectedClient);
+      $("saveClientButton").addEventListener("click", saveCurrentClient);
+      $("deleteClientButton").addEventListener("click", deleteSelectedClient);
+      $("loadContractButton").addEventListener("click", loadSelectedContract);
+      $("saveContractButton").addEventListener("click", saveCurrentContract);
+      $("deleteContractButton").addEventListener("click", deleteSelectedContract);
+      $("contractForm").addEventListener("input", generateAll);
+      $("contractForm").addEventListener("change", generateAll);
+
+      renderChecklist("includedScope", includedItems, "included");
+      renderChecklist("excludedScope", excludedItems, "excluded");
+      renderSavedClientOptions();
+      renderSavedContractOptions();
+      setDefaults();
+      generateAll();
+    </script>
+  </body>
+</html>

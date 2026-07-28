@@ -1,0 +1,210 @@
+{
+  "version": "2026-05-30",
+  "source": "SprinkFlow curated NFPA 13 quick references",
+  "references": [
+    {
+      "id": "bathrooms-residential-units",
+      "name": "Bathrooms Inside Residential Dwelling Units",
+      "category": "Sprinkler Omission",
+      "sections": {
+        "2016": ["8.15.8.1.1"],
+        "2019": ["9.2.4.1.1"],
+        "2022": ["9.2.4.1.1"],
+        "2025": ["9.2.4.1.1"]
+      },
+      "tags": ["bathroom", "dwelling", "residential", "omit"]
+    },
+    {
+      "id": "concealed-no-access-noncombustible",
+      "name": "Noncombustible Concealed Space With No Access",
+      "category": "Concealed Spaces",
+      "sections": {
+        "2016": ["8.15.1.2.1"],
+        "2019": ["9.2.1.1"],
+        "2022": ["9.2.1.1"],
+        "2025": ["9.2.1.1"]
+      },
+      "tags": ["concealed", "noncombustible", "no access", "omit"]
+    },
+    {
+      "id": "concealed-limited-access-no-storage",
+      "name": "Noncombustible Concealed Space With Limited Access",
+      "category": "Concealed Spaces",
+      "sections": {
+        "2016": ["8.15.1.2.2"],
+        "2019": ["9.2.1.2"],
+        "2022": ["9.2.1.2"],
+        "2025": ["9.2.1.2"]
+      },
+      "tags": ["concealed", "limited access", "no occupancy", "no storage", "omit"]
+    },
+    {
+      "id": "concealed-under-six-inches",
+      "name": "Concealed Space Under 6 Inches",
+      "category": "Concealed Spaces",
+      "sections": {
+        "2016": ["8.15.1.2.3"],
+        "2019": ["9.2.1.3"],
+        "2022": ["9.2.1.3", "9.2.1.4", "9.2.1.5"],
+        "2025": ["9.2.1.3", "9.2.1.4", "9.2.1.5"]
+      },
+      "tags": ["concealed", "six inches", "studs", "joists", "omit"]
+    },
+    {
+      "id": "concealed-filled-noncombustible-insulation",
+      "name": "Concealed Space Filled With Noncombustible Insulation",
+      "category": "Concealed Spaces",
+      "sections": {
+        "2016": ["8.15.1.2.7"],
+        "2019": ["9.2.1.7"],
+        "2022": ["9.2.1.7"],
+        "2025": ["9.2.1.7"]
+      },
+      "tags": ["concealed", "insulation", "noncombustible", "omit"]
+    },
+    {
+      "id": "wood-joist-concealed-filled-insulation",
+      "name": "Wood Joist Concealed Space Filled With Insulation",
+      "category": "Concealed Spaces",
+      "sections": {
+        "2016": ["8.15.1.2.8"],
+        "2019": ["9.2.1.8", "9.2.1.9"],
+        "2022": ["9.2.1.8", "9.2.1.9"],
+        "2025": ["9.2.1.8", "9.2.1.9"]
+      },
+      "tags": ["concealed", "wood joist", "composite wood joist", "insulation", "omit"]
+    },
+    {
+      "id": "combustible-insulation-facing-limited-heat",
+      "name": "Exposed Combustible Insulation in Concealed Space",
+      "category": "Concealed Spaces",
+      "sections": {
+        "2016": ["8.15.1.2.12"],
+        "2019": ["9.2.1.13"],
+        "2022": ["9.2.1.14"],
+        "2025": ["9.2.1.14"]
+      },
+      "tags": ["concealed", "combustible insulation", "heat content", "omit"]
+    },
+    {
+      "id": "noncombustible-exterior-projections",
+      "name": "Noncombustible Exterior Projections / Overhangs",
+      "category": "Exterior Projections",
+      "sections": {
+        "2016": ["8.15.7.2"],
+        "2019": ["9.2.3.2"],
+        "2022": ["9.2.3.1"],
+        "2025": ["9.2.3.1"]
+      },
+      "tags": ["overhang", "soffit", "canopy", "projection", "noncombustible", "omit"]
+    },
+    {
+      "id": "combustible-projections-noncombustible-finish",
+      "name": "Combustible Exterior Projection With Noncombustible Finish",
+      "category": "Exterior Projections",
+      "sections": {
+        "2016": ["8.15.7.3"],
+        "2019": ["9.2.3.3"],
+        "2022": ["9.2.3.2"],
+        "2025": ["9.2.3.2"]
+      },
+      "tags": ["overhang", "soffit", "canopy", "projection", "combustible", "finish", "omit"]
+    },
+    {
+      "id": "high-temperature-oh-eh-storage",
+      "name": "High-Temperature Sprinklers in OH / EH / Storage",
+      "category": "Temperature Rating",
+      "sections": {
+        "2016": ["8.3.2.3"],
+        "2019": ["9.4.2.3"],
+        "2022": ["9.4.2.3"],
+        "2025": ["9.4.2.3"]
+      },
+      "tags": ["high temperature", "ordinary hazard", "extra hazard", "storage"]
+    },
+    {
+      "id": "intermediate-temperature-required-locations",
+      "name": "Intermediate / High Temperature Sprinklers in Required Locations",
+      "category": "Temperature Rating",
+      "sections": {
+        "2016": ["8.3.2.4"],
+        "2019": ["9.4.2.4"],
+        "2022": ["9.4.2.4"],
+        "2025": ["9.4.2.4"]
+      },
+      "tags": ["intermediate temperature", "high temperature", "locations"]
+    },
+    {
+      "id": "temperature-selection-tables",
+      "name": "Sprinkler Temperature Selection Tables",
+      "category": "Temperature Rating",
+      "sections": {
+        "2016": ["8.3.2.5"],
+        "2019": ["9.4.2.5"],
+        "2022": ["9.4.2.5"],
+        "2025": ["9.4.2.5"]
+      },
+      "tags": ["temperature", "intermediate", "high", "residential", "table"]
+    },
+    {
+      "id": "ssu-ssp-ceiling-obstruction-table",
+      "name": "SSU / SSP Ceiling Obstruction Table",
+      "category": "Obstructions",
+      "sections": {
+        "2016": ["8.6.5.1.2"],
+        "2019": ["10.2.7.1.2"],
+        "2022": ["10.2.7.2"],
+        "2025": ["10.2.8.2"]
+      },
+      "tags": ["obstruction", "ceiling", "ssu", "ssp", "table"]
+    },
+    {
+      "id": "upright-pendent-three-times-obstruction",
+      "name": "Upright / Pendent 3x Obstruction Rule",
+      "category": "Obstructions",
+      "sections": {
+        "2016": ["8.6.5.2.1.3"],
+        "2019": ["10.2.7.2.1.3"],
+        "2022": ["10.2.7.3.1.3"],
+        "2025": ["10.2.8.3.1.4"]
+      },
+      "tags": ["obstruction", "three times", "24 in", "upright", "pendent"]
+    },
+    {
+      "id": "no-branch-line-restraint-short-rods",
+      "name": "No Branch Line Restraint for Rods Under 6 Inches",
+      "category": "Seismic / Restraint",
+      "sections": {
+        "2016": ["9.3.6.5"],
+        "2019": ["18.6.5"],
+        "2022": ["18.6.5"],
+        "2025": ["18.6.5"]
+      },
+      "tags": ["branch line restraint", "blr", "rods", "6 inches", "seismic"]
+    },
+    {
+      "id": "small-room-coverage",
+      "name": "Small Room Area-of-Coverage Exception",
+      "category": "Spacing",
+      "sections": {
+        "2016": ["8.6.2.1.2", "8.6.2.1.2.1"],
+        "2019": ["10.2.4.1.2", "10.2.4.1.2.1"],
+        "2022": ["10.2.4.1.2", "10.2.4.1.2.1"],
+        "2025": ["10.2.4.1.2", "10.2.4.1.2.1"]
+      },
+      "tags": ["small room", "coverage", "area", "spacing"]
+    },
+    {
+      "id": "small-room-spacing",
+      "name": "Small Room Spacing Exception",
+      "category": "Spacing",
+      "sections": {
+        "2016": ["8.6.3.2.4"],
+        "2019": ["10.2.5.2.3"],
+        "2022": ["10.2.5.2.3"],
+        "2025": ["10.2.6.2.3"]
+      },
+      "tags": ["small room", "spacing", "distance"]
+    }
+  ]
+}

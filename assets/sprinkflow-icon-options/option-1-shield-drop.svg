@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg1" x1="74" y1="52" x2="438" y2="460" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#18252d"/>
+      <stop offset="1" stop-color="#0a1117"/>
+    </linearGradient>
+    <linearGradient id="water1" x1="172" y1="128" x2="350" y2="354" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#46c7e8"/>
+      <stop offset="1" stop-color="#167ea1"/>
+    </linearGradient>
+    <linearGradient id="fire1" x1="250" y1="152" x2="326" y2="306" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffb234"/>
+      <stop offset="1" stop-color="#ff4b2f"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg1)"/>
+  <path d="M256 54 410 112v124c0 103-61 182-154 222C163 418 102 339 102 236V112L256 54Z" fill="#142a34" stroke="#2e8ba7" stroke-width="18"/>
+  <path d="M256 116c-48 58-91 111-91 170 0 55 41 95 91 95s91-40 91-95c0-59-43-112-91-170Z" fill="url(#water1)"/>
+  <path d="M282 169c14 42-17 62-3 94 8 19 30 26 30 52 0 35-25 58-56 58-33 0-58-26-58-59 0-29 16-48 40-78 14-18 31-39 47-67Z" fill="url(#fire1)"/>
+  <path d="M182 216h148" stroke="#eef6f8" stroke-width="22" stroke-linecap="round"/>
+  <path d="M204 216v35m52-35v43m52-43v35" stroke="#eef6f8" stroke-width="16" stroke-linecap="round"/>
+  <path d="M181 272c37 34 113 34 150 0" fill="none" stroke="#eef6f8" stroke-width="12" stroke-linecap="round"/>
+</svg>

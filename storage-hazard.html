@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SprinkFlow Storage Hazard Analysis</title>
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./storage-hazard.css?v=2" />
+    <script>
+      const storageHazardParams = new URLSearchParams(window.location.search);
+      if (storageHazardParams.has("embedded")) {
+        document.documentElement.classList.add("embedded");
+      }
+      document.documentElement.dataset.theme = storageHazardParams.get("theme") === "plain-light" ? "plain-light" : "default";
+    </script>
+  </head>
+  <body data-theme="default">
+    <header class="topbar">
+      <div class="brand">
+        <img src="./icon.svg" alt="" />
+        <div>
+          <p>SprinkFlow Lab Tool</p>
+          <h1>Storage Hazard Analysis</h1>
+        </div>
+      </div>
+    </header>
+
+    <main class="analysis-shell">
+      <section class="input-pane" aria-label="Storage hazard inputs">
+        <div class="section-heading">
+          <p>Inputs</p>
+          <div class="input-actions" aria-label="Input actions">
+            <button id="copySummaryButton" type="button" title="Copy summary">Copy</button>
+            <button id="resetButton" type="button" title="Reset inputs">Reset</button>
+          </div>
+        </div>
+
+        <div class="field-grid">
+          <label>
+            NFPA 13 Edition
+            <select id="editionInput">
+              <option value="2025">2025</option>
+              <option value="2022">2022</option>
+              <option value="2019">2019</option>
+              <option value="2016">2016</option>
+            </select>
+          </label>
+          <label class="wide">
+            Commodity
+            <select id="commodityInput">
+              <option value="Class I">Class I</option>
+              <option value="Class II">Class II</option>
+              <option value="Class III">Class III</option>
+              <option value="Class IV">Class IV</option>
+              <option value="Miscellaneous Storage">Miscellaneous storage</option>
+              <option value="Cartoned Group A">Cartoned nonexpanded Group A plastic</option>
+              <option value="Cartoned Expanded Group A">Cartoned expanded Group A plastic</option>
+              <option value="Nonexpanded Unstable Group A">Nonexpanded unstable Group A plastic</option>
+              <option value="Nonexpanded Solid Unit Load Group A">Nonexpanded solid unit load Group A plastic</option>
+              <option value="Expanded Exposed Unstable Group A">Expanded exposed unstable Group A plastic</option>
+              <option value="Expanded Cartoned Unstable Group A">Expanded cartoned unstable Group A plastic</option>
+              <option value="Exposed Nonexpanded Group A">Exposed nonexpanded Group A plastic</option>
+              <option value="Exposed Expanded Group A">Exposed expanded Group A plastic</option>
+              <option value="Rubber Tires">Rubber tires</option>
+              <option value="Roll Paper">Roll paper</option>
+              <option value="Idle Pallets">Idle pallets</option>
+            </select>
+          </label>
+          <label>
+            Storage Arrangement
+            <select id="arrangementInput">
+              <option value="Palletized / Solid-Piled">Palletized / solid-piled</option>
+              <option value="Shelf">Shelf</option>
+              <option value="Back-to-Back Shelf">Back-to-back shelf</option>
+              <option value="Single-Row Rack">Single-row rack</option>
+              <option value="Double-Row Rack">Double-row rack</option>
+              <option value="Multiple-Row Rack">Multiple-row rack</option>
+              <option value="Solid Shelf Rack">Solid shelf rack</option>
+            </select>
+          </label>
+          <label>
+            Storage Height (ft)
+            <input id="storageHeightInput" type="number" min="0" step="0.5" value="20" />
+          </label>
+          <label>
+            Ceiling / Roof Height (ft)
+            <input id="ceilingHeightInput" type="number" min="0" step="0.5" value="30" />
+          </label>
+          <label>
+            Aisle Width (ft)
+            <input id="aisleWidthInput" type="number" min="0" step="0.5" value="8" />
+          </label>
+          <label>
+            Rack Geometry / Depth
+            <select id="rackGeometryInput">
+              <option value="unknown">Unknown / show all applicable</option>
+              <option value="singleSmall">Single-row up to 3 ft deep</option>
+              <option value="singleDeep">Single-row over 3 ft to 6 ft deep</option>
+              <option value="double">Double-row rack</option>
+              <option value="multiple">Multiple-row rack</option>
+            </select>
+          </label>
+          <label>
+            Ceiling System
+            <select id="ceilingSystemInput">
+              <option value="wet">Wet</option>
+              <option value="dry">Dry</option>
+              <option value="preaction">Preaction</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="switch-row">
+          <label>
+            <input id="encapsulatedInput" type="checkbox" />
+            Encapsulated storage
+          </label>
+        </div>
+
+        <section class="input-trace">
+          <div class="section-heading">
+            <p>Calculation Trace</p>
+            <span>Copy-ready design text</span>
+          </div>
+          <pre id="calculationTrace"></pre>
+        </section>
+      </section>
+
+      <section class="output-pane" aria-label="Storage hazard analysis results">
+        <section class="summary-band">
+          <div>
+            <p id="totalDemandLabel">Recommended Total Demand</p>
+            <strong id="lowestDemandValue">-</strong>
+          </div>
+          <div>
+            <p id="sprinklerDemandLabel">Sprinkler Demand</p>
+            <strong id="sprinklerDemandValue">-</strong>
+          </div>
+          <div>
+            <p id="hoseAllowanceLabel">Hose Allowance</p>
+            <strong id="addonsValue">-</strong>
+          </div>
+        </section>
+
+        <section class="results-section">
+          <div class="section-heading">
+            <p>Recommended Criteria</p>
+            <span id="candidateCount">0 rows</span>
+          </div>
+          <div class="criteria-toolbar" id="systemFilter" aria-label="Filter criteria by protection option">
+            <button type="button" class="filter-chip active" data-system-filter="all" aria-pressed="true">All</button>
+            <button type="button" class="filter-chip" data-system-filter="ESFR" aria-pressed="false">ESFR</button>
+            <button type="button" class="filter-chip" data-system-filter="CMSA" aria-pressed="false">CMSA</button>
+            <button type="button" class="filter-chip" data-system-filter="CMDA" aria-pressed="false">CMDA</button>
+            <button type="button" class="filter-chip" data-system-filter="In-Rack" aria-pressed="false">In-Rack</button>
+          </div>
+          <div class="criteria-toolbar secondary" id="inRackFilter" aria-label="Filter criteria by in-rack sprinkler use">
+            <span class="toolbar-label">In-rack sprinklers</span>
+            <button type="button" class="filter-chip active" data-in-rack-filter="all" aria-pressed="true">All</button>
+            <button type="button" class="filter-chip" data-in-rack-filter="with" aria-pressed="false">With</button>
+            <button type="button" class="filter-chip" data-in-rack-filter="without" aria-pressed="false">Without</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <colgroup>
+                <col class="col-option" />
+                <col class="col-basis" />
+                <col class="col-demand" />
+                <col class="col-demand" />
+                <col class="col-small" />
+                <col class="col-small" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Protection Option</th>
+                  <th>Basis</th>
+                  <th>Ceiling Demand</th>
+                  <th>In-Rack Demand</th>
+                  <th>Hose</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody id="criteriaTableBody"></tbody>
+            </table>
+          </div>
+          <div class="criteria-pager" id="criteriaPager" aria-label="Criteria results pagination">
+            <button type="button" id="criteriaPrevButton">Previous</button>
+            <span id="criteriaPageStatus">Showing 0 options</span>
+            <button type="button" id="criteriaNextButton">Next</button>
+          </div>
+        </section>
+
+        <section class="results-section source-preview-section">
+          <div class="section-heading">
+            <p>Source Preview</p>
+            <span id="sourcePreviewTitle">Selected criteria</span>
+          </div>
+          <div id="sourcePreview" class="source-preview"></div>
+        </section>
+
+      </section>
+    </main>
+
+    <script src="./storage-hazard.js?v=6"></script>
+  </body>
+</html>

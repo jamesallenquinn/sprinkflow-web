@@ -1,0 +1,466 @@
+{
+  "version": 1,
+  "updated": "2026-05-28",
+  "status": "starter-dataset",
+  "notes": [
+    "This dataset is intentionally compact. It stores source-referenced rules and calculation methods, while exact table-derived design rows can be added as screenshots/tables are verified.",
+    "Table-derived values should be checked by the designer against the adopted NFPA 13 edition and AHJ requirements before use."
+  ],
+  "references": {
+    "2019": {
+      "storageChapters": "NFPA 13 2019 Chapters 20 through 25",
+      "cmdaMinimum": "21.2.2.5",
+      "cmdaDryAdjustment": "20.13.3",
+      "storageConditionBasis": "23.4.1",
+      "hoseAllowance": "20.12.2.6",
+      "esfrDesignArea": "27.2.4.4.1",
+      "cmsaDesignArea": "27.2.4.3.1",
+      "inRackNumber": "25.12.2.1",
+      "inRackFlowPressure": "25.12.3.1"
+    },
+    "2016": {
+      "storageChapters": "NFPA 13 2016 Chapters 12 through 17",
+      "hoseAllowance": "12.8.6",
+      "esfrDesignArea": "12.7.6.3",
+      "cmsaDesignArea": "12.7.6.2",
+      "cmdaDesignArea": "12.7.6.1"
+    }
+  },
+  "methods": [
+    {
+      "id": "cmda-density-area",
+      "label": "CMDA density/area",
+      "systemType": "CMDA",
+      "description": "Sprinkler demand equals design density multiplied by design area. For storage over 12 ft, the 2019 indexed rule requires at least 0.15 gpm/ft2 and at least 2000 ft2 for wet systems or 2600 ft2 for dry/preaction systems.",
+      "requires": ["density", "designArea"],
+      "formula": "sprinklerDemand = density * adjustedDesignArea",
+      "refs": {
+        "2019": ["21.2.2.5", "20.13.3", "20.12.2.6"],
+        "2016": ["12.7.6.1", "12.8.6"]
+      }
+    },
+    {
+      "id": "esfr-kfactor-pressure",
+      "label": "ESFR k-factor/pressure",
+      "systemType": "ESFR",
+      "description": "Sprinkler demand equals the discharge from the selected ESFR sprinkler at the required pressure multiplied by the number of operating sprinklers. NFPA 13 2019 indexes the standard ESFR design area as 12 sprinklers unless a storage section requires another number.",
+      "requires": ["kFactor", "pressure", "operatingSprinklers"],
+      "formula": "sprinklerDemand = kFactor * sqrt(pressure) * operatingSprinklers",
+      "defaultOperatingSprinklers": 12,
+      "refs": {
+        "2019": ["23.3.1", "23.4.2", "27.2.4.4.1", "20.12.2.6"],
+        "2016": ["12.7.6.3", "12.8.6"]
+      }
+    },
+    {
+      "id": "cmsa-kfactor-pressure",
+      "label": "CMSA k-factor/pressure",
+      "systemType": "CMSA",
+      "description": "Sprinkler demand equals the discharge from the selected CMSA sprinkler at the required pressure multiplied by the table-required number of operating sprinklers. The design area shape follows the CMSA method.",
+      "requires": ["kFactor", "pressure", "operatingSprinklers"],
+      "formula": "sprinklerDemand = kFactor * sqrt(pressure) * operatingSprinklers",
+      "refs": {
+        "2019": ["24.3.2", "27.2.4.3.1", "20.12.2.6"],
+        "2016": ["12.7.6.2", "12.8.6"]
+      }
+    },
+    {
+      "id": "in-rack-additive",
+      "label": "In-rack additive demand",
+      "systemType": "In-Rack",
+      "description": "In-rack demand is added to the ceiling demand and balanced to the higher pressure. Use table-required operating in-rack sprinklers and minimum flow or pressure from the adopted edition.",
+      "requires": ["inRackSprinklers", "inRackFlow"],
+      "formula": "inRackDemand = inRackSprinklers * inRackFlow",
+      "refs": {
+        "2019": ["25.12.1.5", "25.12.2.1", "25.12.3.1"],
+        "2016": ["12.8.6"]
+      }
+    }
+  ],
+  "criteriaRows": [
+    {
+      "id": "draft-rack-class-i-nonencap-4ft",
+      "label": "CMDA rack - Class I, nonencapsulated, 4 ft aisle",
+      "editions": ["2019", "2016"],
+      "systemType": "CMDA",
+      "calculation": "density-area",
+      "density": 0.19,
+      "designArea": 2000,
+      "dryDesignArea": 2600,
+      "hoseAllowance": 250,
+      "when": {
+        "arrangements": ["Single-Row Rack", "Double-Row Rack"],
+        "commodities": ["Class I"],
+        "encapsulated": false,
+        "aisleWidthMaxInclusive": 4,
+        "storageHeightMaxInclusive": 15
+      },
+      "tableTitle": "Draft analyzer table clue: rack storage up to 15 ft",
+      "source": "Imported Storage Anaylzer.html / verify against adopted NFPA 13 table",
+      "confidence": "draft-table-clue",
+      "note": "Imported from the older analyzer; replace with verified NFPA row."
+    },
+    {
+      "id": "draft-rack-class-i-nonencap-8ft",
+      "label": "CMDA rack - Class I, nonencapsulated, 8 ft aisle",
+      "editions": ["2019", "2016"],
+      "systemType": "CMDA",
+      "calculation": "density-area",
+      "density": 0.17,
+      "designArea": 2000,
+      "dryDesignArea": 2600,
+      "hoseAllowance": 250,
+      "when": {
+        "arrangements": ["Single-Row Rack", "Double-Row Rack"],
+        "commodities": ["Class I"],
+        "encapsulated": false,
+        "aisleWidthMinInclusive": 4.01,
+        "aisleWidthMaxInclusive": 8,
+        "storageHeightMaxInclusive": 15
+      },
+      "tableTitle": "Draft analyzer table clue: rack storage up to 15 ft",
+      "source": "Imported Storage Anaylzer.html / verify against adopted NFPA 13 table",
+      "confidence": "draft-table-clue",
+      "note": "Imported from the older analyzer; replace with verified NFPA row."
+    },
+    {
+      "id": "draft-rack-class-i-encap-4ft",
+      "label": "CMDA rack - Class I, encapsulated, 4 ft aisle",
+      "editions": ["2019", "2016"],
+      "systemType": "CMDA",
+      "calculation": "density-area",
+      "density": 0.33,
+      "designArea": 2000,
+      "dryDesignArea": 2600,
+      "hoseAllowance": 250,
+      "when": {
+        "arrangements": ["Single-Row Rack", "Double-Row Rack"],
+        "commodities": ["Class I"],
+        "encapsulated": true,
+        "aisleWidthMaxInclusive": 4,
+        "storageHeightMaxInclusive": 15
+      },
+      "tableTitle": "Draft analyzer table clue: rack storage up to 15 ft",
+      "source": "Imported Storage Anaylzer.html / verify against adopted NFPA 13 table",
+      "confidence": "draft-table-clue",
+      "note": "Imported from the older analyzer; replace with verified NFPA row."
+    },
+    {
+      "id": "draft-rack-class-i-encap-8ft",
+      "label": "CMDA rack - Class I, encapsulated, 8 ft aisle",
+      "editions": ["2019", "2016"],
+      "systemType": "CMDA",
+      "calculation": "density-area",
+      "density": 0.28,
+      "designArea": 2000,
+      "dryDesignArea": 2600,
+      "hoseAllowance": 250,
+      "when": {
+        "arrangements": ["Single-Row Rack", "Double-Row Rack"],
+        "commodities": ["Class I"],
+        "encapsulated": true,
+        "aisleWidthMinInclusive": 4.01,
+        "aisleWidthMaxInclusive": 8,
+        "storageHeightMaxInclusive": 15
+      },
+      "tableTitle": "Draft analyzer table clue: rack storage up to 15 ft",
+      "source": "Imported Storage Anaylzer.html / verify against adopted NFPA 13 table",
+      "confidence": "draft-table-clue",
+      "note": "Imported from the older analyzer; replace with verified NFPA row."
+    },
+    {
+      "id": "draft-rack-class-ii-nonencap-4ft",
+      "label": "CMDA rack - Class II, nonencapsulated, 4 ft aisle",
+      "editions": ["2019", "2016"],
+      "systemType": "CMDA",
+      "calculation": "density-area",
+      "density": 0.23,
+      "designArea": 2000,
+      "dryDesignArea": 2600,
+      "hoseAllowance": 250,
+      "when": {
+        "arrangements": ["Single-Row Rack", "Double-Row Rack"],
+        "commodities": ["Class II"],
+        "encapsulated": false,
+        "aisleWidthMaxInclusive": 4,
+        "storageHeightMaxInclusive": 15
+      },
+      "tableTitle": "Draft analyzer table clue: rack storage up to 15 ft",
+      "source": "Imported Storage Anaylzer.html / verify against adopted NFPA 13 table",
+      "confidence": "draft-table-clue",
+      "note": "Imported from the older analyzer; replace with verified NFPA row."
+    },
+    {
+      "id": "draft-rack-class-ii-nonencap-8ft",
+      "label": "CMDA rack - Class II, nonencapsulated, 8 ft aisle",
+      "editions": ["2019", "2016"],
+      "systemType": "CMDA",
+      "calculation": "density-area",
+      "density": 0.2,
+      "designArea": 2000,
+      "dryDesignArea": 2600,
+      "hoseAllowance": 250,
+      "when": {
+        "arrangements": ["Single-Row Rack", "Double-Row Rack"],
+        "commodities": ["Class II"],
+        "encapsulated": false,
+        "aisleWidthMinInclusive": 4.01,
+        "aisleWidthMaxInclusive": 8,
+        "storageHeightMaxInclusive": 15
+      },
+      "tableTitle": "Draft analyzer table clue: rack storage up to 15 ft",
+      "source": "Imported Storage Anaylzer.html / verify against adopted NFPA 13 table",
+      "confidence": "draft-table-clue",
+      "note": "Imported from the older analyzer; replace with verified NFPA row."
+    },
+    {
+      "id": "draft-rack-class-ii-encap-4ft",
+      "label": "CMDA rack - Class II, encapsulated, 4 ft aisle",
+      "editions": ["2019", "2016"],
+      "systemType": "CMDA",
+      "calculation": "density-area",
+      "density": 0.33,
+      "designArea": 2000,
+      "dryDesignArea": 2600,
+      "hoseAllowance": 250,
+      "when": {
+        "arrangements": ["Single-Row Rack", "Double-Row Rack"],
+        "commodities": ["Class II"],
+        "encapsulated": true,
+        "aisleWidthMaxInclusive": 4,
+        "storageHeightMaxInclusive": 15
+      },
+      "tableTitle": "Draft analyzer table clue: rack storage up to 15 ft",
+      "source": "Imported Storage Anaylzer.html / verify against adopted NFPA 13 table",
+      "confidence": "draft-table-clue",
+      "note": "Imported from the older analyzer; replace with verified NFPA row."
+    },
+    {
+      "id": "draft-rack-class-ii-encap-8ft",
+      "label": "CMDA rack - Class II, encapsulated, 8 ft aisle",
+      "editions": ["2019", "2016"],
+      "systemType": "CMDA",
+      "calculation": "density-area",
+      "density": 0.28,
+      "designArea": 2000,
+      "dryDesignArea": 2600,
+      "hoseAllowance": 250,
+      "when": {
+        "arrangements": ["Single-Row Rack", "Double-Row Rack"],
+        "commodities": ["Class II"],
+        "encapsulated": true,
+        "aisleWidthMinInclusive": 4.01,
+        "aisleWidthMaxInclusive": 8,
+        "storageHeightMaxInclusive": 15
+      },
+      "tableTitle": "Draft analyzer table clue: rack storage up to 15 ft",
+      "source": "Imported Storage Anaylzer.html / verify against adopted NFPA 13 table",
+      "confidence": "draft-table-clue",
+      "note": "Imported from the older analyzer; replace with verified NFPA row."
+    },
+    {
+      "id": "draft-rack-class-iii-nonencap-4ft",
+      "label": "CMDA rack - Class III, nonencapsulated, 4 ft aisle",
+      "editions": ["2019", "2016"],
+      "systemType": "CMDA",
+      "calculation": "density-area",
+      "density": 0.26,
+      "designArea": 2000,
+      "dryDesignArea": 2600,
+      "hoseAllowance": 250,
+      "when": {
+        "arrangements": ["Single-Row Rack", "Double-Row Rack"],
+        "commodities": ["Class III"],
+        "encapsulated": false,
+        "aisleWidthMaxInclusive": 4,
+        "storageHeightMaxInclusive": 15
+      },
+      "tableTitle": "Draft analyzer table clue: rack storage up to 15 ft",
+      "source": "Imported Storage Anaylzer.html / verify against adopted NFPA 13 table",
+      "confidence": "draft-table-clue",
+      "note": "Imported from the older analyzer; replace with verified NFPA row."
+    },
+    {
+      "id": "draft-rack-class-iii-nonencap-8ft",
+      "label": "CMDA rack - Class III, nonencapsulated, 8 ft aisle",
+      "editions": ["2019", "2016"],
+      "systemType": "CMDA",
+      "calculation": "density-area",
+      "density": 0.22,
+      "designArea": 2000,
+      "dryDesignArea": 2600,
+      "hoseAllowance": 250,
+      "when": {
+        "arrangements": ["Single-Row Rack", "Double-Row Rack"],
+        "commodities": ["Class III"],
+        "encapsulated": false,
+        "aisleWidthMinInclusive": 4.01,
+        "aisleWidthMaxInclusive": 8,
+        "storageHeightMaxInclusive": 15
+      },
+      "tableTitle": "Draft analyzer table clue: rack storage up to 15 ft",
+      "source": "Imported Storage Anaylzer.html / verify against adopted NFPA 13 table",
+      "confidence": "draft-table-clue",
+      "note": "Imported from the older analyzer; replace with verified NFPA row."
+    },
+    {
+      "id": "draft-rack-class-iv-nonencap-4ft",
+      "label": "CMDA rack - Class IV, nonencapsulated, 4 ft aisle",
+      "editions": ["2019", "2016"],
+      "systemType": "CMDA",
+      "calculation": "density-area",
+      "density": 0.35,
+      "designArea": 2000,
+      "dryDesignArea": 2600,
+      "hoseAllowance": 250,
+      "when": {
+        "arrangements": ["Single-Row Rack", "Double-Row Rack"],
+        "commodities": ["Class IV"],
+        "encapsulated": false,
+        "aisleWidthMaxInclusive": 4,
+        "storageHeightMaxInclusive": 15
+      },
+      "tableTitle": "Draft analyzer table clue: rack storage up to 15 ft",
+      "source": "Imported Storage Anaylzer.html / verify against adopted NFPA 13 table",
+      "confidence": "draft-table-clue",
+      "note": "Imported from the older analyzer; replace with verified NFPA row."
+    },
+    {
+      "id": "draft-rack-class-iv-nonencap-8ft",
+      "label": "CMDA rack - Class IV, nonencapsulated, 8 ft aisle",
+      "editions": ["2019", "2016"],
+      "systemType": "CMDA",
+      "calculation": "density-area",
+      "density": 0.3,
+      "designArea": 2000,
+      "dryDesignArea": 2600,
+      "hoseAllowance": 250,
+      "when": {
+        "arrangements": ["Single-Row Rack", "Double-Row Rack"],
+        "commodities": ["Class IV"],
+        "encapsulated": false,
+        "aisleWidthMinInclusive": 4.01,
+        "aisleWidthMaxInclusive": 8,
+        "storageHeightMaxInclusive": 15
+      },
+      "tableTitle": "Draft analyzer table clue: rack storage up to 15 ft",
+      "source": "Imported Storage Anaylzer.html / verify against adopted NFPA 13 table",
+      "confidence": "draft-table-clue",
+      "note": "Imported from the older analyzer; replace with verified NFPA row."
+    },
+    {
+      "id": "draft-esfr-k25-15psi",
+      "label": "ESFR ceiling-only draft option",
+      "editions": ["2019", "2016"],
+      "systemType": "ESFR",
+      "calculation": "kfactor-pressure",
+      "kFactor": 25.2,
+      "pressure": 15,
+      "operatingSprinklers": 12,
+      "hoseAllowance": 250,
+      "when": {
+        "commodityFamilies": ["Class I", "Class II", "Class III", "Class IV", "Group A Plastics"]
+      },
+      "tableTitle": "Draft analyzer clue: ESFR ceiling-only",
+      "source": "Imported Storage Anaylzer.html / verify exact ESFR table row",
+      "confidence": "draft-placeholder",
+      "note": "Placeholder from the old analyzer, not a final table row."
+    }
+  ],
+  "seedCriteria": [
+    {
+      "id": "cmda-storage-minimum-2019",
+      "label": "2019 CMDA storage minimum",
+      "edition": "2019",
+      "systemType": "CMDA",
+      "appliesWhen": {
+        "storageHeightMinExclusive": 12
+      },
+      "densityMin": 0.15,
+      "wetAreaMin": 2000,
+      "dryAreaMin": 2600,
+      "hoseAllowance": 500,
+      "confidence": "indexed-rule",
+      "source": "21.2.2.5"
+    },
+    {
+      "id": "cmda-storage-minimum-2016",
+      "label": "2016 CMDA storage minimum",
+      "edition": "2016",
+      "systemType": "CMDA",
+      "appliesWhen": {
+        "storageHeightMinExclusive": 12
+      },
+      "densityMin": 0.15,
+      "wetAreaMin": 2000,
+      "dryAreaMin": 2600,
+      "hoseAllowance": 500,
+      "confidence": "indexed-rule",
+      "source": "12.7.6.1 / 12.8.6"
+    },
+    {
+      "id": "esfr-standard-design-area-2019",
+      "label": "2019 ESFR standard operating sprinklers",
+      "edition": "2019",
+      "systemType": "ESFR",
+      "operatingSprinklers": 12,
+      "kFactor": 25.2,
+      "pressure": 15,
+      "hoseAllowance": 250,
+      "confidence": "indexed-rule",
+      "source": "27.2.4.4.1",
+      "note": "Uses K25.2 @ 15 psi as a starter ESFR option from the imported draft analyzer; verify the exact table row."
+    },
+    {
+      "id": "esfr-standard-design-area-2016",
+      "label": "2016 ESFR standard operating sprinklers",
+      "edition": "2016",
+      "systemType": "ESFR",
+      "operatingSprinklers": 12,
+      "kFactor": 25.2,
+      "pressure": 15,
+      "hoseAllowance": 250,
+      "confidence": "indexed-rule",
+      "source": "12.7.6.3",
+      "note": "Uses K25.2 @ 15 psi as a starter ESFR option from the imported draft analyzer; verify the exact table row."
+    }
+  ],
+  "inRackQuickPicks": [
+    {
+      "id": "misc-any",
+      "label": "Miscellaneous storage, any ceiling sprinkler type",
+      "sprinklers": 6,
+      "flow": null,
+      "pressure": 15,
+      "source": "25.12.2.1 / 25.12.3.1",
+      "note": "Pressure-based; enter the in-rack sprinkler K-factor to convert to flow."
+    },
+    {
+      "id": "open-cmda-over-25",
+      "label": "Open rack, CMDA ceiling, storage over 25 ft",
+      "sprinklers": 10,
+      "flow": 30,
+      "pressure": null,
+      "source": "25.12.2.1 / 25.12.3.1",
+      "note": "Use where the selected row matches the commodity/rack condition."
+    },
+    {
+      "id": "open-esfr-any",
+      "label": "Open rack, ESFR ceiling",
+      "sprinklers": 10,
+      "flow": 60,
+      "pressure": null,
+      "source": "25.12.2.1 / 25.12.3.1",
+      "note": "Use where the selected row matches the commodity/rack condition."
+    },
+    {
+      "id": "solid-shelf-any",
+      "label": "Solid shelf rack, any ceiling sprinkler type",
+      "sprinklers": 14,
+      "flow": 30,
+      "pressure": null,
+      "source": "25.12.2.1 / 25.12.3.1",
+      "note": "Use where solid shelf criteria apply."
+    }
+  ]
+}

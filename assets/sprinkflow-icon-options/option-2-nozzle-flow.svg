@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg2" x1="76" y1="50" x2="440" y2="458" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1d2d36"/>
+      <stop offset="1" stop-color="#0b1015"/>
+    </linearGradient>
+    <linearGradient id="pipe2" x1="117" y1="114" x2="363" y2="339" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f3a33a"/>
+      <stop offset="1" stop-color="#e5482e"/>
+    </linearGradient>
+    <linearGradient id="drop2" x1="245" y1="175" x2="395" y2="407" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5ad8f4"/>
+      <stop offset="1" stop-color="#116f91"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg2)"/>
+  <path d="M124 140h140c45 0 82 37 82 82v54" fill="none" stroke="url(#pipe2)" stroke-width="54" stroke-linecap="round"/>
+  <path d="M95 113h86v86H95z" rx="24" fill="#202b32" stroke="#ffb23a" stroke-width="14"/>
+  <path d="M304 249h84v62h-84z" rx="14" fill="#202b32" stroke="#ffb23a" stroke-width="14"/>
+  <path d="M346 319c-39 49-72 91-72 133 0 39 32 62 72 62s72-23 72-62c0-42-33-84-72-133Z" transform="translate(0 -42)" fill="url(#drop2)"/>
+  <path d="M152 140h111c27 0 49 22 49 49v34" fill="none" stroke="#17232b" stroke-width="18" stroke-linecap="round"/>
+  <path d="M302 335c-20 22-36 43-36 66" stroke="#d9f5fb" stroke-width="14" stroke-linecap="round" opacity=".9"/>
+</svg>
