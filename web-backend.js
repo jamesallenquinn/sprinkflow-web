@@ -374,6 +374,41 @@
     });
   }
 
+  // ---- plans scan (the REAL plan_scan_core.py via Pyodide) -----------------
+  // Identical code to the desktop scan minus the OCR fallback (that rasterizes
+  // through desktop-only tooling); typed plan sets scan the same as desktop.
+  var _pypdfReady = null;
+  function ensurePypdf(py) {
+    if (_pypdfReady) return _pypdfReady;
+    setBadge("Loading plan scanner (first use)…");
+    _pypdfReady = py.loadPackage("micropip")
+      .then(function () { return py.runPythonAsync("import micropip\nawait micropip.install('pypdf')"); })
+      .then(function () { setBadge(null); }, function (e) { setBadge(null); _pypdfReady = null; throw e; });
+    return _pypdfReady;
+  }
+
+  function analyzePlansWeb(body) {
+    var f = body.file || {};
+    if (!f.dataUrl) return Promise.resolve(jsonResp({ ok: false, error: "The plan PDF is missing its data - drop it again." }));
+    return seismicEngine().then(function (py) {
+      return ensurePypdf(py).then(function () {
+        py.runPython("import pathlib, shutil\nshutil.rmtree('/planscan', ignore_errors=True)\npathlib.Path('/planscan').mkdir()");
+        py.FS.writeFile("/planscan/plans.pdf", dataUrlToBytes(f.dataUrl));
+        py.globals.set("_ps_name", f.name || "plans.pdf");
+        py.globals.set("_ps_opts", JSON.stringify(body.scanOptions || null));
+        var out = py.runPython(
+          "import json, pathlib\n" +
+          "from plan_scan_core import analyze_plan_core\n" +
+          "_r = analyze_plan_core(pathlib.Path('/planscan/plans.pdf'), _ps_name, json.loads(_ps_opts))\n" +
+          "_r['notes'] = (_r.get('notes') or []) + ['Scanned in the browser - scanned/raster plan sets need the desktop app (OCR).']\n" +
+          "json.dumps(_r)");
+        return jsonResp({ ok: true, project: JSON.parse(out) });
+      });
+    }).catch(function (e) {
+      return jsonResp({ ok: false, error: String((e && e.message) || e).split("\n").filter(Boolean).pop() || "Plan scan failed." });
+    });
+  }
+
   // reportlab isn't a Pyodide built-in; micropip pulls it (~1s) on first export.
   var _rlReady = null;
   function ensureReportlab(py) {
@@ -546,9 +581,8 @@
       // ---- intake classification (heuristic port of the desktop classifier - no AI) ----
       case "/api/classify-pdf-upload":  return classifyPdfWeb(body).then(jsonResp);
 
-      // ---- AI (runs in the desktop / subscriber cloud) ----
-      case "/api/analyze-plans":
-        return Promise.resolve(jsonResp({ ok: false, error: "The AI plan scan runs in the desktop app. Your plans were still added to the project package - enter the project info by hand (or use the desktop app to auto-fill it)." }));
+      // ---- plans scan (the REAL local scan via Pyodide - no AI involved) ----
+      case "/api/analyze-plans":       return analyzePlansWeb(body);
       // cut-sheet import: the AI reader is desktop-only, but the import flow
       // ABORTS entirely when this endpoint errors (before the review dialog
       // ever opens). Return lightweight filename-based guesses instead - the

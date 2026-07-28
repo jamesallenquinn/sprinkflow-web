@@ -4154,22 +4154,11 @@ async function processProjectIntakeFiles(files) {
 
   if (planFiles.length) {
     storeProjectPlanFiles(planFiles);
-    if (window.__SPRINKFLOW_WEB__) {
-      // web edition: the AI project-info scan is desktop-only — don't run it
-      // just to fail; the drop itself succeeded and the plans are stored.
-      setOcrStatus(`${planFiles.length === 1 ? "Plan set" : planFiles.length + " plan PDFs"} added to the project package ✓ — fill in the project info on the right (the full plan scan runs in the desktop app for now; web support is coming).`);
-      // mirror the desktop scan's success behavior: a stored plan completes
-      // step 1 in Quick mode, so move the wizard forward like desktop does.
-      if (state.viewMode === "simple" && state.simpleStep === "intake") {
-        window.setTimeout(() => {
-          if (state.viewMode === "simple" && state.simpleStep === "intake") setSimpleStep("contractor");
-        }, 600);
-      }
-    } else {
-      await analyzePlansPdf(planFiles[0].file, planFiles[0].dataUrl);
-      if (planFiles.length > 1) {
-        setOcrStatus(`Plans scan applied. ${planFiles.length - 1} additional plan PDF${planFiles.length === 2 ? "" : "s"} were not scanned yet; drop them again if needed.`);
-      }
+    // both platforms run the same LOCAL scan (plan_scan_core) — desktop layers
+    // an OCR fallback on top; the web notes when a raster set needs it.
+    await analyzePlansPdf(planFiles[0].file, planFiles[0].dataUrl);
+    if (planFiles.length > 1) {
+      setOcrStatus(`Plans scan applied. ${planFiles.length - 1} additional plan PDF${planFiles.length === 2 ? "" : "s"} were not scanned yet; drop them again if needed.`);
     }
   } else if (hydraulicFiles.length) {
     activateTool("hydraulic");
