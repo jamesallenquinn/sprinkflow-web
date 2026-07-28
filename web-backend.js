@@ -487,7 +487,7 @@
   function dispatch(route, url, body) {
     switch (route) {
       // ---- boot ----
-      case "/api/app-info":   return Promise.resolve(jsonResp({ ok: true, app: { name: "SprinkFlow", version: "1.1.5", channel: "web", publisher: "SprinkFlow" }, license: webLicense() }));
+      case "/api/app-info":   return Promise.resolve(jsonResp({ ok: true, app: { name: "SprinkFlow", version: "1.1.6", channel: "web", publisher: "SprinkFlow" }, license: webLicense() }));
       case "/api/app-data":   return Promise.all([kvGet("state"), kvGet("projects")]).then(function (r) { return jsonResp({ ok: true, state: r[0] || {}, projects: r[1] || [] }); });
       case "/api/app-state":  return kvSet("state", body.state || {}).then(function () { return jsonResp({ ok: true }); });
       case "/api/projects":   return kvSet("projects", body.projects || []).then(function () { return jsonResp({ ok: true }); });
