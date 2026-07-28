@@ -10260,73 +10260,8 @@ function pdfcadApplyAnalyze(payload, fileName, isFreshImport) {
   }
 }
 
-// ---- DWG / DXF viewer -------------------------------------------------------
+// ODA File Converter download link (PDF-to-CAD + exploder point at it)
 const ODA_DOWNLOAD_URL = "https://www.opendesign.com/guestfiles/oda_file_converter";
-const cadviewState = { token: null, fileName: "" };
-
-async function cadviewOpen() {
-  const status = document.getElementById("cadviewStatus");
-  const oda = document.getElementById("cadviewOdaNote");
-  if (oda) oda.hidden = true;
-  if (status) status.textContent = "Choose a DWG or DXF in the dialog...";
-  try {
-    const width = Number(document.getElementById("cadviewZoomSelect")?.value) || 1600;
-    // status flips once the dialog closes; the render itself can take a few seconds
-    const payload = await readApiJson("./api/cad-viewer/pick", { method: "POST", body: JSON.stringify({ width }) });
-    cadviewState.token = payload.token;
-    cadviewState.fileName = payload.fileName || "";
-    cadviewApply(payload);
-  } catch (error) {
-    if (/cancel/i.test(error.message || "")) { if (status) status.textContent = ""; return; }
-    if (status) status.textContent = error.message || "Could not open that drawing.";
-    // the server flags a DWG pick without the ODA converter installed
-    if (oda && /ODA File Converter/i.test(error.message || "")) oda.hidden = false;
-  }
-}
-
-function cadviewApply(payload) {
-  const pane = document.getElementById("cadviewPane");
-  const status = document.getElementById("cadviewStatus");
-  const meta = document.getElementById("cadviewMeta");
-  if (!pane) return;
-  const img = document.createElement("img");
-  img.className = "cadview-img";
-  img.alt = `${cadviewState.fileName} rendered preview`;
-  img.src = payload.dataUrl;
-  pane.innerHTML = "";
-  pane.appendChild(img);
-  if (meta) meta.textContent =
-    `${cadviewState.fileName} — ${Number(payload.entities).toLocaleString()} entities · ${payload.layers.length} layers`;
-  if (status) status.textContent = "";
-}
-
-async function cadviewRerender() {
-  if (!cadviewState.token) return;
-  const status = document.getElementById("cadviewStatus");
-  if (status) status.textContent = "Re-rendering at higher detail...";
-  try {
-    const width = Number(document.getElementById("cadviewZoomSelect")?.value) || 1600;
-    const payload = await readApiJson("./api/cad-viewer/render", {
-      method: "POST", body: JSON.stringify({ token: cadviewState.token, width }),
-    });
-    cadviewApply(payload);
-  } catch (error) {
-    if (status) status.textContent = error.message || "Render failed.";
-  }
-}
-
-function cadviewClear() {
-  cadviewState.token = null;
-  cadviewState.fileName = "";
-  const pane = document.getElementById("cadviewPane");
-  if (pane) pane.innerHTML = '<p class="cadview-empty">Open a DWG or DXF and it renders here like a plotted sheet — scroll to pan, and bump Detail to re-render sharper. Great for a quick look at what a customer sent without launching CAD.</p>';
-  const meta = document.getElementById("cadviewMeta");
-  if (meta) meta.textContent = "";
-  const status = document.getElementById("cadviewStatus");
-  if (status) status.textContent = "";
-  const oda = document.getElementById("cadviewOdaNote");
-  if (oda) oda.hidden = true;
-}
 
 function pdfcadUpdatePageLabel() {
   const lbl = document.getElementById("pdfcadPageLabel");
@@ -12622,12 +12557,8 @@ function initPdfcad() {
   drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("drag-over"); if (e.dataTransfer.files[0]) takeFile(e.dataTransfer.files[0]); });
   document.getElementById("pdfcadPickButton")?.addEventListener("click", pdfcadPickFile);
   document.getElementById("pdfcadScaleSelect")?.addEventListener("change", renderPdfcadSummary);
-  // DWG/DXF viewer + ODA download links
-  document.getElementById("cadviewOpenButton")?.addEventListener("click", cadviewOpen);
-  document.getElementById("cadviewZoomSelect")?.addEventListener("change", cadviewRerender);
-  document.getElementById("cadviewClearButton")?.addEventListener("click", cadviewClear);
-  ["cadviewOdaLink", "pdfcadOdaLink"].forEach((id) =>
-    document.getElementById(id)?.addEventListener("click", () => window.open(ODA_DOWNLOAD_URL, "_blank", "noopener")));
+  // ODA download link (PDF-to-CAD note)
+  document.getElementById("pdfcadOdaLink")?.addEventListener("click", () => window.open(ODA_DOWNLOAD_URL, "_blank", "noopener"));
   document.getElementById("pdfcadConvertButton")?.addEventListener("click", pdfcadConvert);
   let pdfcadScrollTimer = null;
   document.getElementById("pdfcadCards")?.addEventListener("scroll", () => {

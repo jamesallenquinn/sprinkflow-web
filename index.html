@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=256" />
+    <link rel="stylesheet" href="./styles.css?v=257" />
   </head>
   <body>
     <div class="app-shell">
@@ -75,7 +75,6 @@
         <div class="tool-tab-group">Tools</div>
         <button class="tool-tab" type="button" data-tool-tab="pdfcad" aria-pressed="false">Convert PDF to CAD</button>
         <button class="tool-tab" type="button" data-tool-tab="cadexplode" aria-pressed="false">Explode CAD Blocks</button>
-        <button class="tool-tab" type="button" data-tool-tab="cadviewer" aria-pressed="false">DWG / DXF Viewer</button>
         <button class="tool-tab" type="button" data-tool-tab="pdf" aria-pressed="false">Merge / Compress PDFs</button>
         <button class="tool-tab" type="button" data-tool-tab="settings" aria-pressed="false">Settings</button>
       </nav>
@@ -1804,40 +1803,6 @@
         </div>
       </section>
 
-      <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="cadviewer" hidden>
-        <div class="calculator-hero">
-          <div>
-            <p class="eyebrow">CAD Prep</p>
-            <h2>DWG / DXF Viewer</h2>
-          </div>
-          <div class="seismic-hero-actions">
-            <button class="ghost-button" id="cadviewClearButton" type="button">Clear</button>
-          </div>
-        </div>
-        <section class="panel-section calculator-section">
-          <div class="cadview-toolbar">
-            <button class="primary-button" id="cadviewOpenButton" type="button" title="Open a DWG or DXF straight off disk">&#128194; Open DWG / DXF&hellip;</button>
-            <label class="cadview-zoom">Detail
-              <select id="cadviewZoomSelect">
-                <option value="1600" selected>Standard</option>
-                <option value="2600">High (2&times;)</option>
-                <option value="4000">Max</option>
-              </select>
-            </label>
-            <span id="cadviewMeta" class="cadview-meta"></span>
-          </div>
-          <p class="calculator-status" id="cadviewStatus"></p>
-          <div class="cadview-oda" id="cadviewOdaNote" hidden>
-            Reading DWG needs the <strong>free ODA File Converter</strong> (DXF views without it).
-            <button class="link-button" id="cadviewOdaLink" type="button">Download it here (free, opendesign.com)</button>
-            &mdash; install it, then open the drawing again.
-          </div>
-          <div class="cadview-pane" id="cadviewPane">
-            <p class="cadview-empty" id="cadviewEmpty">Open a DWG or DXF and it renders here like a plotted sheet &mdash; scroll to pan, and bump Detail to re-render sharper. Great for a quick look at what a customer sent without launching CAD.</p>
-          </div>
-        </section>
-      </section>
-
       <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="pdf" hidden>
         <div class="calculator-hero">
           <div>
@@ -3384,7 +3349,7 @@
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
     <script src="./web-backend.js?v=3"></script>
-    <script src="./app.js?v=322"></script>
+    <script src="./app.js?v=323"></script>
     <script src="./pwa/tools/prelim-calc-engine.js?v=10"></script>
     <script src="./pwa/tools/hydro-solver.js?v=1"></script>
     <script src="./pwa/tools/hydro-grid.js?v=3"></script>
