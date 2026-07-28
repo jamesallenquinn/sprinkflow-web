@@ -462,10 +462,13 @@
       case "/api/clipboard-copy":      return clip(body).then(function () { return jsonResp({ ok: true }); });
       case "/api/create-email-draft":  return Promise.resolve(jsonResp({ ok: false, error: "Email drafts need the desktop app." }));
 
-      // ---- AI (disabled in the free web edition) ----
-      case "/api/analyze-cut-sheets":
+      // ---- intake classification (heuristic port of the desktop classifier - no AI) ----
+      case "/api/classify-pdf-upload":  return classifyPdfWeb(body).then(jsonResp);
+
+      // ---- AI (runs in the desktop / subscriber cloud) ----
       case "/api/analyze-plans":
-      case "/api/classify-pdf-upload":
+        return Promise.resolve(jsonResp({ ok: false, error: "The AI plan scan runs in the desktop app. Your plans were still added to the project package - enter the project info by hand (or use the desktop app to auto-fill it)." }));
+      case "/api/analyze-cut-sheets":
       case "/api/specs/scan":
       case "/api/identify-datasheet":
       case "/api/bid-plan-intake":
@@ -775,6 +778,72 @@
   }
 
   // ---- pdf-thumbnail (via the already-loaded pdf.js) ----
+  // Project-intake classifier: a faithful port of the desktop's HEURISTIC
+  // classify_uploaded_project_pdf (server.py) - page sizes + text regexes via
+  // pdf.js, no AI involved. Keep the decision tree in sync with the desktop.
+  function classifyPdfWeb(body) {
+    var f = body.file || {};
+    var name = f.name || "PDF";
+    if (!f.dataUrl) return Promise.resolve({ ok: false, error: name + " is missing PDF data." });
+    if (!window.pdfjsLib) return Promise.resolve({ ok: false, error: "The PDF reader has not loaded yet - try the drop again." });
+    var bytes = dataUrlToBytes(f.dataUrl);
+    return window.pdfjsLib.getDocument({ data: bytes }).promise.then(function (pdf) {
+      var pageCount = pdf.numPages;
+      if (!pageCount) return { ok: false, error: name + " does not contain any pages." };
+      var sample = Math.min(3, pageCount);
+      var sizes = [], texts = [];
+      var chain = Promise.resolve();
+      var loadPage = function (idx) {
+        chain = chain.then(function () {
+          return pdf.getPage(idx).then(function (page) {
+            var vp = page.getViewport({ scale: 1 });   // pdf.js units are points (1/72 in)
+            sizes.push({ width: Math.round(vp.width / 72 * 100) / 100, height: Math.round(vp.height / 72 * 100) / 100 });
+            return page.getTextContent().then(function (tc) {
+              texts.push(tc.items.map(function (it) { return it.str; }).join(" "));
+            }, function () { texts.push(""); });
+          });
+        });
+      };
+      for (var i = 1; i <= sample; i++) loadPage(i);
+      return chain.then(function () {
+        var first = sizes[0];
+        var maxDim = 0;
+        sizes.forEach(function (s) { maxDim = Math.max(maxDim, s.width, s.height); });
+        var minDim = Math.min(first.width, first.height);
+        var text = texts.join("\n");
+        var lowerName = name.toLowerCase();
+        var hasHydraulic = /\b(HYDRAULIC\s+(?:CALC|CALCULATION|CALCULATIONS|GRAPH|SUMMARY|OVERVIEW)|REMOTE\s+AREA|DESIGN\s+AREA|REPORT\s+DESCRIPTION|MEPCAD|WATER\s+SUPPLY\s+AT\s+NODE|MOST\s+DEMANDING\s+SPRINKLER)\b/i.test(text);
+        var hasPlanLang = /\b(SPRINKLER\s+LEGEND|FIRE\s+SPRINKLER\s+PLANS?|SHEET\s+NO\.?|DRAWING\s+INDEX|PROJECT\s+DESIGN\s+DATA|GENERAL\s+NOTES)\b/i.test(text);
+        var fileSaysCalc = /\b(calc|calcs|calculation|hydraulic|remote\s*area|ra\d*)\b/i.test(lowerName);
+        var letterish = maxDim <= 17.1 && minDim <= 11.2;
+        var largeFormat = maxDim >= 18 || minDim >= 12;
+        var hasSpecLang = /SECTION\s+(\d{2}\s?\d{2}\s?\d{2}|\d{5})\b/.test(text.toUpperCase())
+          || /\b(PROJECT\s+MANUAL|SPECIFICATIONS?\s+TABLE\s+OF\s+CONTENTS|MASTERFORMAT)\b/i.test(text);
+        var fileSaysSpec = /\b(spec|specs|specification|specifications|project\s*manual|div\s*21)\b/i.test(lowerName);
+
+        var kind = "plans";
+        var reason = "Large-format or plan-like PDF.";
+        if (largeFormat) {
+          kind = "plans"; reason = "Detected a large-format plan sheet.";
+        } else if (letterish && (hasSpecLang || (fileSaysSpec && pageCount >= 3)) && !hasHydraulic) {
+          kind = "specs"; reason = "Detected a project specification document.";
+        } else if (hasPlanLang && !fileSaysCalc) {
+          kind = "plans"; reason = "Detected plan-sheet language.";
+        } else if (hasHydraulic) {
+          kind = "hydraulic"; reason = "Detected hydraulic calculation language.";
+        } else if (letterish && fileSaysCalc) {
+          kind = "hydraulic"; reason = "Detected a letter-size calc-named PDF.";
+        } else if (letterish && !hasPlanLang && pageCount > 1) {
+          kind = "hydraulic"; reason = "Detected a letter-size multi-page PDF, likely hydraulic calculations.";
+        } else if (hasPlanLang) {
+          kind = "plans";
+        }
+        return { ok: true, kind: kind, reason: reason, name: name, pageCount: pageCount,
+                 pageSizes: sizes, hasText: !!text.trim() };
+      });
+    }, function () { return { ok: false, error: name + " could not be read as a PDF." }; });
+  }
+
   function pdfThumbnail(body) {
     var f = body.file || {};
     if (!f.dataUrl || !window.pdfjsLib) return Promise.resolve({ ok: false, error: "No preview available." });
