@@ -4158,6 +4158,13 @@ async function processProjectIntakeFiles(files) {
       // web edition: the AI project-info scan is desktop-only — don't run it
       // just to fail; the drop itself succeeded and the plans are stored.
       setOcrStatus(`${planFiles.length === 1 ? "Plan set" : planFiles.length + " plan PDFs"} added to the project package ✓ — fill in the project info on the right (the AI auto-fill scan runs in the desktop app).`);
+      // mirror the desktop scan's success behavior: a stored plan completes
+      // step 1 in Quick mode, so move the wizard forward like desktop does.
+      if (state.viewMode === "simple" && state.simpleStep === "intake") {
+        window.setTimeout(() => {
+          if (state.viewMode === "simple" && state.simpleStep === "intake") setSimpleStep("contractor");
+        }, 600);
+      }
     } else {
       await analyzePlansPdf(planFiles[0].file, planFiles[0].dataUrl);
       if (planFiles.length > 1) {
