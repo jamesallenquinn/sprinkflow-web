@@ -3090,12 +3090,12 @@
         <div class="startup-login-fields">
           <label>
             Email
-            <input id="startupLoginEmailInput" type="email" autocomplete="email" placeholder="name@company.com" />
+            <input id="startupLoginEmailInput" name="email" type="email" autocomplete="username" placeholder="name@company.com" />
           </label>
           <label>
             Password
             <span class="password-field">
-              <input id="startupLoginPasswordInput" type="password" autocomplete="current-password" placeholder="SprinkFlow password" />
+              <input id="startupLoginPasswordInput" name="password" type="password" autocomplete="current-password" placeholder="SprinkFlow password" />
               <button type="button" class="password-toggle" data-password-toggle="startupLoginPasswordInput" aria-label="Show password" title="Show password">&#128065;</button>
             </span>
           </label>
@@ -3165,16 +3165,16 @@
 
         <div class="account-tab-panel" data-account-panel="signin" hidden>
           <div class="license-form-card">
-            <p class="license-helper-text">Sign in with the email address from your SprinkFlow beta invite. Your name and company appear on the cover sheets you generate.</p>
+            <p class="license-helper-text">Sign in with your SprinkFlow account email. Your name and company appear on the cover sheets you generate.</p>
             <div class="field-grid two">
               <label>
                 Email
-                <input id="licenseEmailInput" type="email" autocomplete="email" placeholder="name@company.com" />
+                <input id="licenseEmailInput" name="email" type="email" autocomplete="username" placeholder="name@company.com" />
               </label>
               <label>
                 Password
                 <span class="password-field">
-                  <input id="licensePasswordInput" type="password" autocomplete="current-password" placeholder="Beta account password" />
+                  <input id="licensePasswordInput" name="password" type="password" autocomplete="current-password" placeholder="SprinkFlow password" />
                   <button type="button" class="password-toggle" data-password-toggle="licensePasswordInput" aria-label="Show password" title="Show password">&#128065;</button>
                 </span>
               </label>
