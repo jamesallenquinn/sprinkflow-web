@@ -4,6 +4,9 @@
    Same HTML, phone-friendly presentation: single column, horizontal tool nav,
    full-screen dialogs, 44px touch targets, 16px inputs (stops iOS auto-zoom).
    ========================================================================== */
+/* hamburger toggle is injected by web-backend.js; only phones ever see it */
+.sf-mnav-toggle { display: none; }
+
 @media (max-width: 760px) {
 
   /* ---- page frame ---- */
@@ -17,42 +20,89 @@
     gap: 8px;
   }
 
-  /* ---- shell: sidebar becomes a sticky horizontal tool bar ---- */
+  /* ---- shell: sidebar hides behind a hamburger menu ---- */
   .tool-shell {
     flex-direction: column;
     gap: 10px;
   }
 
-  .tool-tabs {
-    -webkit-overflow-scrolling: touch;
-    flex: none;
-    flex-direction: row;
+  .sf-mnav-toggle {
     align-items: center;
-    gap: 6px;
-    margin-bottom: 4px;
-    max-height: none;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 8px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--ink);
+    cursor: pointer;
+    display: flex;
+    font: inherit;
+    font-weight: 700;
+    gap: 10px;
+    min-height: 44px;
+    padding: 10px 14px;
     position: sticky;
-    scrollbar-width: thin;
-    top: 0;
+    top: 8px;
     width: 100%;
-    z-index: 80;
+    z-index: 130;
+  }
+
+  .sf-mnav-toggle .sf-mnav-icon {
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  .sf-mnav-toggle .sf-mnav-close,
+  body.sf-mnav-open .sf-mnav-toggle .sf-mnav-burger {
+    display: none;
+  }
+
+  body.sf-mnav-open .sf-mnav-toggle .sf-mnav-close {
+    display: inline;
+  }
+
+  /* the tool list becomes a full-screen drawer, stacked vertically as usual */
+  .tool-tabs {
+    display: none;
+    flex: none;
+    margin: 0;
+    max-height: none;
+    width: 100%;
+  }
+
+  body.sf-mnav-open .tool-tabs {
+    -webkit-overflow-scrolling: touch;
+    background: var(--bg);
+    border: 0;
+    border-radius: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    left: 0;
+    overflow-y: auto;
+    padding: 66px 14px 24px;
+    position: fixed;
+    right: 0;
+    top: 0;
+    z-index: 120;
+  }
+
+  body.sf-mnav-open {
+    overflow: hidden;
+  }
+
+  /* keep the toggle reachable above the open drawer */
+  body.sf-mnav-open .sf-mnav-toggle {
+    left: 8px;
+    position: fixed;
+    right: 8px;
+    top: 8px;
+    width: auto;
   }
 
   .tool-tab {
-    flex: 0 0 auto;
     min-height: 44px;
-    padding: 10px 14px;
-    white-space: nowrap;
-  }
-
-  .tool-tab-group {
-    border-left: 2px solid var(--line);
-    flex: 0 0 auto;
-    padding: 0 4px 0 10px;
-    white-space: nowrap;
+    text-align: left;
+    width: 100%;
   }
 
   /* ---- generic layout collapses ---- */

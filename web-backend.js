@@ -25,7 +25,7 @@
   if (!WEB) return;                                 // desktop: do nothing
   window.__SPRINKFLOW_WEB__ = true;
   // stamped by packaging/build_web_edition.py at deploy time; "dev" locally
-  var WEB_BUILD = "b0728-2358-6372d30";
+  var WEB_BUILD = "b0729-0020-3437535";
   window.__SPRINKFLOW_WEB_BUILD__ = WEB_BUILD;
   console.log("[web-backend] SprinkFlow Web Edition active — build " + WEB_BUILD);
   // mobile layer: web-only stylesheet (media-query gated), never active on desktop
@@ -34,6 +34,38 @@
     l.rel = "stylesheet";
     l.href = "./web-mobile.css?v=" + encodeURIComponent(WEB_BUILD);
     document.head.appendChild(l);
+    // phone nav: hamburger toggle + the tool list as a vertical drawer
+    // (CSS shows the button only under 760px; markup is inert elsewhere)
+    function initMobileNav() {
+      var shell = document.querySelector(".tool-shell");
+      var tabs = document.querySelector(".tool-tabs");
+      if (!shell || !tabs || document.querySelector(".sf-mnav-toggle")) return;
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "sf-mnav-toggle";
+      btn.setAttribute("aria-label", "Tool menu");
+      btn.innerHTML = '<span class="sf-mnav-icon sf-mnav-burger">☰</span>' +
+                      '<span class="sf-mnav-icon sf-mnav-close">✕</span><span>Tools</span>';
+      btn.addEventListener("click", function () {
+        document.body.classList.toggle("sf-mnav-open");
+      });
+      shell.insertBefore(btn, shell.firstChild);
+      tabs.addEventListener("click", function (e) {
+        var t = e.target;
+        while (t && t !== tabs) {
+          if (t.classList && t.classList.contains("tool-tab")) {
+            document.body.classList.remove("sf-mnav-open");
+            return;
+          }
+          t = t.parentNode;
+        }
+      });
+    }
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", initMobileNav);
+    } else {
+      initMobileNav();
+    }
   })();
   // admin accounts see the build id in the version pill to verify deploys
   var WEB_ADMIN_EMAILS = ["jamesallenquinn@gmail.com", "james@calculated-fs.com"];
