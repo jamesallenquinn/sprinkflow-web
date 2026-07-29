@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0729-0020-3437535" />
+    <link rel="stylesheet" href="./styles.css?v=b0729-1739-75a3336" />
   </head>
   <body>
     <div class="app-shell">
@@ -999,17 +999,36 @@
             <div id="hydreportCustomHazardList" class="hydreport-custom-list"></div>
 
             <div class="section-heading hydreport-subhead"><p class="eyebrow">Design Area &amp; Modifiers</p></div>
-            <label>Base Design Area (ft&sup2;)
-              <input id="hydreportBaseAreaInput" type="number" min="1" step="1" inputmode="decimal" value="1500" />
+            <label>System Design Basis
+              <select id="hydreportBasisSelect">
+                <option value="standard">NFPA 13 &mdash; density/area method</option>
+                <option value="res13">NFPA 13 &mdash; residential sprinklers (19.3.1)</option>
+                <option value="res13r">NFPA 13R &mdash; residential occupancies (7.1.1)</option>
+                <option value="res13d">NFPA 13D &mdash; dwellings (10.1 / 10.2)</option>
+              </select>
             </label>
-            <label class="toggle-row"><input id="hydreportQrToggle" type="checkbox" /> <span>Quick-response sprinklers (wet-pipe, Light/Ordinary Hazard)</span></label>
-            <label>Ceiling Height &mdash; for QR reduction
-              <input id="hydreportCeilingInput" type="text" autocomplete="off" placeholder="ex: 12 or 15-2" />
-            </label>
-            <p class="hydreport-note" id="hydreportQrResult"></p>
-            <label class="toggle-row"><input id="hydreportDryToggle" type="checkbox" /> <span>Dry pipe or double-interlock preaction system (+30% design area)</span></label>
-            <label class="toggle-row"><input id="hydreportSlopeToggle" type="checkbox" /> <span>Ceiling slope exceeds 2 in 12 (+30% design area)</span></label>
-            <p class="hydreport-note" id="hydreportMinLengthResult"></p>
+            <div id="hydreportStdBox">
+              <label>Base Design Area (ft&sup2;)
+                <input id="hydreportBaseAreaInput" type="number" min="1" step="1" inputmode="decimal" value="1500" />
+              </label>
+              <label class="toggle-row"><input id="hydreportQrToggle" type="checkbox" /> <span>Quick-response sprinklers (wet-pipe, Light/Ordinary Hazard)</span></label>
+              <label>Ceiling Height &mdash; for QR reduction
+                <input id="hydreportCeilingInput" type="text" autocomplete="off" placeholder="ex: 12 or 15-2" />
+              </label>
+              <p class="hydreport-note" id="hydreportQrResult"></p>
+              <label class="toggle-row"><input id="hydreportDryToggle" type="checkbox" /> <span>Dry pipe or double-interlock preaction system (+30% design area)</span></label>
+              <label class="toggle-row"><input id="hydreportSlopeToggle" type="checkbox" /> <span>Ceiling slope exceeds 2 in 12 (+30% design area)</span></label>
+              <p class="hydreport-note" id="hydreportMinLengthResult"></p>
+            </div>
+            <div id="hydreportResBox" hidden>
+              <label id="hydreportResHeadsRow">Number of Design Sprinklers
+                <input id="hydreportResHeadsInput" type="number" min="1" step="1" inputmode="numeric" />
+              </label>
+              <p class="hydreport-note" id="hydreportResHeadsNote"></p>
+              <label class="toggle-row" id="hydreportResConcealedRow"><input id="hydreportResConcealedToggle" type="checkbox" /> <span>Unsprinklered combustible concealed spaces &mdash; eight-sprinkler minimum design area (19.3.1.2)</span></label>
+              <label class="toggle-row" id="hydreportResListedRow"><input id="hydreportResListedToggle" type="checkbox" /> <span>Ceiling configuration outside the standard conditions &mdash; sprinklers applied per their specific ceiling-configuration listing</span></label>
+              <label class="toggle-row" id="hydreportResMainRow"><input id="hydreportResMainToggle" type="checkbox" /> <span>Supply from a 4&quot; or larger public/private main &mdash; static pressure permitted for comparison (10.1.2)</span></label>
+            </div>
 
             <label class="hydreport-subhead">Max Storage Height (ft)
               <input id="hydreportStorageInput" type="number" min="0" step="0.5" inputmode="decimal" value="12" />
@@ -3348,11 +3367,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0729-0020-3437535"></script>
-    <script src="./app.js?v=b0729-0020-3437535"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0729-0020-3437535"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0729-0020-3437535"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0729-0020-3437535"></script>
-    <script src="./prelim-calc-desktop.js?v=b0729-0020-3437535"></script>
+    <script src="./web-backend.js?v=b0729-1739-75a3336"></script>
+    <script src="./app.js?v=b0729-1739-75a3336"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0729-1739-75a3336"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0729-1739-75a3336"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0729-1739-75a3336"></script>
+    <script src="./prelim-calc-desktop.js?v=b0729-1739-75a3336"></script>
   </body>
 </html>

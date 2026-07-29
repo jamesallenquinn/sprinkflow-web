@@ -9949,7 +9949,57 @@ const hydreportState = {
   rooms: [{ name: "", hazard: "light" }],
   pipes: JSON.parse(JSON.stringify(HYDREPORT_DEFAULT_PIPES)),
   activeReportId: "",
+  basis: "standard",
 };
+
+// Residential design bases. Max design sprinklers: NFPA 13 19.3.1.1 (four
+// adjacent), NFPA 13R 7.1.1.3.1 (up to four in the compartment), NFPA 13D
+// 10.2.1 (up to two in the compartment).
+const HYDREPORT_BASES = {
+  res13: { code: "NFPA 13", edition: "2025", maxHeads: 4 },
+  res13r: { code: "NFPA 13R", edition: "2025", maxHeads: 4 },
+  res13d: { code: "NFPA 13D", edition: "2022", maxHeads: 2 },
+};
+
+function hydreportSyncBasisUI() {
+  const basis = hydreportState.basis;
+  const res = basis !== "standard";
+  const show = (id, on) => { const el = document.getElementById(id); if (el) el.hidden = !on; };
+  show("hydreportStdBox", !res);
+  show("hydreportResBox", res);
+  // 19.3.1.1 fixes the count at the four adjacent sprinklers (eight with
+  // qualifying concealed spaces) — no user input; 13R/13D are "up to" caps.
+  show("hydreportResHeadsRow", basis === "res13r" || basis === "res13d");
+  show("hydreportResConcealedRow", basis === "res13");
+  show("hydreportResListedRow", basis === "res13r" || basis === "res13d");
+  show("hydreportResMainRow", basis === "res13d");
+  const sel = document.getElementById("hydreportBasisSelect");
+  if (sel && sel.value !== basis) sel.value = basis;
+}
+
+// Selecting a residential basis puts its standard on the codes list: a lone
+// untouched default "NFPA 13" row is replaced (13R/13D reports cite their own
+// standard, not 13); anything user-entered is kept and the standard appended.
+// A row this function added is swapped out on the next basis switch so
+// flipping between bases doesn't pile up standards.
+let hydreportAutoCode = null;
+function hydreportEnsureBasisCode(basis) {
+  const want = HYDREPORT_BASES[basis] || { code: "NFPA 13", edition: "2025" };
+  const codes = hydreportState.codes;
+  if (hydreportAutoCode && hydreportAutoCode.code !== want.code) {
+    const i = codes.findIndex((c) => c.code === hydreportAutoCode.code && c.edition === hydreportAutoCode.edition);
+    if (i >= 0) codes.splice(i, 1);
+    hydreportAutoCode = null;
+  }
+  if (!codes.some((c) => c.code.trim().toLowerCase() === want.code.toLowerCase())) {
+    const loneDefault = codes.length === 1 && codes[0].code.trim() === "NFPA 13" && (basis === "res13r" || basis === "res13d");
+    if (loneDefault) codes[0] = { code: want.code, edition: want.edition };
+    else codes.push({ code: want.code, edition: want.edition });
+    hydreportAutoCode = { code: want.code, edition: want.edition };
+  }
+  if (!codes.length) codes.push({ code: "NFPA 13", edition: "2025" });
+  renderHydreportCodes();
+}
 
 function hydreportAllHazards() {
   return HYDREPORT_HAZARDS.concat(hydreportCustomHazards);
@@ -10062,6 +10112,8 @@ function generateHydreport() {
   lines.push("");
 
   // Design area of operation: base -> QR reduction -> dry/slope increases, in that order.
+  const basis = hydreportState.basis;
+  const resMeta = HYDREPORT_BASES[basis];
   const base = parseFloat(v("hydreportBaseAreaInput"));
   const qrOn = document.getElementById("hydreportQrToggle")?.checked;
   const dryOn = document.getElementById("hydreportDryToggle")?.checked;
@@ -10070,6 +10122,41 @@ function generateHydreport() {
   const ceilingText = Number.isFinite(ceiling) ? decimalToFeetInches(ceiling) : "";
   const fmtArea = (n) => Math.round(n).toLocaleString("en-US");
   const fmtLen = (n) => (Math.round(n * 10) / 10).toString();
+  if (resMeta) {
+    const concealed = basis === "res13" && document.getElementById("hydreportResConcealedToggle")?.checked;
+    const listed = document.getElementById("hydreportResListedToggle")?.checked;
+    const bigMain = basis === "res13d" && document.getElementById("hydreportResMainToggle")?.checked;
+    let heads = parseInt(v("hydreportResHeadsInput"), 10);
+    if (!Number.isFinite(heads) || heads < 1) heads = resMeta.maxHeads;
+    heads = Math.min(heads, resMeta.maxHeads);
+    const spell = ["", "one", "two", "three", "four", "five", "six", "seven", "eight"];
+    if (basis === "res13") {
+      lines.push("DESIGN AREA OF OPERATION - RESIDENTIAL SPRINKLERS (NFPA 13 SEC. 19.3.1):");
+      lines.push("  - Design area: the four adjacent sprinklers that produce the greatest hydraulic demand (19.3.1.1)");
+      if (concealed) lines.push("  - Unsprinklered combustible concealed spaces present: minimum design area of eight sprinklers for the portion of the system adjacent to the qualifying concealed space (19.3.1.2)");
+      lines.push("  - Minimum discharge from each design sprinkler is the greater of (19.3.1.3):");
+      lines.push("      (1) The minimum flow rate per the sprinkler listing");
+      lines.push("      (2) In rooms or compartments over 800 ft2: 0.1 gpm/ft2 over the design area");
+      lines.push("      (3) In rooms or compartments 800 ft2 or less: 0.1 gpm/ft2 over the room area divided by the number of sprinklers in the room");
+      lines.push("  - Areas outside dwelling units (attics, basements, etc.) within the same structure are protected as a separate design basis per Section 19.1 (19.3.1.4)");
+      lines.push("  - Hose stream allowance and water supply duration per light hazard, Table 19.2.3.1.2 (19.3.1.5)");
+    } else if (basis === "res13r") {
+      lines.push("DESIGN AREA OF OPERATION - DWELLING UNITS (NFPA 13R SEC. 7.1.1):");
+      lines.push("  - Minimum discharge density: 0.05 gpm/ft2 or the flow required by the sprinkler listing, whichever is greater (7.1.1.1)");
+      lines.push(`  - Design area: all sprinklers within the compartment that require the greatest hydraulic demand, up to a maximum of four sprinklers (7.1.1.3.1)${heads < 4 ? ` - ${spell[heads]} design sprinkler${heads > 1 ? "s" : ""} for this system` : ""}`);
+      if (listed) lines.push("  - Ceiling configuration outside the conditions of 7.1.1.3.1: residential sprinklers listed for the specific ceiling configuration are applied in accordance with their listing (7.1.1.3.2)");
+      else lines.push("  - Ceiling configurations qualify under 7.1.1.3.1 (flat, beamed, or sloped ceilings within the stated limits; ceilings not more than 24 ft above the floor)");
+      lines.push("  - Listed flows established under a smooth, flat, horizontal 8 ft ceiling are permitted for the qualifying ceiling configurations (7.1.1.2)");
+    } else {
+      lines.push("DESIGN AREA OF OPERATION - DWELLING (NFPA 13D SEC. 10.1 / 10.2):");
+      lines.push("  - Minimum discharge density: 0.05 gpm/ft2 or the flow required by the sprinkler listing, whichever is greater (10.1.1)");
+      lines.push(`  - Design area: all sprinklers within the compartment that require the greatest hydraulic demand, up to a maximum of two sprinklers (10.2.1)${heads < 2 ? " - one design sprinkler for this system" : ""}`);
+      if (listed) lines.push("  - Ceiling configuration outside the conditions of 10.2.1: residential sprinklers listed for the specific ceiling configuration are applied in accordance with their listing (10.2.3)");
+      else lines.push("  - Ceiling configurations qualify under 10.2.1 (flat, beamed, or sloped ceilings within the stated limits; ceilings not more than 24 ft above the floor)");
+      lines.push("  - Listed flows established under a smooth, flat, horizontal 8 ft ceiling are permitted for the qualifying ceiling configurations (10.2.2)");
+      if (bigMain) lines.push("  - Water supply from a public/private main 4 in. nominal or larger: static pressure permitted for comparison to the system demand (10.1.2)");
+    }
+  } else {
   lines.push("DESIGN AREA OF OPERATION:");
   if (Number.isFinite(base) && base > 0) {
     let area = base;
@@ -10088,6 +10175,7 @@ function generateHydreport() {
     lines.push(`  Minimum remote-area length (1.2 x sqrt of A): ${fmtLen(minLen)} ft along the branch lines`);
   } else {
     lines.push("  - (enter a base design area above)");
+  }
   }
   lines.push("");
 
@@ -10130,6 +10218,22 @@ function generateHydreport() {
       minLenNote.className = "hydreport-note";
     }
   }
+
+  // live cap readout for the residential design-sprinkler count
+  const headsNote = document.getElementById("hydreportResHeadsNote");
+  if (headsNote && resMeta) {
+    const capText = basis === "res13r"
+      ? "NFPA 13R 7.1.1.3.1 caps the design area at four sprinklers in the compartment with the greatest demand."
+      : "NFPA 13D 10.2.1 caps the design area at two sprinklers in the compartment with the greatest demand.";
+    const entered = parseInt(v("hydreportResHeadsInput"), 10);
+    if (Number.isFinite(entered) && entered > resMeta.maxHeads) {
+      headsNote.textContent = `Capped at ${resMeta.maxHeads}. ${capText}`;
+      headsNote.className = "hydreport-note warn";
+    } else {
+      headsNote.textContent = capText;
+      headsNote.className = "hydreport-note";
+    }
+  }
 }
 
 function renderHydreportCustomList() {
@@ -10165,6 +10269,11 @@ function hydreportCollectState() {
     dry: !!document.getElementById("hydreportDryToggle")?.checked,
     slope: !!document.getElementById("hydreportSlopeToggle")?.checked,
     storage: v("hydreportStorageInput"),
+    basis: hydreportState.basis,
+    resHeads: v("hydreportResHeadsInput"),
+    resConcealed: !!document.getElementById("hydreportResConcealedToggle")?.checked,
+    resListed: !!document.getElementById("hydreportResListedToggle")?.checked,
+    resMain: !!document.getElementById("hydreportResMainToggle")?.checked,
   };
 }
 function hydreportApplyState(d) {
@@ -10180,6 +10289,13 @@ function hydreportApplyState(d) {
   const qr = document.getElementById("hydreportQrToggle"); if (qr) qr.checked = !!d.qr;
   const dry = document.getElementById("hydreportDryToggle"); if (dry) dry.checked = !!d.dry;
   const slope = document.getElementById("hydreportSlopeToggle"); if (slope) slope.checked = !!d.slope;
+  hydreportState.basis = HYDREPORT_BASES[d.basis] ? d.basis : "standard";
+  hydreportAutoCode = null;
+  set("hydreportResHeadsInput", d.resHeads);
+  const rc = document.getElementById("hydreportResConcealedToggle"); if (rc) rc.checked = !!d.resConcealed;
+  const rl = document.getElementById("hydreportResListedToggle"); if (rl) rl.checked = !!d.resListed;
+  const rm = document.getElementById("hydreportResMainToggle"); if (rm) rm.checked = !!d.resMain;
+  hydreportSyncBasisUI();
   renderHydreportProjectLink();
   const link = document.getElementById("hydreportLinkProjectSelect"); if (link) link.value = d.linkedProjectId || "";
   renderHydreportCodes(); renderHydreportRooms(); renderHydreportPipes();
@@ -12807,11 +12923,24 @@ function initHydreport() {
   document.getElementById("hydreportAddCode")?.addEventListener("click", () => { hydreportState.codes.push({ code: "", edition: "" }); renderHydreportCodes(); generateHydreport(); });
   document.getElementById("hydreportAddRoom")?.addEventListener("click", () => { hydreportState.rooms.push({ name: "", hazard: "light" }); renderHydreportRooms(); generateHydreport(); });
   document.getElementById("hydreportAddPipe")?.addEventListener("click", () => { hydreportState.pipes.push({ desc: "", spec: "" }); renderHydreportPipes(); generateHydreport(); });
-  ["hydreportProjectInput", "hydreportBaseAreaInput", "hydreportCeilingInput", "hydreportSlopeToggle", "hydreportStorageInput"].forEach((id) => {
+  ["hydreportProjectInput", "hydreportBaseAreaInput", "hydreportCeilingInput", "hydreportSlopeToggle", "hydreportStorageInput",
+   "hydreportResHeadsInput", "hydreportResConcealedToggle", "hydreportResListedToggle", "hydreportResMainToggle"].forEach((id) => {
     const el = document.getElementById(id);
     el?.addEventListener("input", generateHydreport);
     el?.addEventListener("change", generateHydreport);
   });
+  document.getElementById("hydreportBasisSelect")?.addEventListener("change", (e) => {
+    hydreportState.basis = HYDREPORT_BASES[e.target.value] ? e.target.value : "standard";
+    const meta = HYDREPORT_BASES[hydreportState.basis];
+    if (meta) {
+      const heads = document.getElementById("hydreportResHeadsInput");
+      if (heads) heads.value = String(meta.maxHeads);
+    }
+    hydreportEnsureBasisCode(hydreportState.basis);
+    hydreportSyncBasisUI();
+    generateHydreport();
+  });
+  hydreportSyncBasisUI();
   // QR reduction and dry pipe are mutually exclusive (QR reduction requires wet pipe).
   const qrToggle = document.getElementById("hydreportQrToggle");
   const dryToggle = document.getElementById("hydreportDryToggle");
@@ -12835,7 +12964,11 @@ function initHydreport() {
     hydreportState.rooms = [{ name: "", hazard: "light" }];
     hydreportState.pipes = JSON.parse(JSON.stringify(HYDREPORT_DEFAULT_PIPES));
     ["hydreportProjectInput", "hydreportCeilingInput"].forEach((id) => { const el = document.getElementById(id); if (el) el.value = ""; });
-    ["hydreportQrToggle", "hydreportDryToggle", "hydreportSlopeToggle"].forEach((id) => { const el = document.getElementById(id); if (el) { el.checked = false; el.disabled = false; } });
+    ["hydreportQrToggle", "hydreportDryToggle", "hydreportSlopeToggle", "hydreportResConcealedToggle", "hydreportResListedToggle", "hydreportResMainToggle"].forEach((id) => { const el = document.getElementById(id); if (el) { el.checked = false; el.disabled = false; } });
+    hydreportState.basis = "standard";
+    hydreportAutoCode = null;
+    const resHeads = document.getElementById("hydreportResHeadsInput"); if (resHeads) resHeads.value = "";
+    hydreportSyncBasisUI();
     const baseArea = document.getElementById("hydreportBaseAreaInput"); if (baseArea) baseArea.value = "1500";
     const storage = document.getElementById("hydreportStorageInput"); if (storage) storage.value = "12";
     const link = document.getElementById("hydreportLinkProjectSelect"); if (link) link.value = "";
