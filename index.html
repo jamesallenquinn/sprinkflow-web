@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0730-1706-738f050" />
+    <link rel="stylesheet" href="./styles.css?v=b0730-1713-814c148" />
   </head>
   <body>
     <div class="app-shell">
@@ -1755,6 +1755,13 @@
             <div class="hydreport-subhead">
               <label class="toggle-row"><input id="pdfcadTextToggle" type="checkbox" checked /> <span>Import text (as CAD text)</span></label>
               <label class="toggle-row"><input id="pdfcadFillsToggle" type="checkbox" checked /> <span>Import solid fills</span></label>
+              <label>Line Weights
+                <select id="pdfcadWeightsSelect">
+                  <option value="R12">Weight-split layers &mdash; R12 (safest import)</option>
+                  <option value="R2000">True line weights &mdash; R2000 DXF (test in your CAD)</option>
+                </select>
+              </label>
+              <p class="hydreport-note">Stroke weights from the PDF are bucketed into thick / medium / thin (&ndash;W050 / &ndash;W025 / &ndash;W010 layers &asymp; 0.5 / 0.25 / 0.1). Stipple &amp; hatch dots land on a &ndash;HATCH layer so you can restyle or delete them in one pick. R2000 also writes real DXF lineweights &mdash; if AutoSPRINK honors them on import, no manual weights at all.</p>
             </div>
 
             <div id="pdfcadSummary" class="pdfcad-summary hydreport-subhead"></div>
@@ -3367,11 +3374,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0730-1706-738f050"></script>
-    <script src="./app.js?v=b0730-1706-738f050"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0730-1706-738f050"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0730-1706-738f050"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0730-1706-738f050"></script>
-    <script src="./prelim-calc-desktop.js?v=b0730-1706-738f050"></script>
+    <script src="./web-backend.js?v=b0730-1713-814c148"></script>
+    <script src="./app.js?v=b0730-1713-814c148"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0730-1713-814c148"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0730-1713-814c148"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0730-1713-814c148"></script>
+    <script src="./prelim-calc-desktop.js?v=b0730-1713-814c148"></script>
   </body>
 </html>

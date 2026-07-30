@@ -10566,6 +10566,7 @@ async function pdfcadConvert() {
         selectedHexes: selected,
         includeText: !!document.getElementById("pdfcadTextToggle")?.checked,
         includeFills: !!document.getElementById("pdfcadFillsToggle")?.checked,
+        dxfVersion: document.getElementById("pdfcadWeightsSelect")?.value || "R12",
         format: wantFmt,
         defaultName: `${base}-p${pdfcadState.page + 1}.${wantFmt}`,
       }),
