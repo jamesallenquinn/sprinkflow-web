@@ -9932,6 +9932,10 @@ function vicinityOpenMenu(clientX, clientY, opts) {
 // Densities reuse the same NFPA 13 Table 19.2.3.1.1 values as Preliminary Calc.
 const HYDREPORT_HAZARDS = [
   { id: "light", label: "Light Hazard", density: 0.10, designArea: 1500 },
+  // Residential sprinklers: min 0.1 gpm/ft2 or the listing under NFPA 13
+  // (19.3.1.3); 0.05 gpm/ft2 or the listing under 13R (7.1.1.1) / 13D (10.1.1).
+  // The report line and the density pill follow the selected design basis.
+  { id: "res", label: "Residential", density: 0.10, designArea: null },
   { id: "oh1", label: "Ordinary Hazard, Group 1", density: 0.15, designArea: 1500 },
   { id: "oh2", label: "Ordinary Hazard, Group 2", density: 0.20, designArea: 1500 },
   { id: "eh1", label: "Extra Hazard, Group 1", density: 0.30, designArea: 2500 },
@@ -10007,6 +10011,13 @@ function hydreportAllHazards() {
 function hydreportHazard(id) {
   return hydreportAllHazards().find((h) => h.id === id) || HYDREPORT_HAZARDS[0];
 }
+// Residential density + citation follow the design basis (13 vs 13R vs 13D).
+function hydreportResHazardInfo() {
+  const basis = hydreportState.basis;
+  if (basis === "res13r") return { density: 0.05, cite: "NFPA 13R 7.1.1.1" };
+  if (basis === "res13d") return { density: 0.05, cite: "NFPA 13D 10.1.1" };
+  return { density: 0.10, cite: "NFPA 13 19.3.1.3" };
+}
 function hydreportLoadCustomHazards() {
   try { const v = JSON.parse(localStorage.getItem(HYDREPORT_CUSTOM_HAZ_KEY) || "[]"); hydreportCustomHazards = Array.isArray(v) ? v : []; }
   catch (e) { hydreportCustomHazards = []; }
@@ -10058,7 +10069,8 @@ function renderHydreportRooms() {
   if (!box) return;
   box.innerHTML = hydreportState.rooms.map((r, i) => {
     const opts = hydreportAllHazards().map((h) => `<option value="${h.id}"${h.id === r.hazard ? " selected" : ""}>${escapeHtml(h.label)}</option>`).join("");
-    const d = hydreportHazard(r.hazard).density.toFixed(2);
+    const haz = hydreportHazard(r.hazard);
+    const d = (haz.id === "res" ? hydreportResHazardInfo().density : haz.density).toFixed(2);
     return `<div class="hydreport-row room-row">
       <input type="text" data-hr-room="${i}" value="${escapeHtml(r.name)}" placeholder="Room / area name" />
       <select data-hr-hazard="${i}">${opts}</select>
@@ -10106,7 +10118,13 @@ function generateHydreport() {
     // Group room names under each hazard (built-in Light->Extra, then custom).
     hydreportAllHazards().forEach((h) => {
       const names = rooms.filter((r) => r.hazard === h.id).map((r) => r.name.trim());
-      if (names.length) lines.push(`  - ${names.join(", ")}: ${h.label} (design density ${h.density.toFixed(2)} gpm/ft2)`);
+      if (!names.length) return;
+      if (h.id === "res") {
+        const ri = hydreportResHazardInfo();
+        lines.push(`  - ${names.join(", ")}: Residential (minimum ${ri.density.toFixed(2)} gpm/ft2 or the flow required by the sprinkler listing, whichever is greater - ${ri.cite})`);
+      } else {
+        lines.push(`  - ${names.join(", ")}: ${h.label} (design density ${h.density.toFixed(2)} gpm/ft2)`);
+      }
     });
   } else lines.push("  - (add rooms above)");
   lines.push("");
@@ -12938,6 +12956,7 @@ function initHydreport() {
     }
     hydreportEnsureBasisCode(hydreportState.basis);
     hydreportSyncBasisUI();
+    renderHydreportRooms();   // Residential density pill follows the basis
     generateHydreport();
   });
   hydreportSyncBasisUI();
