@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0730-1713-814c148" />
+    <link rel="stylesheet" href="./styles.css?v=b0730-1815-d058cee" />
   </head>
   <body>
     <div class="app-shell">
@@ -1757,11 +1757,11 @@
               <label class="toggle-row"><input id="pdfcadFillsToggle" type="checkbox" checked /> <span>Import solid fills</span></label>
               <label>Line Weights
                 <select id="pdfcadWeightsSelect">
-                  <option value="R12">Weight-split layers &mdash; R12 (safest import)</option>
-                  <option value="R2000">True line weights &mdash; R2000 DXF (test in your CAD)</option>
+                  <option value="R2000">AutoSPRINK tuned &mdash; widths import at 0.5 / 0.25 / 0.1</option>
+                  <option value="R12">Weight-split layers only &mdash; R12 (other CAD)</option>
                 </select>
               </label>
-              <p class="hydreport-note">Stroke weights from the PDF are bucketed into thick / medium / thin (&ndash;W050 / &ndash;W025 / &ndash;W010 layers &asymp; 0.5 / 0.25 / 0.1). Stipple &amp; hatch dots land on a &ndash;HATCH layer so you can restyle or delete them in one pick. R2000 also writes real DXF lineweights &mdash; if AutoSPRINK honors them on import, no manual weights at all.</p>
+              <p class="hydreport-note">Stroke weights from the PDF are bucketed into thick / medium / thin and split onto &ndash;W050 / &ndash;W025 / &ndash;W010 layers; stipple &amp; hatch dots land on a &ndash;HATCH layer so you can restyle or delete them in one pick. AutoSPRINK tuned also pre-fills each object&rsquo;s Element Width (&asymp;0.5 / 0.25 / 0.09 after AutoSPRINK&rsquo;s import conversion) &mdash; no manual weights. Pick R12 for other CAD programs.</p>
             </div>
 
             <div id="pdfcadSummary" class="pdfcad-summary hydreport-subhead"></div>
@@ -3374,11 +3374,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0730-1713-814c148"></script>
-    <script src="./app.js?v=b0730-1713-814c148"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0730-1713-814c148"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0730-1713-814c148"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0730-1713-814c148"></script>
-    <script src="./prelim-calc-desktop.js?v=b0730-1713-814c148"></script>
+    <script src="./web-backend.js?v=b0730-1815-d058cee"></script>
+    <script src="./app.js?v=b0730-1815-d058cee"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0730-1815-d058cee"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0730-1815-d058cee"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0730-1815-d058cee"></script>
+    <script src="./prelim-calc-desktop.js?v=b0730-1815-d058cee"></script>
   </body>
 </html>
