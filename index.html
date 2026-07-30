@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0730-1815-d058cee" />
+    <link rel="stylesheet" href="./styles.css?v=b0730-1920-437fbf8" />
   </head>
   <body>
     <div class="app-shell">
@@ -1761,7 +1761,8 @@
                   <option value="R12">Weight-split layers only &mdash; R12 (other CAD)</option>
                 </select>
               </label>
-              <p class="hydreport-note">Stroke weights from the PDF are bucketed into thick / medium / thin and split onto &ndash;W050 / &ndash;W025 / &ndash;W010 layers; stipple &amp; hatch dots land on a &ndash;HATCH layer so you can restyle or delete them in one pick. AutoSPRINK tuned also pre-fills each object&rsquo;s Element Width (&asymp;0.5 / 0.25 / 0.09 after AutoSPRINK&rsquo;s import conversion) &mdash; no manual weights. Pick R12 for other CAD programs.</p>
+              <label class="toggle-row"><input id="pdfcadFlattenToggle" type="checkbox" /> <span>Fewest layers &mdash; group by color &amp; weight only (quick black recolor in AutoSPRINK)</span></label>
+              <p class="hydreport-note">Stroke weights from the PDF are bucketed into thick / medium / thin and split onto &ndash;W050 / &ndash;W025 / &ndash;W010 layers; stipple &amp; hatch dots land on a &ndash;HATCH layer so you can restyle or delete them in one pick. AutoSPRINK tuned also pre-fills each object&rsquo;s Element Width (&asymp;0.5 / 0.25 / 0.09 after AutoSPRINK&rsquo;s import conversion) &mdash; no manual weights. AutoSPRINK&rsquo;s import palette has no pure black (darkest is 51,51,51), so for true black: check Fewest layers, then after import set the handful of PDF&ndash;000000&ndash;W* layers to custom black &mdash; imported objects follow their layer color. Pick R12 for other CAD programs.</p>
             </div>
 
             <div id="pdfcadSummary" class="pdfcad-summary hydreport-subhead"></div>
@@ -3374,11 +3375,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0730-1815-d058cee"></script>
-    <script src="./app.js?v=b0730-1815-d058cee"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0730-1815-d058cee"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0730-1815-d058cee"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0730-1815-d058cee"></script>
-    <script src="./prelim-calc-desktop.js?v=b0730-1815-d058cee"></script>
+    <script src="./web-backend.js?v=b0730-1920-437fbf8"></script>
+    <script src="./app.js?v=b0730-1920-437fbf8"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0730-1920-437fbf8"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0730-1920-437fbf8"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0730-1920-437fbf8"></script>
+    <script src="./prelim-calc-desktop.js?v=b0730-1920-437fbf8"></script>
   </body>
 </html>
