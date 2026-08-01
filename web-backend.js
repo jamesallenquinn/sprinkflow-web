@@ -25,7 +25,7 @@
   if (!WEB) return;                                 // desktop: do nothing
   window.__SPRINKFLOW_WEB__ = true;
   // stamped by packaging/build_web_edition.py at deploy time; "dev" locally
-  var WEB_BUILD = "b0730-2007-470811e";
+  var WEB_BUILD = "b0801-0328-12c0e8c";
   window.__SPRINKFLOW_WEB_BUILD__ = WEB_BUILD;
   console.log("[web-backend] SprinkFlow Web Edition active — build " + WEB_BUILD);
   // mobile layer: web-only stylesheet (media-query gated), never active on desktop
@@ -251,7 +251,15 @@
     "executive-graphite": { header:"#20262b", accent:"#b84632", panel:"#f4f6f6", border:"#d4dcde", muted:"#5f666a" },
     "earth-copper":       { header:"#1f3a34", accent:"#b56a3c", panel:"#f6f2ea", border:"#ded5c5", muted:"#625f56" },
     "blueprint-slate":    { header:"#0f3f6e", accent:"#2da6d7", panel:"#eef7fb", border:"#bcd7e6", muted:"#526774" },
-    "safety-minimal":     { header:"#111820", accent:"#e0522d", panel:"#f7f8fa", border:"#d8e0e5", muted:"#5b6670" }
+    "safety-minimal":     { header:"#111820", accent:"#e0522d", panel:"#f7f8fa", border:"#d8e0e5", muted:"#5b6670" },
+    "crimson-alarm":      { header:"#8a1c1c", accent:"#f0b323", panel:"#fdf3e7", border:"#ecd6b4", muted:"#6b5a4a" },
+    "monochrome-press":   { header:"#0b0b0b", accent:"#4a4a4a", panel:"#f2f2f2", border:"#c9c9c9", muted:"#4f4f4f" },
+    "field-amber":        { header:"#2f2a24", accent:"#f2a900", panel:"#fdf6e6", border:"#e8d6ac", muted:"#6a6259" },
+    "transmittal-indigo": { header:"#28306b", accent:"#8a6fd1", panel:"#f1f1fa", border:"#d2d3ea", muted:"#5c5f78" },
+    "atlas-swiss":        { header:"#141618", accent:"#ff5c35", panel:"#f4f2ee", border:"#ddd8d0", muted:"#75706a" },
+    "halo-arc":           { header:"#0b1f2a", accent:"#00c2a8", panel:"#eef7f6", border:"#cfe3e0", muted:"#54666b" },
+    "meridian-split":     { header:"#2b3a3a", accent:"#e07a5f", panel:"#f7f4f1", border:"#e3dcd4", muted:"#6b6660" },
+    "aperture-gradient":  { header:"#1c1c1e", accent:"#ff6a3d", panel:"#f7f5f4", border:"#e3deda", muted:"#66605d" }
   };
 
   // ---- tiny IndexedDB kv store -------------------------------------------
@@ -400,6 +408,142 @@
         return JSON.parse(out);
       });
     });
+  }
+
+  // ===================== Vicinity map =====================
+  // Port of server.py's vicinity_geocode / vicinity_streets. All three OSM
+  // services allow browser CORS, so these run client-side with no backend.
+  // NOTE: these MUST use orig() -- our own fetch patch would otherwise see
+  // "/api/" inside photon.komoot.io/api/ and overpass-api.de/api/interpreter.
+  function vicinityJson(url, init) {
+    return orig(url, init).then(function (r) {
+      if (!r.ok) throw new Error("Service returned " + r.status);
+      return r.json();
+    });
+  }
+
+  // Same ranking as the desktop: exact house-number matches beat fuzzy POIs.
+  function vicinityScore(cand, queryNumber, queryTokens) {
+    var score = 0;
+    if (cand.house_number) {
+      score += 3;
+      if (queryNumber && String(cand.house_number).trim() === queryNumber) score += 6;
+    }
+    var labelTokens = String(cand.label || "").toLowerCase().split(/[\s,]+/).filter(function (t) { return t.length > 1; });
+    queryTokens.forEach(function (t) { if (labelTokens.indexOf(t) !== -1) score += 1; });
+    if (cand.source === "nominatim") score += 1;
+    return score;
+  }
+
+  function vicinityGeocodeWeb(body) {
+    var query = String((body && body.query) || "").trim().slice(0, 160);
+    if (query.length < 3) return Promise.resolve(jsonResp({ ok: true, results: [] }));
+    var quoted = encodeURIComponent(query);
+    var numberMatch = query.match(/^\s*(\d+)\b/);
+    var queryNumber = numberMatch ? numberMatch[1] : "";
+    var queryTokens = query.toLowerCase().split(/[\s,]+/).filter(function (t) { return t.length > 1; });
+
+    var nominatim = vicinityJson(
+      "https://nominatim.openstreetmap.org/search?q=" + quoted +
+      "&format=json&limit=6&countrycodes=us&addressdetails=1"
+    ).then(function (rows) {
+      return (rows || []).map(function (row) {
+        var addr = row.address || {};
+        return {
+          label: String(row.display_name || "").slice(0, 120),
+          lat: parseFloat(row.lat), lon: parseFloat(row.lon),
+          house_number: addr.house_number || "", source: "nominatim",
+        };
+      });
+    }).catch(function () { return []; });
+
+    var photon = vicinityJson(
+      "https://photon.komoot.io/api/?q=" + quoted + "&limit=6&lang=en"
+    ).then(function (data) {
+      return ((data && data.features) || []).map(function (feature) {
+        var props = feature.properties || {};
+        var coords = (feature.geometry || {}).coordinates || [];
+        if (coords[1] == null) return null;
+        var streetLine = [props.housenumber, props.street].filter(Boolean).join(" ").trim() || (props.name || "");
+        var label = [streetLine, props.city, props.state, props.postcode].filter(Boolean).join(", ");
+        if (!label) return null;
+        return {
+          label: label, lat: coords[1], lon: coords[0],
+          house_number: props.housenumber || "", source: "photon",
+        };
+      }).filter(Boolean);
+    }).catch(function () { return []; });
+
+    return Promise.all([nominatim, photon]).then(function (lists) {
+      var candidates = lists[0].concat(lists[1]).filter(function (c) {
+        return Number.isFinite(c.lat) && Number.isFinite(c.lon);
+      });
+      candidates.forEach(function (c) { c._score = vicinityScore(c, queryNumber, queryTokens); });
+      candidates.sort(function (a, b) { return b._score - a._score; });
+      var results = [], seen = [];
+      for (var i = 0; i < candidates.length && results.length < 6; i += 1) {
+        var c = candidates[i];
+        var dupe = seen.some(function (p) { return Math.abs(c.lat - p[0]) < 1e-4 && Math.abs(c.lon - p[1]) < 1e-4; });
+        if (dupe) continue;
+        seen.push([c.lat, c.lon]);
+        results.push({ label: c.label, lat: c.lat, lon: c.lon });
+      }
+      return jsonResp({ ok: true, results: results });
+    }).catch(function (e) {
+      return jsonResp({ ok: false, error: (e && e.message) || "Address lookup failed." });
+    });
+  }
+
+  var VICINITY_OVERPASS_MIRRORS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+  ];
+
+  function vicinityStreetsWeb(body) {
+    var lat = parseFloat(body && body.lat), lon = parseFloat(body && body.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      return Promise.resolve(jsonResp({ ok: false, error: "Pick an address first." }));
+    }
+    var halfW = Math.max(150, Math.min(2500, parseFloat(body.halfWidthM) || 650));
+    var halfH = Math.max(150, Math.min(2500, parseFloat(body.halfHeightM) || 550));
+    var mPerDegLat = 111320, mPerDegLon = 111320 * Math.cos(lat * Math.PI / 180);
+    var south = lat - halfH / mPerDegLat, north = lat + halfH / mPerDegLat;
+    var west = lon - halfW / mPerDegLon, east = lon + halfW / mPerDegLon;
+    var query = '[out:json][timeout:25];way["highway"](' + south + "," + west + "," + north + "," + east + ");out geom;";
+    var payload = "data=" + encodeURIComponent(query);
+
+    // Public Overpass mirrors get overloaded; walk them like the desktop does.
+    var index = 0;
+    function attempt() {
+      if (index >= VICINITY_OVERPASS_MIRRORS.length) {
+        return Promise.resolve(jsonResp({
+          ok: false,
+          error: "Could not reach the OpenStreetMap street service (the public servers are busy). Please try again in a moment.",
+        }));
+      }
+      var mirror = VICINITY_OVERPASS_MIRRORS[index++];
+      return vicinityJson(mirror, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: payload,
+      }).then(function (data) {
+        var ways = [];
+        ((data && data.elements) || []).forEach(function (element) {
+          if (element.type !== "way") return;
+          var tags = element.tags || {}, geometry = element.geometry || [];
+          if (geometry.length < 2) return;
+          ways.push({
+            id: element.id,
+            highway: String(tags.highway || ""),
+            name: String(tags.name || ""),
+            pts: geometry.map(function (g) { return [g.lat, g.lon]; }),
+          });
+        });
+        return jsonResp({ ok: true, ways: ways });
+      }).catch(function () { return attempt(); });
+    }
+    return attempt();
   }
 
   function cadxAnalyzeWeb(body) {
@@ -557,7 +701,14 @@
   var orig = window.fetch.bind(window);
   window.fetch = function (input, init) {
     var url = typeof input === "string" ? input : (input && input.url) || "";
-    var path = url.split("?")[0];
+    // Only OUR OWN "./api/*" calls get shimmed. Matching on the raw string
+    // hijacked any external host with /api/ in its path -- photon.komoot.io/api/
+    // and overpass-api.de/api/interpreter both came back as a fake {ok:true},
+    // which is what broke the vicinity map on the web.
+    var abs;
+    try { abs = new URL(url, document.baseURI); } catch (e) { return orig(input, init); }
+    if (abs.origin !== window.location.origin) return orig(input, init);
+    var path = abs.pathname;
     if (path.indexOf("/api/") === -1) return orig(input, init);   // static/data -> real fetch
     var route = path.slice(path.indexOf("/api/"));
     var body = {};
@@ -623,6 +774,10 @@
       case "/api/file-info":           return Promise.resolve(jsonResp({ ok: true, files: [] }));
       case "/api/clipboard-copy":      return clip(body).then(function () { return jsonResp({ ok: true }); });
       case "/api/create-email-draft":  return Promise.resolve(jsonResp({ ok: false, error: "Email drafts need the desktop app." }));
+
+      // ---- vicinity map (OSM services called straight from the browser) ----
+      case "/api/vicinity/geocode":     return vicinityGeocodeWeb(body);
+      case "/api/vicinity/streets":     return vicinityStreetsWeb(body);
 
       // ---- CAD block exploder (real cad_explode.py via Pyodide; DXF only) ----
       case "/api/cad-explode/analyze":  return cadxAnalyzeWeb(body);

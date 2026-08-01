@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0730-2007-470811e" />
+    <link rel="stylesheet" href="./styles.css?v=b0801-0328-12c0e8c" />
   </head>
   <body>
     <div class="app-shell">
@@ -1736,6 +1736,7 @@
             <label class="hydreport-subhead">Plot Scale
               <select id="pdfcadScaleSelect">
                 <option value="192">1/16" = 1'-0"</option>
+                <option value="128">3/32" = 1'-0"</option>
                 <option value="96" selected>1/8" = 1'-0"</option>
                 <option value="64">3/16" = 1'-0"</option>
                 <option value="48">1/4" = 1'-0"</option>
@@ -1745,8 +1746,13 @@
                 <option value="12">1" = 1'-0"</option>
                 <option value="8">1-1/2" = 1'-0"</option>
                 <option value="1">1:1 (no scale)</option>
+                <option value="custom">Custom scale...</option>
               </select>
             </label>
+            <label id="pdfcadCustomScaleRow" hidden>Custom scale
+              <input id="pdfcadCustomScaleInput" type="text" autocomplete="off" placeholder='ex: 3/32" = 1&apos;-0", 1:50, or 128' />
+            </label>
+            <p class="hydreport-note" id="pdfcadCustomScaleNote" hidden></p>
 
             <div class="section-heading hydreport-subhead"><p class="eyebrow">Layers to import</p></div>
             <p class="hydreport-note" id="pdfcadLayerNote">Each color becomes its own CAD layer.</p>
@@ -1852,6 +1858,10 @@
               <input type="radio" name="pdfMode" value="mergeCompress" />
               <span>Merge &amp; Compress</span>
             </label>
+            <label>
+              <input type="radio" name="pdfMode" value="slipSheet" />
+              <span>Slip Sheet</span>
+            </label>
           </div>
           <p class="pdf-mode-hint" id="pdfModeHint">Combine multiple PDFs into a single file (no recompression).</p>
         </div>
@@ -1859,7 +1869,7 @@
         <div class="pdf-merge-grid">
           <section class="panel-section calculator-section pdf-merge-workspace-section" id="pdfMergeDrop" tabindex="0">
             <div class="section-heading">
-              <p class="eyebrow">Workspace</p>
+              <p class="eyebrow" id="pdfWorkspaceHeading">Workspace</p>
               <span class="pdf-merge-count" id="pdfMergeCount">0 PDFs</span>
             </div>
             <div class="pdf-merge-list" id="pdfMergeList">
@@ -1916,6 +1926,34 @@
               <p id="pdfCompressionProgressDetails">Waiting for Ghostscript.</p>
             </div>
             <p class="calculator-status" id="pdfMergeStatus"></p>
+          </section>
+        </div>
+
+        <div class="pdf-slip-grid" id="pdfSlipPanel" hidden>
+          <section class="panel-section calculator-section pdf-slip-drop-section" id="pdfSlipDrop" tabindex="0">
+            <div class="section-heading">
+              <p class="eyebrow">Slip-in pages</p>
+              <span class="pdf-merge-count" id="pdfSlipCount">0 PDFs</span>
+            </div>
+            <div class="pdf-merge-list" id="pdfSlipList">
+              <div class="empty-state">Drop the replacement sheets here, or use Add Slip-in PDFs.</div>
+            </div>
+          </section>
+
+          <section class="panel-section calculator-section pdf-slip-controls-section">
+            <div class="section-heading">
+              <p class="eyebrow">Replace</p>
+            </div>
+            <input id="pdfSlipInput" class="hidden-input" type="file" accept=".pdf,application/pdf" multiple />
+            <label>Pages to replace in the base PDF
+              <input id="pdfSlipPagesInput" type="text" autocomplete="off" placeholder="ex: 5-7 or 5, 9, 12" />
+            </label>
+            <p class="hydreport-note" id="pdfSlipSummary">Drop one base PDF in the workspace above, then add the sheets that replace those pages.</p>
+            <div class="project-actions">
+              <button class="secondary-button" id="pdfSlipImportButton" type="button">Add Slip-in PDFs</button>
+              <button class="primary-button" id="pdfSlipButton" type="button" disabled>Create Slip Sheet PDF</button>
+            </div>
+            <p class="hydreport-note">Matching counts swap one-for-one &mdash; replace pages 5, 9, 12 with three sheets and each lands in its own slot. Any other count drops all the slip-in pages at the first replaced page and removes the rest, so a 1-page sheet can become 3, or 4 old pages can collapse into 1.</p>
           </section>
         </div>
 
@@ -3374,11 +3412,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0730-2007-470811e"></script>
-    <script src="./app.js?v=b0730-2007-470811e"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0730-2007-470811e"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0730-2007-470811e"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0730-2007-470811e"></script>
-    <script src="./prelim-calc-desktop.js?v=b0730-2007-470811e"></script>
+    <script src="./web-backend.js?v=b0801-0328-12c0e8c"></script>
+    <script src="./app.js?v=b0801-0328-12c0e8c"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0801-0328-12c0e8c"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0801-0328-12c0e8c"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0801-0328-12c0e8c"></script>
+    <script src="./prelim-calc-desktop.js?v=b0801-0328-12c0e8c"></script>
   </body>
 </html>

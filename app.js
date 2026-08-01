@@ -92,6 +92,54 @@ const COVER_TEMPLATES = [
     description: "Modern white report layout with graphite framing and safety-orange accents.",
     swatches: ["#111820", "#e0522d", "#f7f8fa"],
   },
+  {
+    id: "crimson-alarm",
+    name: "Crimson Alarm",
+    description: "Fire-red banner over a full-width project block and a bottom contractor band.",
+    swatches: ["#8a1c1c", "#f0b323", "#fdf3e7"],
+  },
+  {
+    id: "monochrome-press",
+    name: "Monochrome Press",
+    description: "Rule-driven black-and-white cover that stays legible through any copier or fax.",
+    swatches: ["#0b0b0b", "#4a4a4a", "#f2f2f2"],
+  },
+  {
+    id: "field-amber",
+    name: "Field Amber",
+    description: "High-visibility amber cap with a charcoal contractor band for field packages.",
+    swatches: ["#2f2a24", "#f2a900", "#fdf6e6"],
+  },
+  {
+    id: "transmittal-indigo",
+    name: "Transmittal Indigo",
+    description: "Letterhead-first transmittal look with the project called out in a solid indigo panel.",
+    swatches: ["#28306b", "#8a6fd1", "#f1f1fa"],
+  },
+  {
+    id: "atlas-swiss",
+    name: "Atlas",
+    description: "Editorial cover on warm stock — oversized title, hairline grid, nothing boxed in.",
+    swatches: ["#141618", "#ff5c35", "#f4f2ee"],
+  },
+  {
+    id: "halo-arc",
+    name: "Halo",
+    description: "Deep ink hero textured with a sprinkler discharge pattern, over a clean data grid.",
+    swatches: ["#0b1f2a", "#00c2a8", "#eef7f6"],
+  },
+  {
+    id: "meridian-split",
+    name: "Meridian",
+    description: "Hard horizontal split with the contractor logo card straddling the seam.",
+    swatches: ["#2b3a3a", "#e07a5f", "#f7f4f1"],
+  },
+  {
+    id: "aperture-gradient",
+    name: "Aperture",
+    description: "Graphite-to-ember gradient with the project floating on a soft-shadowed card.",
+    swatches: ["#1c1c1e", "#ff6a3d", "#f7f5f4"],
+  },
 ];
 const STORAGE_KEY = "submittalforge:v1";
 const PROJECTS_KEY = "submittalforge:projects:v1";
@@ -175,6 +223,7 @@ let stateSaveTimer = null;
 let previewScaleFrame = null;
 let previewScaleRetryTimer = null;
 let pdfMergeFiles = [];
+let pdfSlipFiles = [];
 let hydraulicCalcFiles = [];
 let projectPlanFiles = [];
 let pdfCompressionJobId = "";
@@ -531,6 +580,16 @@ const dom = {
   hangerTableResetButton: document.querySelector("#hangerTableResetButton"),
   pdfMergeInput: document.querySelector("#pdfMergeInput"),
   pdfMergeDrop: document.querySelector("#pdfMergeDrop"),
+  pdfWorkspaceHeading: document.querySelector("#pdfWorkspaceHeading"),
+  pdfSlipPanel: document.querySelector("#pdfSlipPanel"),
+  pdfSlipDrop: document.querySelector("#pdfSlipDrop"),
+  pdfSlipList: document.querySelector("#pdfSlipList"),
+  pdfSlipCount: document.querySelector("#pdfSlipCount"),
+  pdfSlipInput: document.querySelector("#pdfSlipInput"),
+  pdfSlipPagesInput: document.querySelector("#pdfSlipPagesInput"),
+  pdfSlipSummary: document.querySelector("#pdfSlipSummary"),
+  pdfSlipImportButton: document.querySelector("#pdfSlipImportButton"),
+  pdfSlipButton: document.querySelector("#pdfSlipButton"),
   pdfMergeImportButton: document.querySelector("#pdfMergeImportButton"),
   pdfMergeButton: document.querySelector("#pdfMergeButton"),
   pdfCompressButton: document.querySelector("#pdfCompressButton"),
@@ -2850,14 +2909,108 @@ function renderHydraulicCoverTemplateOptions() {
   renderCoverTemplateOptionsInto(dom.hydraulicCoverTemplateOptions);
 }
 
+// --- cover template gallery ------------------------------------------------
+// Starred templates float to the top so a shop that always uses two or three
+// never scrolls past the other ten.
+const COVER_FAVORITES_KEY = "sprinkflow.coverTemplateFavorites";
+
+function loadCoverTemplateFavorites() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(COVER_FAVORITES_KEY) || "[]");
+    // drop ids for templates that no longer exist
+    return new Set(Array.isArray(raw) ? raw.filter((id) => COVER_TEMPLATES.some((t) => t.id === id)) : []);
+  } catch (e) {
+    return new Set();
+  }
+}
+
+function saveCoverTemplateFavorites(favorites) {
+  try { localStorage.setItem(COVER_FAVORITES_KEY, JSON.stringify([...favorites])); } catch (e) { /* quota */ }
+}
+
+function toggleCoverTemplateFavorite(id) {
+  const favorites = loadCoverTemplateFavorites();
+  if (favorites.has(id)) favorites.delete(id);
+  else favorites.add(id);
+  saveCoverTemplateFavorites(favorites);
+}
+
+// Same element shape as renderCoverSheet, so every .cover-template-<id> rule
+// styles the thumbnail too — a new template gets a correct preview for free.
+function coverTemplateThumbMarkup(template) {
+  const contractor = (typeof currentContractor === "function" ? currentContractor() : null) || {};
+  return `
+    <article class="sheet cover-sheet pdf-cover-preview cover-template-${escapeHtml(template.id)}">
+      <header class="cover-preview-header">
+        <div>
+          <h2>Material Data Submittal</h2>
+          <p>${escapeHtml(state.project?.subtitle || DEFAULT_COVER_SUBTITLE)}</p>
+        </div>
+      </header>
+      <div class="cover-preview-stripe"></div>
+      <main class="cover-preview-main">
+        <section class="cover-preview-project">
+          <span>Project</span>
+          <h3>${escapeHtml(state.project?.name || "Project Name")}</h3>
+          <p>${escapeHtml(state.project?.address || "Project Address")}</p>
+        </section>
+        <section class="cover-preview-contractor">
+          <div class="cover-preview-logo"><span>Contractor Logo</span></div>
+          <h3>${escapeHtml(contractor.name || "Contractor Name")}</h3>
+          <p>${escapeHtml(contractor.address || "Contractor Address")}</p>
+          <strong>${escapeHtml(contractor.license ? `License #: ${contractor.license}` : "License #: License Number")}</strong>
+          <strong>${escapeHtml(contractor.phone || "Phone Number")}</strong>
+        </section>
+      </main>
+      <footer class="cover-preview-footer"><div></div><p></p></footer>
+    </article>`;
+}
+
+function coverTemplateCardMarkup(template, starred, selected) {
+  return `
+    <div class="cover-gallery-card${selected ? " is-selected" : ""}" role="radio" tabindex="0"
+         aria-checked="${selected ? "true" : "false"}"
+         data-cover-template-card="${escapeHtml(template.id)}"
+         title="${escapeHtml(template.description || template.name)}">
+      <div class="cover-gallery-thumb">
+        <div class="cover-gallery-scale">${coverTemplateThumbMarkup(template)}</div>
+      </div>
+      <button type="button" class="cover-gallery-star${starred ? " is-on" : ""}"
+              data-cover-template-star="${escapeHtml(template.id)}"
+              aria-pressed="${starred ? "true" : "false"}"
+              aria-label="${starred ? "Remove" : "Add"} ${escapeHtml(template.name)} ${starred ? "from" : "to"} favorites"
+              title="${starred ? "Unstar" : "Star"} ${escapeHtml(template.name)}">${starred ? "&#9733;" : "&#9734;"}</button>
+      <span class="cover-gallery-name">${escapeHtml(template.name)}</span>
+    </div>`;
+}
+
 function renderCoverTemplateOptionsInto(container) {
   if (!container) return;
-  container.innerHTML = `
-    <select class="cover-template-select" data-cover-template-select aria-label="Cover template">
-      ${COVER_TEMPLATES.map((template) =>
-        `<option value="${escapeHtml(template.id)}" ${template.id === state.coverTemplate ? "selected" : ""}>${escapeHtml(template.name)}</option>`
-      ).join("")}
-    </select>`;
+  const favorites = loadCoverTemplateFavorites();
+  const starred = COVER_TEMPLATES.filter((t) => favorites.has(t.id));
+  const rest = COVER_TEMPLATES.filter((t) => !favorites.has(t.id));
+  const section = (label, list) => (list.length
+    ? `<p class="cover-gallery-divider">${label}</p>` +
+      list.map((t) => coverTemplateCardMarkup(t, favorites.has(t.id), t.id === state.coverTemplate)).join("")
+    : "");
+  const body = starred.length
+    ? section("Favorites", starred) + section("All templates", rest)
+    : rest.map((t) => coverTemplateCardMarkup(t, false, t.id === state.coverTemplate)).join("");
+  container.innerHTML = `<div class="cover-gallery" role="radiogroup" aria-label="Cover template">${body}</div>`;
+  // no-op while the panel is hidden; updateViewModeUI re-runs it once visible
+  scrollCoverGalleryToSelection(container.querySelector(".cover-gallery"));
+}
+
+// Keep the current pick on screen without scrolling the page around it.
+// Returns false when the gallery isn't laid out yet (hidden panel).
+function scrollCoverGalleryToSelection(gallery) {
+  const active = gallery?.querySelector(".cover-gallery-card.is-selected");
+  if (!active || !gallery.clientHeight) return false;
+  const top = active.offsetTop - gallery.offsetTop;
+  if (top < gallery.scrollTop || top + active.offsetHeight > gallery.scrollTop + gallery.clientHeight) {
+    gallery.scrollTop = Math.max(0, top - 8);
+  }
+  return true;
 }
 
 function syncHydraulicProjectDefaults() {
@@ -8107,6 +8260,11 @@ function updateViewModeUI() {
   document.body.dataset.viewMode = state.viewMode;
   document.body.dataset.simpleStep = state.simpleStep;
   placeProjectDetails();
+  // Cover galleries render while their panel/step is still hidden, where every
+  // offset measures 0. This runs on every tool switch AND wizard step change --
+  // the two ways a gallery becomes visible -- so the current pick is on screen.
+  [dom.coverTemplateOptions, dom.hydraulicCoverTemplateOptions].forEach((container) =>
+    scrollCoverGalleryToSelection(container?.querySelector(".cover-gallery")));
   dom.viewModeButtons?.forEach((button) => {
     const active = button.dataset.viewMode === state.viewMode;
     button.classList.toggle("active", active);
@@ -10531,18 +10689,79 @@ function pdfcadSelectedHexes() {
   return [...new Set(out)];
 }
 
+// Custom scale accepts the forms a designer actually writes:
+//   3/32" = 1'-0"  |  3/32  |  1:50  |  128  (raw real-inches per paper inch)
+// Returns { scale, label, error }.
+function parsePdfcadCustomScale(raw) {
+  const text = String(raw || "").trim().replace(/[“”]/g, '"').replace(/[’]/g, "'");
+  if (!text) return { scale: null, label: "", error: "" };
+  // Colon only: "1/8" is an eighth of an inch to a foot, never a 1:8 ratio.
+  const ratio = text.match(/^1\s*:\s*(\d+(?:\.\d+)?)$/);
+  if (ratio) {
+    const denom = Number(ratio[1]);
+    if (denom > 0) return { scale: denom, label: `1:${denom}`, error: "" };
+  }
+  // "<drawn> = 1'-0"" or a bare fraction/decimal of an inch
+  const drawn = text.replace(/\s*=.*$/, "").replace(/"/g, "").trim();
+  const mixed = drawn.match(/^(\d+)\s*-\s*(\d+)\s*\/\s*(\d+)$/);   // 1-1/2
+  const frac = drawn.match(/^(\d+)\s*\/\s*(\d+)$/);                // 3/32
+  const dec = drawn.match(/^\d+(?:\.\d+)?$/);                      // 0.09375 or 128
+  let inches = null;
+  if (mixed) inches = Number(mixed[1]) + Number(mixed[2]) / Number(mixed[3]);
+  else if (frac) inches = Number(frac[1]) / Number(frac[2]);
+  else if (dec) {
+    const value = Number(drawn);
+    // a bare number with no "= 1'-0"" is the raw factor; with it, it's inches
+    if (!/=/.test(text) && value >= 1) return { scale: value, label: `1" = ${(value / 12).toFixed(2)} ft`, error: "" };
+    inches = value;
+  }
+  if (!Number.isFinite(inches) || inches <= 0) {
+    return { scale: null, label: "", error: `Could not read "${text}". Try 3/32" = 1'-0", 1:50, or a number like 128.` };
+  }
+  const scale = 12 / inches;
+  const pretty = (mixed ? `${mixed[1]}-${mixed[2]}/${mixed[3]}` : frac ? `${frac[1]}/${frac[2]}` : String(inches));
+  return { scale, label: `${pretty}" = 1'-0"`, error: "" };
+}
+
+function pdfcadScale() {
+  const select = document.getElementById("pdfcadScaleSelect");
+  if (select?.value === "custom") {
+    return parsePdfcadCustomScale(document.getElementById("pdfcadCustomScaleInput")?.value).scale || 0;
+  }
+  return Number(select?.value) || 96;
+}
+
+function syncPdfcadCustomScale() {
+  const isCustom = document.getElementById("pdfcadScaleSelect")?.value === "custom";
+  const row = document.getElementById("pdfcadCustomScaleRow");
+  const note = document.getElementById("pdfcadCustomScaleNote");
+  if (row) row.hidden = !isCustom;
+  if (note) {
+    if (!isCustom) {
+      note.hidden = true;
+    } else {
+      const parsed = parsePdfcadCustomScale(document.getElementById("pdfcadCustomScaleInput")?.value);
+      note.hidden = false;
+      if (parsed.error) { note.textContent = parsed.error; note.className = "hydreport-note warn"; }
+      else if (!parsed.scale) { note.textContent = "Enter a scale — the drawing size below updates as you type."; note.className = "hydreport-note"; }
+      else { note.textContent = `${parsed.label} — 1 paper inch = ${(parsed.scale / 12).toFixed(2)} ft.`; note.className = "hydreport-note ok"; }
+    }
+  }
+  renderPdfcadSummary();
+}
+
 function renderPdfcadSummary() {
   const box = document.getElementById("pdfcadSummary");
   if (!box) return;
   if (!pdfcadState.dims) return;
-  const scale = Number(document.getElementById("pdfcadScaleSelect")?.value) || 96;
+  const scale = pdfcadScale();
   const selIds = new Set(pdfcadSelectedHexes());
   const selObjs = pdfcadState.groups.filter((g) => selIds.has(pdfcadGroupId(g))).reduce((s, g) => s + g.count, 0);
   const wFt = (pdfcadState.dims.w * scale) / 12, hFt = (pdfcadState.dims.h * scale) / 12;
   const line = (k, v) => `<div class="layout-result-line"><span>${k}</span><strong>${v}</strong></div>`;
   box.innerHTML =
     line("Page size (paper)", `${pdfcadState.dims.w.toFixed(1)}" x ${pdfcadState.dims.h.toFixed(1)}"`) +
-    line("Real-world size", `${wFt.toFixed(0)} ft x ${hFt.toFixed(0)} ft`) +
+    line("Real-world size", scale ? `${wFt.toFixed(0)} ft x ${hFt.toFixed(0)} ft` : "— enter a custom scale") +
     line(pdfcadState.layerMode ? "CAD layers" : "Color groups", `${pdfcadState.groups.length}`) +
     line("Selected objects", selObjs.toLocaleString()) +
     line("Text lines", pdfcadState.textLines.toLocaleString());
@@ -10552,6 +10771,11 @@ async function pdfcadConvert() {
   const status = document.getElementById("pdfcadStatus");
   const selected = pdfcadSelectedHexes();
   if (!selected.length) { if (status) status.textContent = "Check at least one color layer to export."; return; }
+  if (!pdfcadScale()) {
+    const parsed = parsePdfcadCustomScale(document.getElementById("pdfcadCustomScaleInput")?.value);
+    if (status) status.textContent = parsed.error || "Enter a custom scale before converting.";
+    return;
+  }
   const btn = document.getElementById("pdfcadConvertButton");
   if (btn) btn.disabled = true;
   const wantFmt = pdfcadState.dwgCapable ? "dwg" : "dxf";
@@ -10562,7 +10786,7 @@ async function pdfcadConvert() {
       method: "POST",
       body: JSON.stringify({
         token: pdfcadState.token, page: pdfcadState.page,
-        scale: Number(document.getElementById("pdfcadScaleSelect")?.value) || 96,
+        scale: pdfcadScale(),
         selectedHexes: selected,
         includeText: !!document.getElementById("pdfcadTextToggle")?.checked,
         includeFills: !!document.getElementById("pdfcadFillsToggle")?.checked,
@@ -12716,7 +12940,8 @@ function initPdfcad() {
   drop.addEventListener("dragleave", () => drop.classList.remove("drag-over"));
   drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("drag-over"); if (e.dataTransfer.files[0]) takeFile(e.dataTransfer.files[0]); });
   document.getElementById("pdfcadPickButton")?.addEventListener("click", pdfcadPickFile);
-  document.getElementById("pdfcadScaleSelect")?.addEventListener("change", renderPdfcadSummary);
+  document.getElementById("pdfcadScaleSelect")?.addEventListener("change", syncPdfcadCustomScale);
+  document.getElementById("pdfcadCustomScaleInput")?.addEventListener("input", syncPdfcadCustomScale);
   // ODA download link (PDF-to-CAD note)
   document.getElementById("pdfcadOdaLink")?.addEventListener("click", () => window.open(ODA_DOWNLOAD_URL, "_blank", "noopener"));
   document.getElementById("pdfcadConvertButton")?.addEventListener("click", pdfcadConvert);
@@ -13327,6 +13552,7 @@ function renderPdfMergeWorkspace() {
   const compressionBusy = Boolean(pdfCompressionJobId);
   if (dom.pdfMergeButton) dom.pdfMergeButton.disabled = compressionBusy || pdfMergeFiles.length < 2;
   if (dom.pdfCompressButton) dom.pdfCompressButton.disabled = compressionBusy || pdfMergeFiles.length < 1;
+  updatePdfSlipSummary();   // the base PDF lives in this list, so its state drives the slip summary
   if (!dom.pdfMergeList) return;
   if (!pdfMergeFiles.length) {
     dom.pdfMergeList.innerHTML = '<div class="empty-state">Drop PDFs here or use Import PDF Files.</div>';
@@ -13372,11 +13598,21 @@ function formatPdfPageCount(pageCount, status = "") {
   return "page count pending";
 }
 
+// Thumbnails hydrate for both the merge workspace and the slip-in list.
+function findPdfWorkspaceFile(id) {
+  return pdfMergeFiles.find((item) => item.id === id) || pdfSlipFiles.find((item) => item.id === id) || null;
+}
+
+function renderPdfWorkspaces() {
+  renderPdfMergeWorkspace();
+  renderPdfSlipWorkspace();
+}
+
 async function loadPdfMergeThumbnail(id) {
-  const file = pdfMergeFiles.find((item) => item.id === id);
+  const file = findPdfWorkspaceFile(id);
   if (!file || file.thumbnailStatus === "loading" || file.thumbnailStatus === "ready") return;
   file.thumbnailStatus = "loading";
-  renderPdfMergeWorkspace();
+  renderPdfWorkspaces();
   try {
     const response = await fetch("./api/pdf-thumbnail", {
       method: "POST",
@@ -13390,19 +13626,19 @@ async function loadPdfMergeThumbnail(id) {
     });
     const result = await readJsonResponse(response);
     if (!response.ok || !result.ok) throw new Error(result.error || `Thumbnail failed with server status ${response.status}.`);
-    const current = pdfMergeFiles.find((item) => item.id === id);
+    const current = findPdfWorkspaceFile(id);
     if (!current) return;
     current.thumbnailDataUrl = result.thumbnailDataUrl || "";
     current.pageCount = result.pageCount || current.pageCount || null;
     current.thumbnailStatus = result.thumbnailDataUrl ? "ready" : "fallback";
   } catch (error) {
-    const current = pdfMergeFiles.find((item) => item.id === id);
+    const current = findPdfWorkspaceFile(id);
     if (current) {
       current.thumbnailStatus = "fallback";
       current.thumbnailError = error.message || "Thumbnail failed.";
     }
   } finally {
-    renderPdfMergeWorkspace();
+    renderPdfWorkspaces();
   }
 }
 
@@ -13468,9 +13704,15 @@ function clearPdfMergeWorkspace() {
     if (file.objectUrl) URL.revokeObjectURL(file.objectUrl);
   });
   pdfMergeFiles = [];
-  renderPdfMergeWorkspace();
+  pdfSlipFiles.forEach((file) => {
+    if (file.objectUrl) URL.revokeObjectURL(file.objectUrl);
+  });
+  pdfSlipFiles = [];
+  if (dom.pdfSlipPagesInput) dom.pdfSlipPagesInput.value = "";
+  renderPdfWorkspaces();
   setPdfMergeStatus("", "info");
   if (dom.pdfMergeInput) dom.pdfMergeInput.value = "";
+  if (dom.pdfSlipInput) dom.pdfSlipInput.value = "";
 }
 
 function defaultPdfOutputName(operation) {
@@ -13550,9 +13792,10 @@ function mergePdfWorkspace() {
 }
 
 function applyPdfMode(mode) {
-  currentPdfMode = ["merge", "compress", "mergeCompress"].includes(mode) ? mode : "merge";
+  currentPdfMode = ["merge", "compress", "mergeCompress", "slipSheet"].includes(mode) ? mode : "merge";
   dom.pdfModeInputs?.forEach((input) => { input.checked = input.value === currentPdfMode; });
-  const showCompression = currentPdfMode !== "merge";
+  const isSlip = currentPdfMode === "slipSheet";
+  const showCompression = currentPdfMode !== "merge" && !isSlip;
   if (dom.pdfCompressionPanel) dom.pdfCompressionPanel.hidden = !showCompression;
   if (dom.pdfMergeButton) {
     const isMergeMode = currentPdfMode === "merge" || currentPdfMode === "mergeCompress";
@@ -13560,15 +13803,188 @@ function applyPdfMode(mode) {
     dom.pdfMergeButton.textContent = currentPdfMode === "mergeCompress" ? "Merge & Compress" : "Merge PDFs";
   }
   if (dom.pdfCompressButton) dom.pdfCompressButton.hidden = currentPdfMode !== "compress";
+  // slip sheet swaps the workspace's meaning: it holds the ONE base PDF
+  if (dom.pdfSlipPanel) dom.pdfSlipPanel.hidden = !isSlip;
+  if (dom.pdfWorkspaceHeading) dom.pdfWorkspaceHeading.textContent = isSlip ? "Base PDF" : "Workspace";
   if (dom.pdfModeHint) {
     dom.pdfModeHint.textContent =
       currentPdfMode === "compress"
         ? "Shrink PDF file size. One PDF saves as a PDF; multiple save as a ZIP of compressed PDFs."
         : currentPdfMode === "mergeCompress"
           ? "Combine multiple PDFs into one file, then compress the merged result."
-          : "Combine multiple PDFs into a single file (no recompression).";
+          : isSlip
+            ? "Swap pages out of one PDF and drop replacement sheets in their place."
+            : "Combine multiple PDFs into a single file (no recompression).";
   }
   renderPdfMergeWorkspace();
+  renderPdfSlipWorkspace();
+}
+
+function renderPdfSlipWorkspace() {
+  if (dom.pdfSlipCount) {
+    dom.pdfSlipCount.textContent = `${pdfSlipFiles.length} PDF${pdfSlipFiles.length === 1 ? "" : "s"}`;
+  }
+  if (dom.pdfSlipList) {
+    dom.pdfSlipList.innerHTML = pdfSlipFiles.length
+      ? pdfSlipFiles.map((file, index) => `
+          <article class="pdf-merge-item">
+            <div class="pdf-merge-order">${index + 1}</div>
+            <div class="pdf-merge-preview">
+              ${file.thumbnailDataUrl
+                ? `<img src="${escapeHtml(file.thumbnailDataUrl)}" alt="${escapeHtml(file.name)} first page preview" />`
+                : `<span>${file.thumbnailStatus === "loading" ? "Rendering" : "PDF"}</span>`}
+            </div>
+            <div class="pdf-merge-copy">
+              <p title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</p>
+              <span>${escapeHtml(formatFileSize(file.size))} - ${escapeHtml(formatPdfPageCount(file.pageCount, file.thumbnailStatus))}</span>
+            </div>
+            <div class="pdf-merge-actions">
+              <button class="small-button icon-button" type="button" data-pdf-slip-action="up" data-pdf-slip-id="${escapeHtml(file.id)}" ${index === 0 ? "disabled" : ""} aria-label="Move ${escapeHtml(file.name)} up" title="Move up">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5" /><path d="M5 12l7-7 7 7" /></svg>
+              </button>
+              <button class="small-button icon-button" type="button" data-pdf-slip-action="down" data-pdf-slip-id="${escapeHtml(file.id)}" ${index === pdfSlipFiles.length - 1 ? "disabled" : ""} aria-label="Move ${escapeHtml(file.name)} down" title="Move down">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14" /><path d="M19 12l-7 7-7-7" /></svg>
+              </button>
+              <button class="small-button danger-button icon-button" type="button" data-pdf-slip-action="remove" data-pdf-slip-id="${escapeHtml(file.id)}" aria-label="Remove ${escapeHtml(file.name)}" title="Remove">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M6 6l1 15h10l1-15" /><path d="M10 11v6" /><path d="M14 11v6" /></svg>
+              </button>
+            </div>
+          </article>
+        `).join("")
+      : '<div class="empty-state">Drop the replacement sheets here, or use Add Slip-in PDFs.</div>';
+  }
+  updatePdfSlipSummary();
+}
+
+// Live plain-English read of what the swap will do, so the 1:1-vs-insert rule
+// is visible before the user commits to a save dialog.
+function updatePdfSlipSummary() {
+  const base = pdfMergeFiles[0] || null;
+  const targets = parsePdfPageSelection(dom.pdfSlipPagesInput?.value, base?.pageCount);
+  const slipPages = pdfSlipFiles.reduce((total, file) => total + (Number(file.pageCount) || 0), 0);
+  const pagesKnown = pdfSlipFiles.every((file) => Number.isFinite(Number(file.pageCount)));
+  let text = "";
+  let tone = "hydreport-note";
+  if (!base) {
+    text = "Drop one base PDF in the workspace above, then add the sheets that replace those pages.";
+  } else if (pdfMergeFiles.length > 1) {
+    text = `Slip sheet uses one base PDF — the workspace has ${pdfMergeFiles.length}. Remove the extras or switch to Merge.`;
+    tone = "hydreport-note warn";
+  } else if (targets.error) {
+    text = targets.error;
+    tone = "hydreport-note warn";
+  } else if (!targets.pages.length) {
+    text = "Enter which pages of the base PDF get replaced.";
+  } else if (!pdfSlipFiles.length) {
+    text = `${targets.pages.length} page${targets.pages.length === 1 ? "" : "s"} selected. Now add the slip-in sheets.`;
+  } else if (!pagesKnown) {
+    text = "Counting the slip-in pages...";
+  } else if (slipPages === targets.pages.length) {
+    text = `One-for-one: ${targets.pages.length} page${targets.pages.length === 1 ? "" : "s"} swapped in place.`;
+    tone = "hydreport-note ok";
+  } else {
+    text = `${slipPages} slip-in page${slipPages === 1 ? " replaces" : "s replace"} ${targets.pages.length} page${targets.pages.length === 1 ? "" : "s"} at page ${targets.pages[0]}. Result: ${(base.pageCount || 0) - targets.pages.length + slipPages} pages.`;
+    tone = "hydreport-note ok";
+  }
+  if (dom.pdfSlipSummary) {
+    dom.pdfSlipSummary.textContent = text;
+    dom.pdfSlipSummary.className = tone;
+  }
+  if (dom.pdfSlipButton) {
+    dom.pdfSlipButton.disabled = Boolean(
+      !base || pdfMergeFiles.length > 1 || targets.error || !targets.pages.length || !pdfSlipFiles.length
+    );
+  }
+}
+
+// Mirrors server.py's parse_page_selection so the preview matches the result.
+function parsePdfPageSelection(spec, pageCount) {
+  const text = String(spec || "").trim();
+  if (!text) return { pages: [], error: "" };
+  const pages = new Set();
+  for (const chunk of text.split(/[,;\s]+/)) {
+    if (!chunk) continue;
+    const span = chunk.match(/^(\d+)\s*(?:-|–|to)\s*(\d+)$/);
+    if (span) {
+      let [start, end] = [Number(span[1]), Number(span[2])];
+      if (start > end) [start, end] = [end, start];
+      for (let p = start; p <= end; p += 1) pages.add(p);
+    } else if (/^\d+$/.test(chunk)) {
+      pages.add(Number(chunk));
+    } else {
+      return { pages: [], error: `Could not read "${chunk}". Use numbers and ranges like 5-7, 12.` };
+    }
+  }
+  const list = [...pages].sort((a, b) => a - b);
+  if (Number.isFinite(Number(pageCount)) && Number(pageCount) > 0) {
+    const bad = list.filter((p) => p < 1 || p > Number(pageCount));
+    if (bad.length) return { pages: [], error: `The base PDF has ${pageCount} pages; page ${bad.slice(0, 6).join(", ")} is out of range.` };
+  }
+  return { pages: list, error: "" };
+}
+
+async function addPdfSlipFiles(files) {
+  if (!ensureLicensedToolAccess(setPdfMergeStatus)) return;
+  const pdfFiles = files.filter((file) => file.name.toLowerCase().endsWith(".pdf") || file.type === "application/pdf");
+  if (!pdfFiles.length) {
+    setPdfMergeStatus("Drop or import PDFs only.", "error");
+    return;
+  }
+  try {
+    const nextFiles = [];
+    for (const file of pdfFiles) {
+      nextFiles.push({
+        id: localId("pdf-slip"),
+        name: file.name,
+        size: file.size,
+        objectUrl: URL.createObjectURL(file),
+        dataUrl: await readFileAsDataUrl(file),
+        pageCount: null,
+        thumbnailDataUrl: "",
+        thumbnailStatus: "pending",
+      });
+    }
+    pdfSlipFiles = [...pdfSlipFiles, ...nextFiles];
+    renderPdfSlipWorkspace();
+    hydratePdfMergeThumbnails(nextFiles);
+    setPdfMergeStatus(`${nextFiles.length} slip-in PDF${nextFiles.length === 1 ? "" : "s"} added.`, "success");
+  } catch (error) {
+    setPdfMergeStatus(`Could not read PDFs: ${error.message || "File read failed."}`, "error");
+  } finally {
+    if (dom.pdfSlipInput) dom.pdfSlipInput.value = "";
+  }
+}
+
+async function slipSheetPdfWorkspace() {
+  if (!ensureLicensedToolAccess(setPdfMergeStatus)) return;
+  const base = pdfMergeFiles[0];
+  if (!base) {
+    setPdfMergeStatus("Add the base PDF to the workspace first.", "error");
+    return;
+  }
+  const button = dom.pdfSlipButton;
+  setPdfMergeStatus("Building the slip sheet PDF. Choose a save location when prompted...", "info");
+  if (button) { button.disabled = true; button.textContent = "Building..."; }
+  try {
+    const response = await fetch("./api/slip-sheet-pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        base: { name: base.name, dataUrl: base.dataUrl },
+        slips: pdfSlipFiles.map((file) => ({ name: file.name, dataUrl: file.dataUrl })),
+        pages: dom.pdfSlipPagesInput?.value || "",
+        defaultName: `${(base.name || "SprinkFlow").replace(/\.pdf$/i, "")} - slip sheet.pdf`,
+      }),
+    });
+    const result = await readJsonResponse(response);
+    if (!response.ok || !result.ok) throw new Error(result.error || `Slip sheet failed with server status ${response.status}.`);
+    setPdfMergeStatus(`${result.message} Saved: ${result.path}`, "success");
+  } catch (error) {
+    setPdfMergeStatus(`Could not create the slip sheet PDF: ${error.message || "Operation failed."}`, "error");
+  } finally {
+    if (button) button.textContent = "Create Slip Sheet PDF";
+    updatePdfSlipSummary();
+  }
 }
 
 function pdfRecentSubtitle(item) {
@@ -16115,6 +16531,39 @@ function wireEvents() {
   dom.pdfModeInputs?.forEach((input) => {
     input.addEventListener("change", () => { if (input.checked) applyPdfMode(input.value); });
   });
+  dom.pdfSlipImportButton?.addEventListener("click", () => dom.pdfSlipInput?.click());
+  dom.pdfSlipInput?.addEventListener("change", (event) => addPdfSlipFiles([...(event.target.files || [])]));
+  dom.pdfSlipButton?.addEventListener("click", slipSheetPdfWorkspace);
+  dom.pdfSlipPagesInput?.addEventListener("input", updatePdfSlipSummary);
+  dom.pdfSlipDrop?.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+    dom.pdfSlipDrop.classList.add("drag-over");
+  });
+  dom.pdfSlipDrop?.addEventListener("dragleave", (event) => {
+    if (!dom.pdfSlipDrop.contains(event.relatedTarget)) dom.pdfSlipDrop.classList.remove("drag-over");
+  });
+  dom.pdfSlipDrop?.addEventListener("drop", (event) => {
+    event.preventDefault();
+    dom.pdfSlipDrop.classList.remove("drag-over");
+    addPdfSlipFiles([...(event.dataTransfer?.files || [])]);
+  });
+  dom.pdfSlipList?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-pdf-slip-action]");
+    if (!button) return;
+    const { pdfSlipAction: action, pdfSlipId: id } = button.dataset;
+    if (action === "remove") {
+      pdfSlipFiles = pdfSlipFiles.filter((file) => file.id !== id);
+    } else {
+      const index = pdfSlipFiles.findIndex((file) => file.id === id);
+      const nextIndex = action === "up" ? index - 1 : index + 1;
+      if (index < 0 || nextIndex < 0 || nextIndex >= pdfSlipFiles.length) return;
+      const next = [...pdfSlipFiles];
+      [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+      pdfSlipFiles = next;
+    }
+    renderPdfSlipWorkspace();
+  });
   dom.pdfRecentRefreshButton?.addEventListener("click", loadRecentOutputs);
   dom.pdfRecentList?.addEventListener("click", (event) => {
     const addButton = event.target.closest("[data-pdf-recent-add]");
@@ -16395,18 +16844,37 @@ function wireEvents() {
   dom.deleteLoadoutButton?.addEventListener("click", deleteSelectedLoadout);
   dom.spacingPressureHazardSelect?.addEventListener("change", updateSpacingCalculator);
   const handleCoverTemplateChange = (event) => {
-    const select = event.target.closest("[data-cover-template-select]");
-    if (!select) return;
-    const tpl = coverTemplateById(select.value);
-    if (!tpl) return;
+    // star first: it sits inside the card, so it must not also select
+    const star = event.target.closest("[data-cover-template-star]");
+    if (star) {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleCoverTemplateFavorite(star.dataset.coverTemplateStar);
+      renderCoverTemplateOptions();
+      renderHydraulicCoverTemplateOptions();
+      return;
+    }
+    const card = event.target.closest("[data-cover-template-card]");
+    if (!card) return;
+    const tpl = coverTemplateById(card.dataset.coverTemplateCard);
+    if (!tpl || tpl.id === state.coverTemplate) return;
     state.coverTemplate = tpl.id;
     renderCoverTemplateOptions();
     renderHydraulicCoverTemplateOptions();
     renderPreview();
     saveState();
   };
-  dom.coverTemplateOptions?.addEventListener("change", handleCoverTemplateChange);
-  dom.hydraulicCoverTemplateOptions?.addEventListener("change", handleCoverTemplateChange);
+  const handleCoverTemplateKeydown = (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const target = event.target.closest("[data-cover-template-star], [data-cover-template-card]");
+    if (!target) return;
+    event.preventDefault();
+    target.click();
+  };
+  dom.coverTemplateOptions?.addEventListener("click", handleCoverTemplateChange);
+  dom.hydraulicCoverTemplateOptions?.addEventListener("click", handleCoverTemplateChange);
+  dom.coverTemplateOptions?.addEventListener("keydown", handleCoverTemplateKeydown);
+  dom.hydraulicCoverTemplateOptions?.addEventListener("keydown", handleCoverTemplateKeydown);
 
   dom.appRefreshButton?.addEventListener("click", () => {
     window.location.reload();
