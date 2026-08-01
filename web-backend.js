@@ -25,7 +25,7 @@
   if (!WEB) return;                                 // desktop: do nothing
   window.__SPRINKFLOW_WEB__ = true;
   // stamped by packaging/build_web_edition.py at deploy time; "dev" locally
-  var WEB_BUILD = "b0801-0328-12c0e8c";
+  var WEB_BUILD = "b0801-0344-1e69ad1";
   window.__SPRINKFLOW_WEB_BUILD__ = WEB_BUILD;
   console.log("[web-backend] SprinkFlow Web Edition active — build " + WEB_BUILD);
   // mobile layer: web-only stylesheet (media-query gated), never active on desktop
@@ -775,6 +775,9 @@
       case "/api/clipboard-copy":      return clip(body).then(function () { return jsonResp({ ok: true }); });
       case "/api/create-email-draft":  return Promise.resolve(jsonResp({ ok: false, error: "Email drafts need the desktop app." }));
 
+      // ---- water supply: flow test sheet PDF ----
+      case "/api/water-flow-sheet":     return waterFlowSheetWeb(body);
+
       // ---- vicinity map (OSM services called straight from the browser) ----
       case "/api/vicinity/geocode":     return vicinityGeocodeWeb(body);
       case "/api/vicinity/streets":     return vicinityStreetsWeb(body);
@@ -1285,6 +1288,176 @@
         });
       });
     }).catch(function () { return { ok: false, error: "Could not render preview." }; });
+  }
+
+  // ---- water flow test sheet (port of server.py build_water_flow_sheet_pdf) ----
+  // reportlab's platypus flowables have no pdf-lib equivalent, so this lays the
+  // same document out manually: title, paired key/value blocks, dark section
+  // bars, the hydrant table, result tiles, safety margins, and the chart image.
+  function waterFlowSheetWeb(body) {
+    var blocked = webRequireOutputs("generate a flow test sheet");
+    if (blocked) return Promise.resolve(blocked);
+    return loadPdfLib().then(function (P) {
+      return P.PDFDocument.create().then(function (doc) {
+        var title = safe(body.title || "HYDRANT FLOW TEST REPORT");
+        doc.setTitle(title);
+        doc.setProducer("SprinkFlow Web Edition");
+        return Promise.all([
+          doc.embedFont(P.StandardFonts.HelveticaBold),
+          doc.embedFont(P.StandardFonts.Helvetica),
+          doc.embedFont(P.StandardFonts.HelveticaOblique),
+        ]).then(function (fonts) {
+          var H = fonts[0], R = fonts[1], I = fonts[2];
+          var ink = hex(P, "#111111"), muted = hex(P, "#444444"), line = hex(P, "#bbbbbb");
+          var page = doc.addPage([612, 792]);
+          var L = 43, RIGHT = 569, W = RIGHT - L;   // 0.6in margins, letter portrait
+          var y = 792 - 40;
+
+          function newPageIfNeeded(need) {
+            if (y - need > 46) return;
+            page = doc.addPage([612, 792]);
+            y = 792 - 40;
+          }
+          function textAt(str, x, yy, size, font, color) {
+            page.drawText(safe(str), { x: x, y: yy, size: size, font: font || R, color: color || ink });
+          }
+          function fit(str, size, font, maxW) {
+            str = safe(str);
+            while (str.length > 1 && font.widthOfTextAtSize(str, size) > maxW) str = str.slice(0, -1);
+            return str;
+          }
+          function sectionBar(label) {
+            newPageIfNeeded(30);
+            page.drawRectangle({ x: L, y: y - 14, width: W, height: 16, color: ink });
+            textAt(String(label).toUpperCase(), L + 6, y - 10, 8.5, H, P.rgb(1, 1, 1));
+            y -= 24;
+          }
+          // paired key/value block (site info | pressure info), side by side
+          function kvColumn(rows, x, colW, startY) {
+            var yy = startY, keyW = colW * 0.44;
+            (rows || []).forEach(function (row) {
+              var k = safe((row || [])[0]), v = safe((row || [])[1]);
+              page.drawText(fit(k, 8, H, keyW - 4), { x: x, y: yy, size: 8, font: H, color: muted });
+              page.drawText(fit(v, 9, R, colW - keyW - 4), { x: x + keyW, y: yy, size: 9, font: R, color: ink });
+              yy -= 14;
+            });
+            return yy;
+          }
+          function table(header, rows, widths, startY) {
+            var yy = startY;
+            page.drawRectangle({ x: L, y: yy - 12, width: W, height: 15, color: hex(P, "#eeeeee") });
+            var x = L;
+            (header || []).forEach(function (h, i) {
+              page.drawText(fit(h, 7.5, H, widths[i] - 4), { x: x + 3, y: yy - 8, size: 7.5, font: H, color: ink });
+              x += widths[i];
+            });
+            yy -= 18;
+            (rows || []).forEach(function (row) {
+              if (yy < 60) { page = doc.addPage([612, 792]); yy = 792 - 50; }
+              var cx = L;
+              (row || []).forEach(function (cell, i) {
+                page.drawText(fit(cell, 8, R, widths[i] - 4), { x: cx + 3, y: yy, size: 8, font: R, color: ink });
+                cx += widths[i];
+              });
+              page.drawLine({ start: { x: L, y: yy - 4 }, end: { x: RIGHT, y: yy - 4 }, thickness: 0.4, color: line });
+              yy -= 14;
+            });
+            return yy;
+          }
+
+          // --- title block ---
+          textAt(title, L, y, 17, H, ink);
+          y -= 18;
+          if (body.subtitle) { textAt(body.subtitle, L, y, 10, R, muted); y -= 14; }
+          page.drawLine({ start: { x: L, y: y }, end: { x: RIGHT, y: y }, thickness: 1.4, color: ink });
+          y -= 16;
+
+          // --- site + pressure, two columns ---
+          var half = W / 2;
+          var endA = kvColumn(body.siteRows, L, half - 8, y);
+          var endB = kvColumn(body.pressureRows, L + half, half - 8, y);
+          y = Math.min(endA, endB) - 6;
+
+          // --- flow hydrants ---
+          sectionBar("Flow Hydrants");
+          var hHeader = body.hydrantHeader || ["Hydrant", "Pitot", "Outlets", "Dia", "Coeff", "Flow", "Location"];
+          var hFrac = [0.14, 0.11, 0.11, 0.09, 0.10, 0.13, 0.32];
+          var hWidths = hFrac.map(function (f) { return W * f; });
+          while (hWidths.length < hHeader.length) hWidths.push(W / hHeader.length);
+          y = table(hHeader, body.hydrantRows, hWidths, y) - 6;
+
+          // --- results tiles ---
+          var tiles = body.resultTiles || [];
+          if (tiles.length) {
+            sectionBar("Results");
+            newPageIfNeeded(46);
+            var cols = Math.min(tiles.length, 4);
+            var tw = W / cols;
+            tiles.forEach(function (tile, i) {
+              var col = i % cols;
+              var rowTop = y - Math.floor(i / cols) * 40;
+              var tx = L + col * tw;
+              page.drawRectangle({ x: tx, y: rowTop - 32, width: tw, height: 36, borderColor: ink, borderWidth: 0.8 });
+              page.drawText(fit(safe((tile || [])[0]).toUpperCase(), 7, H, tw - 8), { x: tx + 5, y: rowTop - 8, size: 7, font: H, color: muted });
+              page.drawText(fit(safe((tile || [])[1]), 12, H, tw - 8), { x: tx + 5, y: rowTop - 25, size: 12, font: H, color: ink });
+            });
+            y -= Math.ceil(tiles.length / cols) * 40 + 8;
+          }
+
+          // --- safety margins ---
+          var demandRows = body.demandRows || [];
+          if (demandRows.length) {
+            sectionBar("Safety Margins");
+            var dHeader = body.demandHeader || ["Demand", "Required", "Available", "Safety Margin", "Margin %"];
+            var dWidths = dHeader.map(function (_, i) { return i === 0 ? W * 0.32 : W * 0.17; });
+            y = table(dHeader, demandRows, dWidths, y) - 4;
+          }
+
+          var note = safe(body.disclaimer || "").trim();
+          if (note) {
+            newPageIfNeeded(30);
+            // wrap the note across the full width
+            var words = note.split(/\s+/), lineText = "";
+            words.forEach(function (word) {
+              var attempt = lineText ? lineText + " " + word : word;
+              if (I.widthOfTextAtSize(attempt, 8.5) > W) {
+                textAt(lineText, L, y, 8.5, I, hex(P, "#333333")); y -= 11; lineText = word;
+              } else { lineText = attempt; }
+            });
+            if (lineText) { textAt(lineText, L, y, 8.5, I, hex(P, "#333333")); y -= 11; }
+            y -= 4;
+          }
+
+          // --- chart image ---
+          var chart = body.chartPng || "";
+          var chartStep = Promise.resolve();
+          if (chart) {
+            var b64 = chart.indexOf(",") >= 0 ? chart.slice(chart.indexOf(",") + 1) : chart;
+            chartStep = doc.embedPng(dataUrlToBytes("data:image/png;base64," + b64)).then(function (png) {
+              var scale = Math.min(W / png.width, 1);
+              var h = png.height * scale;
+              if (y - h < 60) { page = doc.addPage([612, 792]); y = 792 - 50; }
+              page.drawImage(png, { x: L, y: y - h, width: png.width * scale, height: h });
+              y -= h + 8;
+            }).catch(function () { /* a bad chart must not kill the sheet */ });
+          }
+
+          return chartStep.then(function () {
+            var by = safe(body.performedBy || "").trim();
+            page.drawText("Generated by SprinkFlow" + (by ? "  -  Performed by " + by : ""),
+              { x: L, y: 30, size: 8, font: R, color: muted });
+            return doc.save();
+          }).then(function (bytes) {
+            var name = cleanName(body.defaultName || "Flow Test Sheet");
+            if (!/\.pdf$/i.test(name)) name = name.replace(/\.[A-Za-z0-9]{1,5}$/, "") + ".pdf";
+            download(bytes, name, "application/pdf");
+            return jsonResp({ ok: true, path: name, bytes: bytes.length });
+          });
+        });
+      });
+    }).catch(function (e) {
+      return jsonResp({ ok: false, error: (e && e.message) || "Could not build the flow test sheet." });
+    });
   }
 
   // ---- save-generated-file -> browser download ----
