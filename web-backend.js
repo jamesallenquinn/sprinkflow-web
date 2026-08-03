@@ -25,7 +25,7 @@
   if (!WEB) return;                                 // desktop: do nothing
   window.__SPRINKFLOW_WEB__ = true;
   // stamped by packaging/build_web_edition.py at deploy time; "dev" locally
-  var WEB_BUILD = "b0801-0344-1e69ad1";
+  var WEB_BUILD = "b0803-1631-2ac78a2";
   window.__SPRINKFLOW_WEB_BUILD__ = WEB_BUILD;
   console.log("[web-backend] SprinkFlow Web Edition active — build " + WEB_BUILD);
   // mobile layer: web-only stylesheet (media-query gated), never active on desktop
@@ -778,6 +778,9 @@
       // ---- water supply: flow test sheet PDF ----
       case "/api/water-flow-sheet":     return waterFlowSheetWeb(body);
 
+      // ---- slip sheet (visual page editor sends a page sequence) ----
+      case "/api/slip-sheet-pdf":       return slipSheetWeb(body);
+
       // ---- vicinity map (OSM services called straight from the browser) ----
       case "/api/vicinity/geocode":     return vicinityGeocodeWeb(body);
       case "/api/vicinity/streets":     return vicinityStreetsWeb(body);
@@ -1457,6 +1460,58 @@
       });
     }).catch(function (e) {
       return jsonResp({ ok: false, error: (e && e.message) || "Could not build the flow test sheet." });
+    });
+  }
+
+  // ---- slip sheet: assemble the editor's page sequence with pdf-lib ----
+  function slipSheetWeb(body) {
+    var blocked = webRequireOutputs("create a slip sheet PDF");
+    if (blocked) return Promise.resolve(blocked);
+    var sequence = (body && body.sequence) || [];
+    if (!sequence.length) return Promise.resolve(jsonResp({ ok: false, error: "Place at least one slip-in page first." }));
+    return loadPdfLib().then(function (P) {
+      function loadDoc(payload, label) {
+        var b64 = String((payload || {}).dataUrl || "").split(",")[1];
+        if (!b64) return Promise.reject(new Error(label + " is missing PDF data."));
+        return P.PDFDocument.load(dataUrlToBytes("data:application/pdf;base64," + b64), { ignoreEncryption: true });
+      }
+      var slips = body.slips || [];
+      return Promise.all([
+        P.PDFDocument.create(),
+        loadDoc(body.base, "The base PDF"),
+        Promise.all(slips.map(function (s, i) { return loadDoc(s, "Slip-in PDF " + (i + 1)); })),
+      ]).then(function (loaded) {
+        var out = loaded[0], base = loaded[1], slipDocs = loaded[2];
+        out.setProducer("SprinkFlow Web Edition");
+        var baseUsed = 0;
+        var chain = Promise.resolve();
+        sequence.forEach(function (step) {
+          chain = chain.then(function () {
+            var src = (step || {}).src;
+            var page = Number((step || {}).page || 0);
+            var doc = src === "base" ? base : slipDocs[Number(src)];
+            if (!doc) throw new Error("A slip-in page references a PDF that wasn't uploaded.");
+            if (page < 1 || page > doc.getPageCount()) throw new Error("Page " + page + " is out of range.");
+            if (src === "base") baseUsed += 1;
+            return out.copyPages(doc, [page - 1]).then(function (pages) { out.addPage(pages[0]); });
+          });
+        });
+        return chain.then(function () { return out.save(); }).then(function (bytes) {
+          var name = cleanName(body.defaultName || "slip sheet.pdf");
+          if (!/\.pdf$/i.test(name)) name += ".pdf";
+          download(bytes, name, "application/pdf");
+          var baseCount = base.getPageCount();
+          var replaced = baseCount - baseUsed;
+          var inserted = sequence.length - baseUsed - replaced;
+          return jsonResp({
+            ok: true, path: name, pageCount: sequence.length,
+            message: "Replaced " + replaced + " page" + (replaced === 1 ? "" : "s") + ", inserted " + inserted +
+                     " page" + (inserted === 1 ? "" : "s") + ". " + baseCount + " pages in, " + sequence.length + " out.",
+          });
+        });
+      });
+    }).catch(function (e) {
+      return jsonResp({ ok: false, error: (e && e.message) || "Could not build the slip sheet PDF." });
     });
   }
 

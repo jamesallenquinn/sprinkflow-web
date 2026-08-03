@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0801-0344-1e69ad1" />
+    <link rel="stylesheet" href="./styles.css?v=b0803-1631-2ac78a2" />
   </head>
   <body>
     <div class="app-shell">
@@ -1930,30 +1930,31 @@
         </div>
 
         <div class="pdf-slip-grid" id="pdfSlipPanel" hidden>
-          <section class="panel-section calculator-section pdf-slip-drop-section" id="pdfSlipDrop" tabindex="0">
+          <section class="panel-section calculator-section pdf-slip-base-section">
             <div class="section-heading">
-              <p class="eyebrow">Slip-in pages</p>
-              <span class="pdf-merge-count" id="pdfSlipCount">0 PDFs</span>
+              <p class="eyebrow">Base PDF Pages</p>
+              <span class="pdf-merge-count" id="pdfSlipBaseCount">0 pages</span>
             </div>
-            <div class="pdf-merge-list" id="pdfSlipList">
-              <div class="empty-state">Drop the replacement sheets here, or use Add Slip-in PDFs.</div>
+            <p class="hydreport-note">Click a page to replace it with the next slip-in page &mdash; or drag a slip-in page <strong>onto</strong> a page to replace it, or <strong>between</strong> two pages to insert it there. Click a placed page to undo.</p>
+            <div class="slip-base-grid" id="pdfSlipBaseGrid">
+              <div class="empty-state">Drop the base PDF in the workspace above and its pages will show up here.</div>
             </div>
           </section>
 
-          <section class="panel-section calculator-section pdf-slip-controls-section">
+          <section class="panel-section calculator-section pdf-slip-controls-section" id="pdfSlipDrop" tabindex="0">
             <div class="section-heading">
-              <p class="eyebrow">Replace</p>
+              <p class="eyebrow">Slip-in Pages</p>
+              <span class="pdf-merge-count" id="pdfSlipCount">0 pages</span>
             </div>
             <input id="pdfSlipInput" class="hidden-input" type="file" accept=".pdf,application/pdf" multiple />
-            <label>Pages to replace in the base PDF
-              <input id="pdfSlipPagesInput" type="text" autocomplete="off" placeholder="ex: 5-7 or 5, 9, 12" />
-            </label>
-            <p class="hydreport-note" id="pdfSlipSummary">Drop one base PDF in the workspace above, then add the sheets that replace those pages.</p>
+            <div class="slip-tray" id="pdfSlipTray">
+              <div class="empty-state">Drop the replacement sheets here, or use Add Slip-in PDFs. Every page becomes a card you can drag onto the base PDF.</div>
+            </div>
             <div class="project-actions">
               <button class="secondary-button" id="pdfSlipImportButton" type="button">Add Slip-in PDFs</button>
               <button class="primary-button" id="pdfSlipButton" type="button" disabled>Create Slip Sheet PDF</button>
             </div>
-            <p class="hydreport-note">Matching counts swap one-for-one &mdash; replace pages 5, 9, 12 with three sheets and each lands in its own slot. Any other count drops all the slip-in pages at the first replaced page and removes the rest, so a 1-page sheet can become 3, or 4 old pages can collapse into 1.</p>
+            <p class="hydreport-note" id="pdfSlipSummary">Drop one base PDF in the workspace above, then add the sheets you want to slip in.</p>
           </section>
         </div>
 
@@ -3412,11 +3413,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0801-0344-1e69ad1"></script>
-    <script src="./app.js?v=b0801-0344-1e69ad1"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0801-0344-1e69ad1"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0801-0344-1e69ad1"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0801-0344-1e69ad1"></script>
-    <script src="./prelim-calc-desktop.js?v=b0801-0344-1e69ad1"></script>
+    <script src="./web-backend.js?v=b0803-1631-2ac78a2"></script>
+    <script src="./app.js?v=b0803-1631-2ac78a2"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0803-1631-2ac78a2"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0803-1631-2ac78a2"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0803-1631-2ac78a2"></script>
+    <script src="./prelim-calc-desktop.js?v=b0803-1631-2ac78a2"></script>
   </body>
 </html>

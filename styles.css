@@ -1044,13 +1044,112 @@ body[data-theme="plain-light"] .calculator-section label:has(input:disabled) {
   margin-top: 12px;
 }
 
-.pdf-slip-drop-section.drag-over {
+.pdf-slip-controls-section.drag-over {
   border-color: var(--brand);
   box-shadow: 0 0 0 2px rgba(255, 90, 47, 0.18);
 }
 
 .pdf-slip-controls-section .hydreport-note.ok { color: var(--ok); }
 .pdf-slip-controls-section .hydreport-note.warn { color: var(--accent); }
+
+/* ---- Slip Sheet page editor ---- */
+.slip-base-grid {
+  align-items: stretch;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 0;
+  min-height: 120px;
+}
+
+.slip-card {
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+  overflow: hidden;
+  position: relative;
+  width: 112px;
+}
+
+.slip-card img {
+  aspect-ratio: 17 / 22;      /* letter-ish placeholder until the render lands */
+  background: #fff;
+  display: block;
+  object-fit: contain;
+  width: 100%;
+}
+
+.slip-card.rendering img { visibility: hidden; }
+.slip-card.rendering::after {
+  color: var(--muted);
+  content: "Rendering…";
+  font: 600 0.7rem Inter, sans-serif;
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.slip-card .slip-num {
+  background: rgba(23, 49, 58, 0.85);
+  border-radius: 6px;
+  color: #fff;
+  font: 700 0.72rem 'Space Grotesk', sans-serif;
+  left: 5px;
+  padding: 2px 7px;
+  position: absolute;
+  top: 5px;
+}
+
+.slip-card .slip-tag {
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 5px;
+  bottom: 4px;
+  color: #16202a;
+  font: 700 0.6rem Inter, sans-serif;
+  left: 50%;
+  letter-spacing: 0.04em;
+  max-width: calc(100% - 10px);
+  overflow: hidden;
+  padding: 2px 6px;
+  position: absolute;
+  text-overflow: ellipsis;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.slip-card:hover { border-color: var(--line-strong); }
+.slip-card.replaced { border-color: var(--ok); }
+.slip-card.replaced .slip-num, .slip-card.replaced .slip-tag { background: var(--ok); color: #06251a; }
+.slip-card.inserted { border-color: var(--water); }
+.slip-card.inserted .slip-num, .slip-card.inserted .slip-tag { background: var(--water); color: #06222d; }
+.slip-card.drag-over { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(255, 90, 47, 0.3); }
+.slip-card[draggable="true"] { cursor: grab; }
+
+/* the drop channel between two page cards */
+.slip-gap {
+  border-radius: 4px;
+  flex: 0 0 10px;
+  margin: 6px 1px;
+  transition: flex-basis 0.1s ease, background 0.1s ease;
+}
+
+.slip-gap.drag-over {
+  background: var(--brand);
+  box-shadow: 0 0 0 2px rgba(255, 90, 47, 0.35);
+  flex-basis: 26px;
+}
+
+.slip-tray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 460px;
+  overflow-y: auto;
+}
+
+.slip-tray .slip-card { width: 96px; }
+.slip-tray .slip-card.placed { border-color: var(--ok); opacity: 0.45; }
 
 .hydraulic-package-grid {
   align-items: start;

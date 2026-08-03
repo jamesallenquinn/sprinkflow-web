@@ -583,10 +583,11 @@ const dom = {
   pdfWorkspaceHeading: document.querySelector("#pdfWorkspaceHeading"),
   pdfSlipPanel: document.querySelector("#pdfSlipPanel"),
   pdfSlipDrop: document.querySelector("#pdfSlipDrop"),
-  pdfSlipList: document.querySelector("#pdfSlipList"),
+  pdfSlipBaseGrid: document.querySelector("#pdfSlipBaseGrid"),
+  pdfSlipBaseCount: document.querySelector("#pdfSlipBaseCount"),
+  pdfSlipTray: document.querySelector("#pdfSlipTray"),
   pdfSlipCount: document.querySelector("#pdfSlipCount"),
   pdfSlipInput: document.querySelector("#pdfSlipInput"),
-  pdfSlipPagesInput: document.querySelector("#pdfSlipPagesInput"),
   pdfSlipSummary: document.querySelector("#pdfSlipSummary"),
   pdfSlipImportButton: document.querySelector("#pdfSlipImportButton"),
   pdfSlipButton: document.querySelector("#pdfSlipButton"),
@@ -13704,11 +13705,9 @@ function clearPdfMergeWorkspace() {
     if (file.objectUrl) URL.revokeObjectURL(file.objectUrl);
   });
   pdfMergeFiles = [];
-  pdfSlipFiles.forEach((file) => {
-    if (file.objectUrl) URL.revokeObjectURL(file.objectUrl);
-  });
   pdfSlipFiles = [];
-  if (dom.pdfSlipPagesInput) dom.pdfSlipPagesInput.value = "";
+  pdfSlipTray = [];
+  pdfSlipBase = { fileId: "", count: 0, thumbs: [], token: pdfSlipBase.token + 1 };
   renderPdfWorkspaces();
   setPdfMergeStatus("", "info");
   if (dom.pdfMergeInput) dom.pdfMergeInput.value = "";
@@ -13820,70 +13819,172 @@ function applyPdfMode(mode) {
   renderPdfSlipWorkspace();
 }
 
-function renderPdfSlipWorkspace() {
-  if (dom.pdfSlipCount) {
-    dom.pdfSlipCount.textContent = `${pdfSlipFiles.length} PDF${pdfSlipFiles.length === 1 ? "" : "s"}`;
+// ===== Slip Sheet: visual page editor =======================================
+// The base PDF renders as one card per page. Slip-in PDFs explode into
+// per-page cards in a tray. Placing a tray card ONTO a base card replaces
+// that page; dropping it in a GAP between cards inserts it there; clicking a
+// base card grabs the next unplaced tray card. All rendering is client-side
+// pdf.js, and the final document order ships to the server as a sequence.
+let pdfSlipTray = [];                                        // {id, fileId, fileName, page, thumb, placement}
+let pdfSlipBase = { fileId: "", count: 0, thumbs: [], token: 0 };
+let pdfSlipInsertSeq = 0;
+
+function pdfSlipBytesFromDataUrl(dataUrl) {
+  const encoded = String(dataUrl || "").split(",")[1] || "";
+  const raw = atob(encoded);
+  const bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i += 1) bytes[i] = raw.charCodeAt(i);
+  return bytes;
+}
+
+// Render every page of a PDF to small JPEG thumbs, calling onPage(index, thumb)
+// as each one lands so big sets fill in progressively.
+async function pdfSlipRenderPages(dataUrl, onPage) {
+  const doc = await window.pdfjsLib.getDocument({ data: pdfSlipBytesFromDataUrl(dataUrl) }).promise;
+  for (let index = 1; index <= doc.numPages; index += 1) {
+    const page = await doc.getPage(index);
+    const base = page.getViewport({ scale: 1 });
+    const viewport = page.getViewport({ scale: 220 / base.width });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // intent "print" keeps pdf.js off requestAnimationFrame, so thumbnails
+    // still render when the tab/window is hidden or minimized
+    await page.render({ canvasContext: ctx, viewport, intent: "print" }).promise;
+    onPage(index, canvas.toDataURL("image/jpeg", 0.72));
   }
-  if (dom.pdfSlipList) {
-    dom.pdfSlipList.innerHTML = pdfSlipFiles.length
-      ? pdfSlipFiles.map((file, index) => `
-          <article class="pdf-merge-item">
-            <div class="pdf-merge-order">${index + 1}</div>
-            <div class="pdf-merge-preview">
-              ${file.thumbnailDataUrl
-                ? `<img src="${escapeHtml(file.thumbnailDataUrl)}" alt="${escapeHtml(file.name)} first page preview" />`
-                : `<span>${file.thumbnailStatus === "loading" ? "Rendering" : "PDF"}</span>`}
-            </div>
-            <div class="pdf-merge-copy">
-              <p title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</p>
-              <span>${escapeHtml(formatFileSize(file.size))} - ${escapeHtml(formatPdfPageCount(file.pageCount, file.thumbnailStatus))}</span>
-            </div>
-            <div class="pdf-merge-actions">
-              <button class="small-button icon-button" type="button" data-pdf-slip-action="up" data-pdf-slip-id="${escapeHtml(file.id)}" ${index === 0 ? "disabled" : ""} aria-label="Move ${escapeHtml(file.name)} up" title="Move up">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5" /><path d="M5 12l7-7 7 7" /></svg>
-              </button>
-              <button class="small-button icon-button" type="button" data-pdf-slip-action="down" data-pdf-slip-id="${escapeHtml(file.id)}" ${index === pdfSlipFiles.length - 1 ? "disabled" : ""} aria-label="Move ${escapeHtml(file.name)} down" title="Move down">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14" /><path d="M19 12l-7 7-7-7" /></svg>
-              </button>
-              <button class="small-button danger-button icon-button" type="button" data-pdf-slip-action="remove" data-pdf-slip-id="${escapeHtml(file.id)}" aria-label="Remove ${escapeHtml(file.name)}" title="Remove">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M6 6l1 15h10l1-15" /><path d="M10 11v6" /><path d="M14 11v6" /></svg>
-              </button>
-            </div>
-          </article>
-        `).join("")
-      : '<div class="empty-state">Drop the replacement sheets here, or use Add Slip-in PDFs.</div>';
+  const count = doc.numPages;
+  doc.destroy?.();
+  return count;
+}
+
+function pdfSlipFillThumb(key, thumb) {
+  const img = document.querySelector(`img[data-slip-thumb="${key}"]`);
+  if (img) { img.src = thumb; img.closest(".slip-card")?.classList.remove("rendering"); }
+}
+
+// Keep the base page strip in sync with the workspace's (single) base PDF.
+function syncPdfSlipBase() {
+  const base = currentPdfMode === "slipSheet" && pdfMergeFiles.length === 1 ? pdfMergeFiles[0] : null;
+  if (!base) {
+    if (pdfSlipBase.fileId) {
+      pdfSlipBase = { fileId: "", count: 0, thumbs: [], token: pdfSlipBase.token + 1 };
+      pdfSlipTray.forEach((item) => { item.placement = null; });
+    }
+    return;
+  }
+  if (pdfSlipBase.fileId === base.id) return;
+  const token = pdfSlipBase.token + 1;
+  pdfSlipBase = { fileId: base.id, count: 0, thumbs: [], token };
+  pdfSlipTray.forEach((item) => { item.placement = null; });   // placements were against the old base
+  pdfSlipRenderPages(base.dataUrl, (page, thumb) => {
+    if (pdfSlipBase.token !== token) return;
+    pdfSlipBase.thumbs[page - 1] = thumb;
+    if (pdfSlipBase.count) pdfSlipFillThumb(`base-${page}`, thumb);
+  }).then((count) => {
+    if (pdfSlipBase.token !== token) return;
+    pdfSlipBase.count = count;
+    base.pageCount = base.pageCount || count;
+    renderPdfSlipWorkspace();
+  }).catch((error) => {
+    if (pdfSlipBase.token !== token) return;
+    pdfSlipBase = { fileId: "", count: 0, thumbs: [], token: pdfSlipBase.token + 1 };
+    setPdfMergeStatus(`Could not read the base PDF pages: ${error.message || "render failed"}.`, "error");
+  });
+}
+
+function pdfSlipCardHtml(kind, key, num, thumb, extraClass, label) {
+  return `
+    <div class="slip-card ${extraClass}${thumb ? "" : " rendering"}" data-slip-kind="${kind}" ${key}>
+      <img data-slip-thumb="${num.thumbKey}" ${thumb ? `src="${thumb}"` : ""} alt="" draggable="false" />
+      <span class="slip-num">${escapeHtml(String(num.badge))}</span>
+      ${label ? `<span class="slip-tag">${escapeHtml(label)}</span>` : ""}
+    </div>`;
+}
+
+function renderPdfSlipWorkspace() {
+  syncPdfSlipBase();
+  if (dom.pdfSlipCount) {
+    dom.pdfSlipCount.textContent = `${pdfSlipTray.length} page${pdfSlipTray.length === 1 ? "" : "s"}`;
+  }
+  if (dom.pdfSlipBaseCount) {
+    dom.pdfSlipBaseCount.textContent = `${pdfSlipBase.count || 0} page${pdfSlipBase.count === 1 ? "" : "s"}`;
+  }
+
+  if (dom.pdfSlipBaseGrid) {
+    if (!pdfSlipBase.fileId) {
+      dom.pdfSlipBaseGrid.innerHTML = pdfMergeFiles.length > 1
+        ? '<div class="empty-state">Slip Sheet works on one base PDF — remove the extras from the workspace above.</div>'
+        : '<div class="empty-state">Drop the base PDF in the workspace above and its pages will show up here.</div>';
+    } else if (!pdfSlipBase.count) {
+      dom.pdfSlipBaseGrid.innerHTML = '<div class="empty-state">Rendering pages…</div>';
+    } else {
+      const bits = [];
+      const gap = (after) => bits.push(`<div class="slip-gap" data-slip-gap="${after}" title="Drop here to insert"></div>`);
+      const inserts = (after) => pdfSlipTray
+        .filter((item) => item.placement && item.placement.type === "insert" && item.placement.afterBase === after)
+        .sort((a, b) => a.placement.seq - b.placement.seq);
+      const insertCards = (after) => inserts(after).forEach((item) => bits.push(pdfSlipCardHtml(
+        "placed", `data-slip-id="${escapeHtml(item.id)}" draggable="true"`,
+        { thumbKey: `tray-${item.id}`, badge: "+" }, item.thumb, "inserted", "INSERTED"
+      )));
+      insertCards(0);
+      for (let page = 1; page <= pdfSlipBase.count; page += 1) {
+        if (bits.length === 0 || !bits[bits.length - 1].includes("slip-gap")) gap(page - 1);
+        const replacement = pdfSlipTray.find((item) => item.placement && item.placement.type === "replace" && item.placement.basePage === page);
+        if (replacement) {
+          bits.push(pdfSlipCardHtml(
+            "placed", `data-slip-id="${escapeHtml(replacement.id)}" data-slip-base-page="${page}" draggable="true"`,
+            { thumbKey: `tray-${replacement.id}`, badge: page }, replacement.thumb, "replaced", "REPLACED"
+          ));
+        } else {
+          bits.push(pdfSlipCardHtml(
+            "base", `data-slip-base-page="${page}"`,
+            { thumbKey: `base-${page}`, badge: page }, pdfSlipBase.thumbs[page - 1] || "", "", ""
+          ));
+        }
+        insertCards(page);
+        gap(page);
+      }
+      dom.pdfSlipBaseGrid.innerHTML = bits.join("");
+    }
+  }
+
+  if (dom.pdfSlipTray) {
+    dom.pdfSlipTray.innerHTML = pdfSlipTray.length
+      ? pdfSlipTray.map((item) => pdfSlipCardHtml(
+          "tray", `data-slip-id="${escapeHtml(item.id)}" draggable="${item.placement ? "false" : "true"}"`,
+          { thumbKey: `tray-${item.id}`, badge: `${item.page}` }, item.thumb,
+          item.placement ? "placed" : "",
+          item.placement ? (item.placement.type === "replace" ? `→ pg ${item.placement.basePage}` : `→ after ${item.placement.afterBase || "start"}`) : item.fileName.replace(/\.pdf$/i, "").slice(0, 14)
+        )).join("")
+      : '<div class="empty-state">Drop the replacement sheets here, or use Add Slip-in PDFs. Every page becomes a card you can drag onto the base PDF.</div>';
   }
   updatePdfSlipSummary();
 }
 
-// Live plain-English read of what the swap will do, so the 1:1-vs-insert rule
-// is visible before the user commits to a save dialog.
 function updatePdfSlipSummary() {
-  const base = pdfMergeFiles[0] || null;
-  const targets = parsePdfPageSelection(dom.pdfSlipPagesInput?.value, base?.pageCount);
-  const slipPages = pdfSlipFiles.reduce((total, file) => total + (Number(file.pageCount) || 0), 0);
-  const pagesKnown = pdfSlipFiles.every((file) => Number.isFinite(Number(file.pageCount)));
+  const replacing = pdfSlipTray.filter((item) => item.placement?.type === "replace").length;
+  const inserting = pdfSlipTray.filter((item) => item.placement?.type === "insert").length;
+  const unplaced = pdfSlipTray.length - replacing - inserting;
   let text = "";
   let tone = "hydreport-note";
-  if (!base) {
-    text = "Drop one base PDF in the workspace above, then add the sheets that replace those pages.";
+  if (!pdfMergeFiles.length) {
+    text = "Drop one base PDF in the workspace above, then add the sheets you want to slip in.";
   } else if (pdfMergeFiles.length > 1) {
-    text = `Slip sheet uses one base PDF — the workspace has ${pdfMergeFiles.length}. Remove the extras or switch to Merge.`;
+    text = `Slip Sheet uses one base PDF — the workspace has ${pdfMergeFiles.length}. Remove the extras or switch to Merge.`;
     tone = "hydreport-note warn";
-  } else if (targets.error) {
-    text = targets.error;
-    tone = "hydreport-note warn";
-  } else if (!targets.pages.length) {
-    text = "Enter which pages of the base PDF get replaced.";
-  } else if (!pdfSlipFiles.length) {
-    text = `${targets.pages.length} page${targets.pages.length === 1 ? "" : "s"} selected. Now add the slip-in sheets.`;
-  } else if (!pagesKnown) {
-    text = "Counting the slip-in pages...";
-  } else if (slipPages === targets.pages.length) {
-    text = `One-for-one: ${targets.pages.length} page${targets.pages.length === 1 ? "" : "s"} swapped in place.`;
-    tone = "hydreport-note ok";
+  } else if (!pdfSlipTray.length) {
+    text = "Now add the slip-in sheets — every page becomes a draggable card.";
+  } else if (!replacing && !inserting) {
+    text = "Click a base page to replace it with the next slip-in page, or drag cards into place.";
   } else {
-    text = `${slipPages} slip-in page${slipPages === 1 ? " replaces" : "s replace"} ${targets.pages.length} page${targets.pages.length === 1 ? "" : "s"} at page ${targets.pages[0]}. Result: ${(base.pageCount || 0) - targets.pages.length + slipPages} pages.`;
+    const finalPages = (pdfSlipBase.count || 0) + inserting;
+    text = `Replacing ${replacing} page${replacing === 1 ? "" : "s"} · inserting ${inserting} → ${finalPages} pages out.`
+      + (unplaced ? ` ${unplaced} slip-in page${unplaced === 1 ? "" : "s"} unplaced (left out).` : "");
     tone = "hydreport-note ok";
   }
   if (dom.pdfSlipSummary) {
@@ -13891,36 +13992,30 @@ function updatePdfSlipSummary() {
     dom.pdfSlipSummary.className = tone;
   }
   if (dom.pdfSlipButton) {
-    dom.pdfSlipButton.disabled = Boolean(
-      !base || pdfMergeFiles.length > 1 || targets.error || !targets.pages.length || !pdfSlipFiles.length
-    );
+    dom.pdfSlipButton.disabled = !(pdfMergeFiles.length === 1 && (replacing || inserting));
   }
 }
 
-// Mirrors server.py's parse_page_selection so the preview matches the result.
-function parsePdfPageSelection(spec, pageCount) {
-  const text = String(spec || "").trim();
-  if (!text) return { pages: [], error: "" };
-  const pages = new Set();
-  for (const chunk of text.split(/[,;\s]+/)) {
-    if (!chunk) continue;
-    const span = chunk.match(/^(\d+)\s*(?:-|–|to)\s*(\d+)$/);
-    if (span) {
-      let [start, end] = [Number(span[1]), Number(span[2])];
-      if (start > end) [start, end] = [end, start];
-      for (let p = start; p <= end; p += 1) pages.add(p);
-    } else if (/^\d+$/.test(chunk)) {
-      pages.add(Number(chunk));
-    } else {
-      return { pages: [], error: `Could not read "${chunk}". Use numbers and ranges like 5-7, 12.` };
-    }
-  }
-  const list = [...pages].sort((a, b) => a - b);
-  if (Number.isFinite(Number(pageCount)) && Number(pageCount) > 0) {
-    const bad = list.filter((p) => p < 1 || p > Number(pageCount));
-    if (bad.length) return { pages: [], error: `The base PDF has ${pageCount} pages; page ${bad.slice(0, 6).join(", ")} is out of range.` };
-  }
-  return { pages: list, error: "" };
+function pdfSlipAssignReplace(trayId, basePage) {
+  const item = pdfSlipTray.find((entry) => entry.id === trayId);
+  if (!item || basePage < 1 || basePage > pdfSlipBase.count) return;
+  const previous = pdfSlipTray.find((entry) => entry.placement?.type === "replace" && entry.placement.basePage === basePage);
+  if (previous) previous.placement = null;
+  item.placement = { type: "replace", basePage };
+  renderPdfSlipWorkspace();
+}
+
+function pdfSlipAssignInsert(trayId, afterBase) {
+  const item = pdfSlipTray.find((entry) => entry.id === trayId);
+  if (!item || afterBase < 0 || afterBase > pdfSlipBase.count) return;
+  pdfSlipInsertSeq += 1;
+  item.placement = { type: "insert", afterBase, seq: pdfSlipInsertSeq };
+  renderPdfSlipWorkspace();
+}
+
+function pdfSlipUnassign(trayId) {
+  const item = pdfSlipTray.find((entry) => entry.id === trayId);
+  if (item) { item.placement = null; renderPdfSlipWorkspace(); }
 }
 
 async function addPdfSlipFiles(files) {
@@ -13931,23 +14026,21 @@ async function addPdfSlipFiles(files) {
     return;
   }
   try {
-    const nextFiles = [];
     for (const file of pdfFiles) {
-      nextFiles.push({
-        id: localId("pdf-slip"),
-        name: file.name,
-        size: file.size,
-        objectUrl: URL.createObjectURL(file),
-        dataUrl: await readFileAsDataUrl(file),
-        pageCount: null,
-        thumbnailDataUrl: "",
-        thumbnailStatus: "pending",
+      const record = { id: localId("pdf-slip"), name: file.name, size: file.size, dataUrl: await readFileAsDataUrl(file) };
+      pdfSlipFiles = [...pdfSlipFiles, record];
+      // explode the file into one tray card per page (thumbs stream in)
+      const pending = [];
+      const count = await pdfSlipRenderPages(record.dataUrl, (page, thumb) => {
+        const existing = pdfSlipTray.find((item) => item.fileId === record.id && item.page === page);
+        if (existing) { existing.thumb = thumb; pdfSlipFillThumb(`tray-${existing.id}`, thumb); }
+        else pending.push({ id: localId("slip-page"), fileId: record.id, fileName: record.name, page, thumb, placement: null });
       });
+      pdfSlipTray = [...pdfSlipTray, ...pending];
+      renderPdfSlipWorkspace();
+      void count;
     }
-    pdfSlipFiles = [...pdfSlipFiles, ...nextFiles];
-    renderPdfSlipWorkspace();
-    hydratePdfMergeThumbnails(nextFiles);
-    setPdfMergeStatus(`${nextFiles.length} slip-in PDF${nextFiles.length === 1 ? "" : "s"} added.`, "success");
+    setPdfMergeStatus(`${pdfFiles.length} slip-in PDF${pdfFiles.length === 1 ? "" : "s"} added — drag the pages into place.`, "success");
   } catch (error) {
     setPdfMergeStatus(`Could not read PDFs: ${error.message || "File read failed."}`, "error");
   } finally {
@@ -13955,11 +14048,28 @@ async function addPdfSlipFiles(files) {
   }
 }
 
+// Final page order: insertions before/after each base page, replacements in place.
+function pdfSlipSequence() {
+  const fileIndex = new Map(pdfSlipFiles.map((file, index) => [file.id, index]));
+  const slipRef = (item) => ({ src: fileIndex.get(item.fileId), page: item.page });
+  const inserts = (after) => pdfSlipTray
+    .filter((item) => item.placement?.type === "insert" && item.placement.afterBase === after)
+    .sort((a, b) => a.placement.seq - b.placement.seq)
+    .map(slipRef);
+  const sequence = [...inserts(0)];
+  for (let page = 1; page <= pdfSlipBase.count; page += 1) {
+    const replacement = pdfSlipTray.find((item) => item.placement?.type === "replace" && item.placement.basePage === page);
+    sequence.push(replacement ? slipRef(replacement) : { src: "base", page });
+    sequence.push(...inserts(page));
+  }
+  return sequence;
+}
+
 async function slipSheetPdfWorkspace() {
   if (!ensureLicensedToolAccess(setPdfMergeStatus)) return;
   const base = pdfMergeFiles[0];
-  if (!base) {
-    setPdfMergeStatus("Add the base PDF to the workspace first.", "error");
+  if (!base || pdfMergeFiles.length > 1) {
+    setPdfMergeStatus("Slip Sheet needs exactly one base PDF in the workspace.", "error");
     return;
   }
   const button = dom.pdfSlipButton;
@@ -13972,7 +14082,7 @@ async function slipSheetPdfWorkspace() {
       body: JSON.stringify({
         base: { name: base.name, dataUrl: base.dataUrl },
         slips: pdfSlipFiles.map((file) => ({ name: file.name, dataUrl: file.dataUrl })),
-        pages: dom.pdfSlipPagesInput?.value || "",
+        sequence: pdfSlipSequence(),
         defaultName: `${(base.name || "SprinkFlow").replace(/\.pdf$/i, "")} - slip sheet.pdf`,
       }),
     });
@@ -16534,8 +16644,9 @@ function wireEvents() {
   dom.pdfSlipImportButton?.addEventListener("click", () => dom.pdfSlipInput?.click());
   dom.pdfSlipInput?.addEventListener("change", (event) => addPdfSlipFiles([...(event.target.files || [])]));
   dom.pdfSlipButton?.addEventListener("click", slipSheetPdfWorkspace);
-  dom.pdfSlipPagesInput?.addEventListener("input", updatePdfSlipSummary);
+  // tray section doubles as the file drop zone (real OS files only)
   dom.pdfSlipDrop?.addEventListener("dragover", (event) => {
+    if (![...(event.dataTransfer?.types || [])].includes("Files")) return;
     event.preventDefault();
     if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
     dom.pdfSlipDrop.classList.add("drag-over");
@@ -16544,25 +16655,60 @@ function wireEvents() {
     if (!dom.pdfSlipDrop.contains(event.relatedTarget)) dom.pdfSlipDrop.classList.remove("drag-over");
   });
   dom.pdfSlipDrop?.addEventListener("drop", (event) => {
+    if (![...(event.dataTransfer?.types || [])].includes("Files")) return;
     event.preventDefault();
     dom.pdfSlipDrop.classList.remove("drag-over");
     addPdfSlipFiles([...(event.dataTransfer?.files || [])]);
   });
-  dom.pdfSlipList?.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-pdf-slip-action]");
-    if (!button) return;
-    const { pdfSlipAction: action, pdfSlipId: id } = button.dataset;
-    if (action === "remove") {
-      pdfSlipFiles = pdfSlipFiles.filter((file) => file.id !== id);
-    } else {
-      const index = pdfSlipFiles.findIndex((file) => file.id === id);
-      const nextIndex = action === "up" ? index - 1 : index + 1;
-      if (index < 0 || nextIndex < 0 || nextIndex >= pdfSlipFiles.length) return;
-      const next = [...pdfSlipFiles];
-      [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
-      pdfSlipFiles = next;
+  // dragging page cards: tray cards and placed cards carry the tray id
+  const slipDragType = "application/x-sprinkflow-slip-page";
+  const slipCardDragStart = (event) => {
+    const card = event.target.closest("[data-slip-id]");
+    if (!card || !event.dataTransfer) return;
+    event.dataTransfer.setData(slipDragType, card.dataset.slipId);
+    event.dataTransfer.effectAllowed = "move";
+  };
+  dom.pdfSlipTray?.addEventListener("dragstart", slipCardDragStart);
+  dom.pdfSlipBaseGrid?.addEventListener("dragstart", slipCardDragStart);
+  dom.pdfSlipBaseGrid?.addEventListener("dragover", (event) => {
+    if (![...(event.dataTransfer?.types || [])].includes(slipDragType)) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+    const target = event.target.closest("[data-slip-gap], [data-slip-base-page]");
+    dom.pdfSlipBaseGrid.querySelectorAll(".drag-over").forEach((el) => { if (el !== target) el.classList.remove("drag-over"); });
+    target?.classList.add("drag-over");
+  });
+  dom.pdfSlipBaseGrid?.addEventListener("dragleave", (event) => {
+    if (!dom.pdfSlipBaseGrid.contains(event.relatedTarget)) {
+      dom.pdfSlipBaseGrid.querySelectorAll(".drag-over").forEach((el) => el.classList.remove("drag-over"));
     }
-    renderPdfSlipWorkspace();
+  });
+  dom.pdfSlipBaseGrid?.addEventListener("drop", (event) => {
+    const trayId = event.dataTransfer?.getData(slipDragType);
+    if (!trayId) return;
+    event.preventDefault();
+    dom.pdfSlipBaseGrid.querySelectorAll(".drag-over").forEach((el) => el.classList.remove("drag-over"));
+    const gap = event.target.closest("[data-slip-gap]");
+    if (gap) { pdfSlipAssignInsert(trayId, Number(gap.dataset.slipGap)); return; }
+    const card = event.target.closest("[data-slip-base-page]");
+    if (card) pdfSlipAssignReplace(trayId, Number(card.dataset.slipBasePage));
+  });
+  // clicks: base card -> replace with next unplaced tray page; placed card -> undo
+  dom.pdfSlipBaseGrid?.addEventListener("click", (event) => {
+    const card = event.target.closest("[data-slip-kind]");
+    if (!card) return;
+    if (card.dataset.slipKind === "placed") { pdfSlipUnassign(card.dataset.slipId); return; }
+    const basePage = Number(card.dataset.slipBasePage);
+    const next = pdfSlipTray.find((item) => !item.placement);
+    if (!next) {
+      setPdfMergeStatus(pdfSlipTray.length ? "Every slip-in page is already placed — click a placed page to free one up." : "Add slip-in PDFs first.", "info");
+      return;
+    }
+    pdfSlipAssignReplace(next.id, basePage);
+  });
+  dom.pdfSlipTray?.addEventListener("click", (event) => {
+    const card = event.target.closest("[data-slip-id]");
+    if (card && pdfSlipTray.find((item) => item.id === card.dataset.slipId)?.placement) pdfSlipUnassign(card.dataset.slipId);
   });
   dom.pdfRecentRefreshButton?.addEventListener("click", loadRecentOutputs);
   dom.pdfRecentList?.addEventListener("click", (event) => {
