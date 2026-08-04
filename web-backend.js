@@ -25,7 +25,7 @@
   if (!WEB) return;                                 // desktop: do nothing
   window.__SPRINKFLOW_WEB__ = true;
   // stamped by packaging/build_web_edition.py at deploy time; "dev" locally
-  var WEB_BUILD = "b0804-1730-f7043d7";
+  var WEB_BUILD = "b0804-2000-649c8a5";
   window.__SPRINKFLOW_WEB_BUILD__ = WEB_BUILD;
   console.log("[web-backend] SprinkFlow Web Edition active — build " + WEB_BUILD);
   // mobile layer: web-only stylesheet (media-query gated), never active on desktop
@@ -435,8 +435,59 @@
     return score;
   }
 
+  // Full query, then house number stripped, then the city/state tail — new
+  // rural roads are often missing from OSM entirely; the degraded matches get
+  // the user close enough to finish with the map picker.
   function vicinityGeocodeWeb(body) {
     var query = String((body && body.query) || "").trim().slice(0, 160);
+    return vicinityGeocodeOnce(query).then(function (resp) {
+      return resp.clone().json().then(function (data) {
+        if ((data.results || []).length || !data.ok) return resp;
+        var stripped = query.replace(/^\s*\d+[\s,]+/, "").trim();
+        var tagged = function (suffix) {
+          return function (resp2) {
+            return resp2.json().then(function (d2) {
+              (d2.results || []).forEach(function (r) { r.label = (r.label + suffix).slice(0, 140); });
+              return jsonResp(d2);
+            });
+          };
+        };
+        if (stripped && stripped.toLowerCase() !== query.toLowerCase()) {
+          return vicinityGeocodeOnce(stripped).then(function (resp2) {
+            return resp2.json().then(function (d2) {
+              // a degraded match must still share a token with the query's
+              // city/state tail (Photon returns same-named streets on other
+              // continents, which would mask the useful area fallback)
+              var parts = query.split(",").map(function (p) { return p.trim(); }).filter(Boolean);
+              var tailTokens = {};
+              parts.slice(1).forEach(function (p) {
+                p.toLowerCase().split(/[\s,]+/).forEach(function (t) { if (t.length > 1) tailTokens[t] = 1; });
+              });
+              var kept = (d2.results || []).filter(function (r) {
+                if (!Object.keys(tailTokens).length) return true;
+                return String(r.label || "").toLowerCase().split(/[\s,]+/).some(function (t) { return tailTokens[t]; });
+              });
+              if (kept.length) {
+                kept.forEach(function (r) { r.label = (r.label + " — street match (no house number)").slice(0, 140); });
+                return jsonResp({ ok: true, results: kept });
+              }
+              return vicinityGeocodeTail(query, tagged);
+            });
+          });
+        }
+        return vicinityGeocodeTail(query, tagged);
+      });
+    });
+  }
+
+  function vicinityGeocodeTail(query, tagged) {
+    var parts = query.split(",").map(function (p) { return p.trim(); }).filter(Boolean);
+    if (parts.length < 2) return Promise.resolve(jsonResp({ ok: true, results: [] }));
+    return vicinityGeocodeOnce(parts.slice(-2).join(", "))
+      .then(tagged(" — area match: pin the site with Pick on Map"));
+  }
+
+  function vicinityGeocodeOnce(query) {
     if (query.length < 3) return Promise.resolve(jsonResp({ ok: true, results: [] }));
     var quoted = encodeURIComponent(query);
     var numberMatch = query.match(/^\s*(\d+)\b/);

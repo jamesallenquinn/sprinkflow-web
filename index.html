@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0804-1730-f7043d7" />
+    <link rel="stylesheet" href="./styles.css?v=b0804-2000-649c8a5" />
   </head>
   <body>
     <div class="app-shell">
@@ -1396,6 +1396,10 @@
               <input id="vicinityAddressInput" type="text" autocomplete="off" placeholder="Start typing an address..." />
               <div class="vicinity-suggest" id="vicinitySuggest" hidden></div>
             </label>
+            <div class="vicinity-pick-row">
+              <button class="secondary-button compact-button" id="vicinityPickMapButton" type="button">📍 Pick on Map</button>
+              <span class="hydreport-note">Address not found? New roads are often missing from the map data — zoom to the site and drop a pin instead.</span>
+            </div>
             <div class="field-grid two">
               <label>
                 Map Coverage
@@ -2908,6 +2912,31 @@
       </div>
     </div>
 
+    <dialog class="review-dialog vicinity-map-dialog" id="vicinityMapDialog">
+      <div class="review-dialog-header">
+        <div>
+          <p class="eyebrow">Vicinity Map</p>
+          <h3>Pick the project location</h3>
+        </div>
+        <button class="ghost-button compact-button" id="vicinityMapCloseButton" type="button">Close</button>
+      </div>
+      <p class="hydreport-note">Drag to pan, scroll or use +/&minus; to zoom, then <strong>click the site</strong> to drop the pin. You can also type coordinates below.</p>
+      <div class="vicinity-osm" id="vicinityOsm">
+        <div class="vicinity-osm-layer" id="vicinityOsmLayer"></div>
+        <div class="vicinity-osm-zoom">
+          <button type="button" id="vicinityOsmZoomIn" aria-label="Zoom in">+</button>
+          <button type="button" id="vicinityOsmZoomOut" aria-label="Zoom out">&minus;</button>
+        </div>
+        <div class="vicinity-osm-attrib">&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</div>
+      </div>
+      <div class="vicinity-osm-footer">
+        <label>Latitude <input id="vicinityOsmLat" type="number" step="any" inputmode="decimal" placeholder="37.8841" /></label>
+        <label>Longitude <input id="vicinityOsmLon" type="number" step="any" inputmode="decimal" placeholder="-121.2711" /></label>
+        <button class="primary-button" id="vicinityOsmUseButton" type="button" disabled>Use This Location</button>
+      </div>
+      <p class="hydreport-note" id="vicinityOsmStatus">Click the map (or enter coordinates) to set the pin.</p>
+    </dialog>
+
     <dialog class="review-dialog email-draft-dialog" id="emailDraftDialog">
       <form method="dialog">
         <div class="dialog-heading">
@@ -3424,11 +3453,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0804-1730-f7043d7"></script>
-    <script src="./app.js?v=b0804-1730-f7043d7"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0804-1730-f7043d7"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0804-1730-f7043d7"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0804-1730-f7043d7"></script>
-    <script src="./prelim-calc-desktop.js?v=b0804-1730-f7043d7"></script>
+    <script src="./web-backend.js?v=b0804-2000-649c8a5"></script>
+    <script src="./app.js?v=b0804-2000-649c8a5"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0804-2000-649c8a5"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0804-2000-649c8a5"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0804-2000-649c8a5"></script>
+    <script src="./prelim-calc-desktop.js?v=b0804-2000-649c8a5"></script>
   </body>
 </html>

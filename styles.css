@@ -1052,6 +1052,68 @@ body[data-theme="plain-light"] .calculator-section label:has(input:disabled) {
 .pdf-slip-controls-section .hydreport-note.ok { color: var(--ok); }
 .pdf-slip-controls-section .hydreport-note.warn { color: var(--accent); }
 
+/* ---- Vicinity map picker (OSM slippy map) ---- */
+.vicinity-pick-row { align-items: center; display: flex; gap: 10px; margin: 8px 0 4px; }
+.vicinity-pick-row .hydreport-note { margin: 0; }
+
+.vicinity-map-dialog { max-width: 780px; width: min(780px, 94vw); }
+
+.vicinity-osm {
+  background: #dfe8dd;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  cursor: grab;
+  height: 440px;
+  overflow: hidden;
+  position: relative;
+  touch-action: none;
+  user-select: none;
+}
+
+.vicinity-osm:active { cursor: grabbing; }
+.vicinity-osm-layer { inset: 0; position: absolute; }
+.vicinity-osm-layer img { position: absolute; width: 256px; height: 256px; pointer-events: none; }
+
+.vicinity-osm-pinmark {
+  border: 3px solid #fff;
+  background: var(--brand);
+  border-radius: 50% 50% 50% 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  height: 22px;
+  margin: -28px 0 0 -11px;   /* tip of the teardrop sits on the point */
+  position: absolute;
+  transform: rotate(-45deg);
+  width: 22px;
+}
+
+.vicinity-osm-zoom { display: grid; gap: 4px; position: absolute; right: 10px; top: 10px; z-index: 3; }
+.vicinity-osm-zoom button {
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  color: var(--ink);
+  cursor: pointer;
+  font: 700 1.1rem 'Space Grotesk', sans-serif;
+  height: 34px;
+  width: 34px;
+}
+
+.vicinity-osm-attrib {
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 6px 0 0 0;
+  bottom: 0;
+  color: #333;
+  font-size: 0.68rem;
+  padding: 2px 7px;
+  position: absolute;
+  right: 0;
+  z-index: 3;
+}
+.vicinity-osm-attrib a { color: #125d78; }
+
+.vicinity-osm-footer { align-items: end; display: grid; gap: 10px; grid-template-columns: 1fr 1fr auto; margin-top: 12px; }
+.vicinity-osm-footer label { display: grid; font-size: 0.85rem; gap: 5px; }
+
 /* ---- Slip Sheet page editor ---- */
 .slip-base-grid {
   align-items: stretch;

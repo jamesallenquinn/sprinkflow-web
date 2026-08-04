@@ -539,6 +539,15 @@ const dom = {
   layoutDiagram: document.querySelector("#layoutDiagram"),
   vicinityAddressInput: document.querySelector("#vicinityAddressInput"),
   vicinitySuggest: document.querySelector("#vicinitySuggest"),
+  vicinityPickMapButton: document.querySelector("#vicinityPickMapButton"),
+  vicinityMapDialog: document.querySelector("#vicinityMapDialog"),
+  vicinityMapCloseButton: document.querySelector("#vicinityMapCloseButton"),
+  vicinityOsm: document.querySelector("#vicinityOsm"),
+  vicinityOsmLayer: document.querySelector("#vicinityOsmLayer"),
+  vicinityOsmLat: document.querySelector("#vicinityOsmLat"),
+  vicinityOsmLon: document.querySelector("#vicinityOsmLon"),
+  vicinityOsmUseButton: document.querySelector("#vicinityOsmUseButton"),
+  vicinityOsmStatus: document.querySelector("#vicinityOsmStatus"),
   vicinityCoverageSelect: document.querySelector("#vicinityCoverageSelect"),
   vicinityWorkSizeSelect: document.querySelector("#vicinityWorkSizeSelect"),
   vicinityWorkRotationInput: document.querySelector("#vicinityWorkRotationInput"),
@@ -9791,6 +9800,173 @@ function vicinitySvgPoint(evt) {
   ];
 }
 
+// ===== Vicinity map picker: a minimal OSM slippy map (no library) ==========
+// Fallback for sites whose address/road isn't in OSM yet: pan/zoom raster
+// tiles, click to drop a pin, feed the pin into vicinityState like a picked
+// geocode suggestion. Standard Web Mercator tile math.
+const vicinityOsm = { lat: 39.5, lon: -98.35, zoom: 4, pin: null, dragging: false };
+
+function osmWorldPx(lat, lon, zoom) {
+  const scale = 256 * Math.pow(2, zoom);
+  const x = ((lon + 180) / 360) * scale;
+  const rad = (lat * Math.PI) / 180;
+  const y = ((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2) * scale;
+  return { x, y };
+}
+
+function osmPxToLatLon(x, y, zoom) {
+  const scale = 256 * Math.pow(2, zoom);
+  const lon = (x / scale) * 360 - 180;
+  const n = Math.PI - (2 * Math.PI * y) / scale;
+  const lat = (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+  return { lat, lon };
+}
+
+function renderVicinityOsm() {
+  const box = dom.vicinityOsm, layer = dom.vicinityOsmLayer;
+  if (!box || !layer) return;
+  const w = box.clientWidth, h = box.clientHeight;
+  if (!w || !h) return;
+  const z = vicinityOsm.zoom;
+  const center = osmWorldPx(vicinityOsm.lat, vicinityOsm.lon, z);
+  layer.style.transform = "";
+  layer.dataset.originX = center.x;
+  layer.dataset.originY = center.y;
+  const maxTile = Math.pow(2, z) - 1;
+  const x0 = Math.floor((center.x - w / 2) / 256) - 1, x1 = Math.floor((center.x + w / 2) / 256) + 1;
+  const y0 = Math.max(0, Math.floor((center.y - h / 2) / 256) - 1), y1 = Math.min(maxTile, Math.floor((center.y + h / 2) / 256) + 1);
+  const bits = [];
+  for (let ty = y0; ty <= y1; ty += 1) {
+    for (let tx = x0; tx <= x1; tx += 1) {
+      const wrapped = ((tx % (maxTile + 1)) + maxTile + 1) % (maxTile + 1);   // wrap longitude
+      const left = Math.round(tx * 256 - center.x + w / 2);
+      const top = Math.round(ty * 256 - center.y + h / 2);
+      bits.push(`<img src="https://tile.openstreetmap.org/${z}/${wrapped}/${ty}.png" alt="" draggable="false" style="left:${left}px;top:${top}px" />`);
+    }
+  }
+  if (vicinityOsm.pin) {
+    const p = osmWorldPx(vicinityOsm.pin.lat, vicinityOsm.pin.lon, z);
+    const left = Math.round(p.x - center.x + w / 2);
+    const top = Math.round(p.y - center.y + h / 2);
+    bits.push(`<div class="vicinity-osm-pinmark" style="left:${left}px;top:${top}px"></div>`);
+  }
+  layer.innerHTML = bits.join("");
+}
+
+function vicinityOsmSetPin(lat, lon, fromInputs) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 85 || Math.abs(lon) > 180) return;
+  vicinityOsm.pin = { lat, lon };
+  if (!fromInputs) {
+    if (dom.vicinityOsmLat) dom.vicinityOsmLat.value = lat.toFixed(6);
+    if (dom.vicinityOsmLon) dom.vicinityOsmLon.value = lon.toFixed(6);
+  }
+  if (dom.vicinityOsmUseButton) dom.vicinityOsmUseButton.disabled = false;
+  if (dom.vicinityOsmStatus) dom.vicinityOsmStatus.textContent =
+    `Pin set at ${lat.toFixed(6)}, ${lon.toFixed(6)} — zoom in to fine-tune, then Use This Location.`;
+  renderVicinityOsm();
+}
+
+async function openVicinityMapPicker() {
+  if (!dom.vicinityMapDialog) return;
+  dom.vicinityMapDialog.showModal();
+  // start on something useful: the already-picked point, else geocode whatever
+  // is typed (the degraded matcher gets at least to the town), else the US
+  if (vicinityState.point) {
+    vicinityOsm.lat = vicinityState.point.lat; vicinityOsm.lon = vicinityState.point.lon;
+    vicinityOsm.zoom = 16;
+  } else {
+    const query = (dom.vicinityAddressInput?.value || "").trim();
+    if (query.length >= 4) {
+      if (dom.vicinityOsmStatus) dom.vicinityOsmStatus.textContent = "Finding the general area…";
+      try {
+        const payload = await readApiJson("./api/vicinity/geocode", { method: "POST", body: JSON.stringify({ query }) });
+        const first = (payload.results || [])[0];
+        if (first) {
+          vicinityOsm.lat = first.lat; vicinityOsm.lon = first.lon;
+          vicinityOsm.zoom = /area match/.test(first.label || "") ? 13 : 16;
+        }
+      } catch (error) { /* keep default view */ }
+      if (dom.vicinityOsmStatus) dom.vicinityOsmStatus.textContent = "Click the map (or enter coordinates) to set the pin.";
+    }
+  }
+  renderVicinityOsm();
+}
+
+function initVicinityMapPicker() {
+  const box = dom.vicinityOsm;
+  if (!box) return;
+  dom.vicinityPickMapButton?.addEventListener("click", openVicinityMapPicker);
+  dom.vicinityMapCloseButton?.addEventListener("click", () => dom.vicinityMapDialog?.close());
+  document.getElementById("vicinityOsmZoomIn")?.addEventListener("click", () => {
+    vicinityOsm.zoom = Math.min(19, vicinityOsm.zoom + 1); renderVicinityOsm();
+  });
+  document.getElementById("vicinityOsmZoomOut")?.addEventListener("click", () => {
+    vicinityOsm.zoom = Math.max(3, vicinityOsm.zoom - 1); renderVicinityOsm();
+  });
+  box.addEventListener("wheel", (event) => {
+    event.preventDefault();
+    const dir = event.deltaY < 0 ? 1 : -1;
+    const next = Math.max(3, Math.min(19, vicinityOsm.zoom + dir));
+    if (next === vicinityOsm.zoom) return;
+    // zoom around the cursor so the point under it stays put
+    const rect = box.getBoundingClientRect();
+    const cx = event.clientX - rect.left, cy = event.clientY - rect.top;
+    const before = osmWorldPx(vicinityOsm.lat, vicinityOsm.lon, vicinityOsm.zoom);
+    const cursor = osmPxToLatLon(before.x + cx - rect.width / 2, before.y + cy - rect.height / 2, vicinityOsm.zoom);
+    const cursorPx = osmWorldPx(cursor.lat, cursor.lon, next);
+    const newCenter = osmPxToLatLon(cursorPx.x - (cx - rect.width / 2), cursorPx.y - (cy - rect.height / 2), next);
+    vicinityOsm.zoom = next; vicinityOsm.lat = newCenter.lat; vicinityOsm.lon = newCenter.lon;
+    renderVicinityOsm();
+  }, { passive: false });
+  let drag = null;
+  box.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    drag = { x: event.clientX, y: event.clientY, moved: false };
+    box.setPointerCapture(event.pointerId);
+  });
+  box.addEventListener("pointermove", (event) => {
+    if (!drag) return;
+    const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) drag.moved = true;
+    if (drag.moved && dom.vicinityOsmLayer) dom.vicinityOsmLayer.style.transform = `translate(${dx}px, ${dy}px)`;
+  });
+  box.addEventListener("pointerup", (event) => {
+    if (!drag) return;
+    const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
+    const rect = box.getBoundingClientRect();
+    const center = osmWorldPx(vicinityOsm.lat, vicinityOsm.lon, vicinityOsm.zoom);
+    if (drag.moved) {
+      const moved = osmPxToLatLon(center.x - dx, center.y - dy, vicinityOsm.zoom);
+      vicinityOsm.lat = moved.lat; vicinityOsm.lon = moved.lon;
+      renderVicinityOsm();
+    } else {
+      const cx = event.clientX - rect.left, cy = event.clientY - rect.top;
+      const clicked = osmPxToLatLon(center.x + cx - rect.width / 2, center.y + cy - rect.height / 2, vicinityOsm.zoom);
+      vicinityOsmSetPin(clicked.lat, clicked.lon);
+    }
+    drag = null;
+  });
+  const coordInput = () => {
+    const lat = parseFloat(dom.vicinityOsmLat?.value), lon = parseFloat(dom.vicinityOsmLon?.value);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    vicinityOsm.lat = lat; vicinityOsm.lon = lon;
+    if (vicinityOsm.zoom < 14) vicinityOsm.zoom = 16;
+    vicinityOsmSetPin(lat, lon, true);
+  };
+  dom.vicinityOsmLat?.addEventListener("change", coordInput);
+  dom.vicinityOsmLon?.addEventListener("change", coordInput);
+  dom.vicinityOsmUseButton?.addEventListener("click", () => {
+    if (!vicinityOsm.pin) return;
+    vicinityState.point = { ...vicinityOsm.pin };
+    const typed = (dom.vicinityAddressInput?.value || "").trim();
+    vicinityState.label = typed || `${vicinityOsm.pin.lat.toFixed(6)}, ${vicinityOsm.pin.lon.toFixed(6)}`;
+    if (dom.vicinityAddressInput && !typed) dom.vicinityAddressInput.value = vicinityState.label;
+    if (dom.vicinitySuggest) dom.vicinitySuggest.hidden = true;
+    dom.vicinityMapDialog?.close();
+    if (dom.vicinityStatus) dom.vicinityStatus.textContent = "Location pinned from the map — press Generate to fetch the streets.";
+  });
+}
+
 async function vicinityFetchSuggestions() {
   const query = (dom.vicinityAddressInput?.value || "").trim();
   if (query.length < 4) { if (dom.vicinitySuggest) dom.vicinitySuggest.hidden = true; return; }
@@ -13322,6 +13498,7 @@ function initVicinityTool() {
     if (dom.vicinitySuggest && !event.target.closest(".vicinity-address-wrap")) dom.vicinitySuggest.hidden = true;
   });
   dom.vicinityGenerateButton?.addEventListener("click", vicinityGenerate);
+  initVicinityMapPicker();
   dom.vicinityCopyButton?.addEventListener("click", vicinityCopyImage);
   dom.vicinityPngButton?.addEventListener("click", vicinityExportPng);
   dom.vicinityDxfButton?.addEventListener("click", vicinityExportDxf);
