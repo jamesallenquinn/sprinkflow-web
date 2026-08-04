@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0803-1631-2ac78a2" />
+    <link rel="stylesheet" href="./styles.css?v=b0804-1710-9456d40" />
   </head>
   <body>
     <div class="app-shell">
@@ -1208,6 +1208,17 @@
               <div class="prelim-net" id="prelimNetResult" hidden></div>
             </div>
             <p class="prelim-src" id="prelimSrc"></p>
+            <div class="prelim-sizing prelim-margin-tool">
+              <div class="prelim-sizing-head">Supply safety margin <span>— supply pressure needed for your cushion</span></div>
+              <div class="field-grid two">
+                <label>System demand <span class="prelim-unit">psi</span>
+                  <input id="prelimSmDemand" type="number" inputmode="decimal" step="any" min="0" placeholder="auto-fills from the estimate" /></label>
+                <label>Safety margin <span class="prelim-unit">% of supply</span>
+                  <input id="prelimSmMargin" type="number" inputmode="decimal" step="any" min="0" max="99.9" value="10" /></label>
+              </div>
+              <div class="prelim-row total"><span class="prelim-row-l">Required supply pressure<span class="prelim-row-sub" id="prelimSmCheck">Margin is a % of the supply: supply = demand &divide; (1 &minus; margin) &mdash; adding 10% of the demand comes up short.</span></span><span class="prelim-row-v" id="prelimSmSupply">&mdash;</span></div>
+              <div class="prelim-row"><span class="prelim-row-l">Cushion above demand<span class="prelim-row-sub" id="prelimSmFlow"></span></span><span class="prelim-row-v" id="prelimSmCushion">&mdash;</span></div>
+            </div>
             <div class="prelim-supply-area" id="prelimSupplyArea">
               <p class="prelim-supply-empty" id="prelimSupplyEmpty">Add a known water supply (static, residual &amp; flow) above to plot the supply curve and check adequacy.</p>
               <svg id="prelimChart" class="prelim-chart" viewBox="0 0 480 240" hidden></svg>
@@ -3413,11 +3424,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0803-1631-2ac78a2"></script>
-    <script src="./app.js?v=b0803-1631-2ac78a2"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0803-1631-2ac78a2"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0803-1631-2ac78a2"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0803-1631-2ac78a2"></script>
-    <script src="./prelim-calc-desktop.js?v=b0803-1631-2ac78a2"></script>
+    <script src="./web-backend.js?v=b0804-1710-9456d40"></script>
+    <script src="./app.js?v=b0804-1710-9456d40"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0804-1710-9456d40"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0804-1710-9456d40"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0804-1710-9456d40"></script>
+    <script src="./prelim-calc-desktop.js?v=b0804-1710-9456d40"></script>
   </body>
 </html>

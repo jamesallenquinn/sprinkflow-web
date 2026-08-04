@@ -129,6 +129,7 @@
         breakdown.innerHTML = "";
         el("prelimWarn").hidden = true; el("prelimSrc").textContent = "";
         el("prelimSupplyStatus").hidden = true; el("prelimChart").setAttribute("hidden", "");
+        syncSafetyMargin(null);
         return;
       }
       lastResult = r; updateExportButton();
@@ -188,10 +189,47 @@
       clearTimeout(netTimer);
       if (canSolve) netTimer = setTimeout(runNetworkSolve, 350);
       syncSizingEditor();
+      syncSafetyMargin(r);
     }
     var netTimer = null;
 
     function numv(id) { var v = parseFloat(val(id)); return isFinite(v) ? v : null; }
+
+    // --- Supply safety margin: supply = demand / (1 - margin), margin measured
+    // as a % of the SUPPLY (adding margin% of the demand instead comes up short).
+    var SM_HINT = "Margin is a % of the supply: supply = demand ÷ (1 − margin) — adding 10% of the demand comes up short.";
+    function updateSafetyMargin() {
+      var supplyEl = el("prelimSmSupply");
+      if (!supplyEl) return;
+      var demand = numv("prelimSmDemand");
+      var margin = numv("prelimSmMargin");
+      var check = el("prelimSmCheck"), cushionEl = el("prelimSmCushion"), flowEl = el("prelimSmFlow");
+      var dash = "—";
+      if (demand == null || demand <= 0) {
+        supplyEl.textContent = dash; cushionEl.textContent = dash; flowEl.textContent = "";
+        check.textContent = demand == null ? SM_HINT : "Demand must be greater than 0 psi.";
+        return;
+      }
+      if (margin == null || margin < 0 || margin >= 100) {
+        supplyEl.textContent = dash; cushionEl.textContent = dash; flowEl.textContent = "";
+        check.textContent = "Safety margin must be at least 0% and less than 100%.";
+        return;
+      }
+      var supply = demand / (1 - margin / 100);
+      var cushion = supply - demand;
+      supplyEl.textContent = supply.toFixed(3) + " psi";
+      cushionEl.textContent = "+" + cushion.toFixed(3) + " psi";
+      check.textContent = cushion.toFixed(3) + " ÷ " + supply.toFixed(3) + " = " + (supply > 0 ? (cushion / supply * 100) : 0).toFixed(1) + "% of the supply";
+      flowEl.textContent = lastResult ? "at " + fmt(lastResult.totalGpmWithHose) + " gpm demand flow (flow doesn't enter the math)" : "";
+    }
+
+    // auto-fill the demand from each fresh estimate until the user types their own
+    function syncSafetyMargin(r) {
+      var input = el("prelimSmDemand");
+      if (!input) return;
+      if (r && !input.dataset.touched) input.value = Number(r.totalPsi.toFixed(3));
+      updateSafetyMargin();
+    }
 
     function syncSizingEditor() {
       if (!el("prelimOptMain")) return;
@@ -371,6 +409,7 @@
       if (el("prelimUgPipe")) el("prelimUgPipe").value = ""; if (el("prelimUgLength")) el("prelimUgLength").value = "";
       el("prelimBfType").value = "none";
       el("prelimGpmMargin").value = "5"; el("prelimPsiMargin").value = "10";
+      if (el("prelimSmDemand")) { el("prelimSmDemand").value = ""; el("prelimSmDemand").dataset.touched = ""; el("prelimSmMargin").value = "10"; }
       el("prelimCFactor").value = "120"; el("prelimKFactor").value = "5.6"; el("prelimKFactor").dataset.touched = "";
       var tree = panel.querySelector('input[name="prelimSysType"][value="tree"]'); if (tree) tree.checked = true;
       var len = panel.querySelector('input[name="prelimOrient"][value="length"]'); if (len) len.checked = true;
@@ -424,13 +463,21 @@
 
     // The K-factor override and the on-the-fly sizing selects are handled specially below;
     // exclude them from the generic render-on-change so render() can't clobber the typed value.
-    var SKIP = { prelimKFactor: 1, prelimOptMain: 1, prelimOptSec: 1, prelimOptBranch: 1 };
+    var SKIP = { prelimKFactor: 1, prelimOptMain: 1, prelimOptSec: 1, prelimOptBranch: 1, prelimSmDemand: 1, prelimSmMargin: 1 };
     panel.querySelectorAll("input, select").forEach(function (n) {
       if (SKIP[n.id]) return;
       n.addEventListener("input", render);
       n.addEventListener("change", render);
     });
     el("prelimKFactor").addEventListener("input", function () { this.dataset.touched = this.value === "" ? "" : "1"; render(); });
+    if (el("prelimSmDemand")) {
+      el("prelimSmDemand").addEventListener("input", function () {
+        this.dataset.touched = this.value === "" ? "" : "1";
+        if (this.value === "" && lastResult) { syncSafetyMargin(lastResult); return; }   // cleared -> re-auto
+        updateSafetyMargin();
+      });
+      el("prelimSmMargin").addEventListener("input", updateSafetyMargin);
+    }
     el("prelimOptMain").addEventListener("change", function () { el("prelimMainPipe").value = this.value; if (radio("prelimSysType") === "grid") el("prelimSecondaryPipe").value = P.twoSizesBelow(this.value) || el("prelimSecondaryPipe").value; render(); });
     el("prelimOptBranch").addEventListener("change", function () { el("prelimBranchPipe").value = this.value; render(); });
     el("prelimOptSec").addEventListener("change", function () { el("prelimSecondaryPipe").value = this.value; render(); });
