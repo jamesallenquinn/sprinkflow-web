@@ -1052,6 +1052,26 @@ body[data-theme="plain-light"] .calculator-section label:has(input:disabled) {
 .pdf-slip-controls-section .hydreport-note.ok { color: var(--ok); }
 .pdf-slip-controls-section .hydreport-note.warn { color: var(--accent); }
 
+/* ---- DWG to PDF sheet list ---- */
+.dwgpdf-sheets { display: grid; gap: 8px; }
+.dwgpdf-sheet {
+  align-items: center;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+  display: grid;
+  gap: 2px 12px;
+  grid-template-columns: auto 1fr;
+  padding: 10px 14px;
+}
+.dwgpdf-sheet:has(input:checked) { border-color: var(--brand); }
+.dwgpdf-sheet.empty { cursor: default; opacity: 0.55; }
+.dwgpdf-sheet input { grid-row: 1 / span 2; }
+.dwgpdf-sheet-name { font-weight: 700; }
+.dwgpdf-sheet-sub { color: var(--muted); font-size: 0.8rem; grid-column: 2; }
+.dwgpdf-sheet.model { border-style: dashed; }
+
 /* ---- Vicinity map picker (OSM slippy map) ---- */
 .vicinity-pick-row { align-items: center; display: flex; gap: 10px; margin: 8px 0 4px; }
 .vicinity-pick-row .hydreport-note { margin: 0; }

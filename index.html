@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0804-2000-649c8a5" />
+    <link rel="stylesheet" href="./styles.css?v=b0805-0421-ceb61a6" />
   </head>
   <body>
     <div class="app-shell">
@@ -75,6 +75,7 @@
         <div class="tool-tab-group">Tools</div>
         <button class="tool-tab" type="button" data-tool-tab="pdfcad" aria-pressed="false">Convert PDF to CAD</button>
         <button class="tool-tab" type="button" data-tool-tab="cadexplode" aria-pressed="false">Explode CAD Blocks</button>
+        <button class="tool-tab" type="button" data-tool-tab="dwgpdf" aria-pressed="false">DWG to PDF</button>
         <button class="tool-tab" type="button" data-tool-tab="pdf" aria-pressed="false">Merge / Compress PDFs</button>
         <button class="tool-tab" type="button" data-tool-tab="settings" aria-pressed="false">Settings</button>
       </nav>
@@ -1850,6 +1851,59 @@
         </div>
       </section>
 
+      <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="dwgpdf" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">CAD Prep</p>
+            <h2>DWG to PDF</h2>
+          </div>
+          <button class="ghost-button" id="dwgpdfClearButton" type="button">Clear</button>
+        </div>
+        <div class="pdfcad-grid">
+          <section class="panel-section calculator-section pdfcad-input-section">
+            <input id="dwgpdfFileInput" type="file" accept=".dwg,.dxf" class="hidden-input" />
+            <div class="datasheet-drop" id="dwgpdfDrop" tabindex="0" role="button" aria-label="Drop or click to choose a DWG or DXF">
+              <strong>Drop a DWG or DXF here</strong>
+              <span>Prints your drawing to a clean monochrome PDF &mdash; black on white, uniform hairlines, no AutoCAD needed.</span>
+            </div>
+            <div class="pdfcad-pick-row">
+              <button class="secondary-button" id="dwgpdfPickButton" type="button">&#128194; Choose file&hellip;</button>
+              <span class="pdfcad-pick-note">Big drawing set? This opens straight off disk &mdash; no upload step.</span>
+            </div>
+            <p class="calculator-status" id="dwgpdfFileStatus"></p>
+
+            <div class="section-heading hydreport-subhead"><p class="eyebrow">Output</p></div>
+            <div class="prelim-seg-field" id="dwgpdfModeWrap" hidden>
+              <span class="prelim-seg-label">Multiple sheets save as</span>
+              <div class="segmented-control" role="radiogroup" aria-label="PDF output mode">
+                <label><input type="radio" name="dwgpdfMode" value="merged" checked /><span>One merged PDF</span></label>
+                <label><input type="radio" name="dwgpdfMode" value="separate" /><span>One PDF per sheet</span></label>
+              </div>
+            </div>
+            <label id="dwgpdfPaperWrap" hidden>Paper size for the model-space print
+              <select id="dwgpdfPaperSelect">
+                <option value="letter">Letter 11 &times; 8.5 (landscape)</option>
+                <option value="tabloid" selected>Tabloid 17 &times; 11 (landscape)</option>
+                <option value="archd">Arch D 36 &times; 24 (landscape)</option>
+                <option value="arche">Arch E 48 &times; 36 (landscape)</option>
+              </select>
+            </label>
+            <button class="primary-button full-width-button" id="dwgpdfGenerateButton" type="button" disabled>Generate PDF&hellip;</button>
+            <p class="calculator-status" id="dwgpdfStatus"></p>
+            <p class="hydreport-note" id="dwgpdfOdaNote" hidden>DWG files are read with the free <strong>ODA File Converter</strong> (no AutoCAD, no Autodesk license). <a href="https://www.opendesign.com/guestfiles/oda_file_converter" target="_blank" rel="noopener">Download it here</a>, install it, then re-import. DXF files work without it.</p>
+          </section>
+          <section class="panel-section calculator-section pdfcad-summary-section">
+            <div class="section-heading">
+              <p class="eyebrow">Sheets to print</p>
+              <span id="dwgpdfSheetHint" class="pdfcad-sheet-hint">Import a drawing to list its layout sheets</span>
+            </div>
+            <div id="dwgpdfSheets" class="dwgpdf-sheets">
+              <div class="pdfcad-cards-empty">Drop or import a DWG/DXF and its paper-space sheets are listed here. Check the ones to print, then hit Generate.</div>
+            </div>
+          </section>
+        </div>
+      </section>
+
       <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="pdf" hidden>
         <div class="calculator-hero">
           <div>
@@ -3453,11 +3507,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0804-2000-649c8a5"></script>
-    <script src="./app.js?v=b0804-2000-649c8a5"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0804-2000-649c8a5"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0804-2000-649c8a5"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0804-2000-649c8a5"></script>
-    <script src="./prelim-calc-desktop.js?v=b0804-2000-649c8a5"></script>
+    <script src="./web-backend.js?v=b0805-0421-ceb61a6"></script>
+    <script src="./app.js?v=b0805-0421-ceb61a6"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0805-0421-ceb61a6"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0805-0421-ceb61a6"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0805-0421-ceb61a6"></script>
+    <script src="./prelim-calc-desktop.js?v=b0805-0421-ceb61a6"></script>
   </body>
 </html>

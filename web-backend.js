@@ -25,7 +25,7 @@
   if (!WEB) return;                                 // desktop: do nothing
   window.__SPRINKFLOW_WEB__ = true;
   // stamped by packaging/build_web_edition.py at deploy time; "dev" locally
-  var WEB_BUILD = "b0804-2000-649c8a5";
+  var WEB_BUILD = "b0805-0421-ceb61a6";
   window.__SPRINKFLOW_WEB_BUILD__ = WEB_BUILD;
   console.log("[web-backend] SprinkFlow Web Edition active — build " + WEB_BUILD);
   // mobile layer: web-only stylesheet (media-query gated), never active on desktop
@@ -835,6 +835,12 @@
       // ---- vicinity map (OSM services called straight from the browser) ----
       case "/api/vicinity/geocode":     return vicinityGeocodeWeb(body);
       case "/api/vicinity/streets":     return vicinityStreetsWeb(body);
+
+      // ---- DWG to PDF: desktop-only (rendering + ODA DWG conversion) ----
+      case "/api/dwg-pdf/pick":
+      case "/api/dwg-pdf/analyze":
+      case "/api/dwg-pdf/generate":
+        return Promise.resolve(jsonResp({ ok: false, error: "DWG to PDF runs in the desktop app - it needs the local CAD converter. Download SprinkFlow for Windows at sprinkflow.studio." }));
 
       // ---- CAD block exploder (real cad_explode.py via Pyodide; DXF only) ----
       case "/api/cad-explode/analyze":  return cadxAnalyzeWeb(body);

@@ -10671,6 +10671,191 @@ function renderHydreportProjectLink() {
   sel.value = current;
 }
 
+// ===================== DWG to PDF =====================
+// Drop/import a DWG or DXF -> list its paper-space sheets -> print the checked
+// ones to monochrome PDF (merged or one file per sheet). Model space is the
+// fallback when a drawing has no usable layout sheets.
+const dwgpdfState = { token: null, fileName: "", sheets: [], modelEntities: 0, hasPrintableSheets: false };
+
+function dwgpdfEl(id) { return document.getElementById(id); }
+
+function dwgpdfReset() {
+  dwgpdfState.token = null; dwgpdfState.fileName = "";
+  dwgpdfState.sheets = []; dwgpdfState.modelEntities = 0; dwgpdfState.hasPrintableSheets = false;
+  ["dwgpdfFileStatus", "dwgpdfStatus"].forEach((id) => { const el = dwgpdfEl(id); if (el) el.textContent = ""; });
+  const input = dwgpdfEl("dwgpdfFileInput"); if (input) input.value = "";
+  const oda = dwgpdfEl("dwgpdfOdaNote"); if (oda) oda.hidden = true;
+  renderDwgpdfSheets();
+}
+
+function dwgpdfSelectedSheets() {
+  return [...document.querySelectorAll("#dwgpdfSheets input[type=checkbox]:checked")].map((el) => el.value);
+}
+
+function renderDwgpdfSheets() {
+  const box = dwgpdfEl("dwgpdfSheets");
+  const hint = dwgpdfEl("dwgpdfSheetHint");
+  if (!box) return;
+  if (!dwgpdfState.token) {
+    box.innerHTML = '<div class="pdfcad-cards-empty">Drop or import a DWG/DXF and its paper-space sheets are listed here. Check the ones to print, then hit Generate.</div>';
+    if (hint) hint.textContent = "Import a drawing to list its layout sheets";
+    syncDwgpdfControls();
+    return;
+  }
+  const rows = [];
+  dwgpdfState.sheets.forEach((sheet) => {
+    const size = sheet.widthIn && sheet.heightIn ? `${sheet.widthIn}" × ${sheet.heightIn}"` : "size not set";
+    const sub = sheet.empty ? "empty — nothing drawn on this sheet" : `${size} · ${sheet.entities.toLocaleString()} entities`;
+    rows.push(`
+      <label class="dwgpdf-sheet${sheet.empty ? " empty" : ""}">
+        <input type="checkbox" value="${escapeHtml(sheet.name)}" ${sheet.empty ? "disabled" : "checked"} />
+        <span class="dwgpdf-sheet-name">${escapeHtml(sheet.name)}</span>
+        <span class="dwgpdf-sheet-sub">${escapeHtml(sub)}</span>
+      </label>`);
+  });
+  if (!dwgpdfState.hasPrintableSheets) {
+    // fallback: print the model space fitted to a chosen paper size
+    rows.push(`
+      <label class="dwgpdf-sheet model">
+        <input type="checkbox" value="__model__" ${dwgpdfState.modelEntities ? "checked" : "disabled"} />
+        <span class="dwgpdf-sheet-name">Model space (everything)</span>
+        <span class="dwgpdf-sheet-sub">${dwgpdfState.modelEntities ? `no layout sheets found — the whole drawing fits onto one page · ${dwgpdfState.modelEntities.toLocaleString()} entities` : "model space is empty too"}</span>
+      </label>`);
+  }
+  box.innerHTML = rows.join("");
+  if (hint) {
+    const printable = dwgpdfState.sheets.filter((s) => !s.empty).length;
+    hint.textContent = dwgpdfState.hasPrintableSheets
+      ? `${printable} sheet${printable === 1 ? "" : "s"} found`
+      : "no layout sheets — model-space fallback";
+  }
+  box.querySelectorAll("input[type=checkbox]").forEach((el) => el.addEventListener("change", syncDwgpdfControls));
+  syncDwgpdfControls();
+}
+
+function syncDwgpdfControls() {
+  const selected = dwgpdfSelectedSheets();
+  const modeWrap = dwgpdfEl("dwgpdfModeWrap");
+  if (modeWrap) modeWrap.hidden = selected.length < 2;
+  const paperWrap = dwgpdfEl("dwgpdfPaperWrap");
+  if (paperWrap) paperWrap.hidden = !selected.includes("__model__");
+  const btn = dwgpdfEl("dwgpdfGenerateButton");
+  if (btn) {
+    btn.disabled = !dwgpdfState.token || !selected.length;
+    btn.textContent = selected.length > 1 ? `Generate ${selected.length} Sheets…` : "Generate PDF…";
+  }
+}
+
+async function dwgpdfApplyAnalysis(payload) {
+  dwgpdfState.token = payload.token;
+  dwgpdfState.fileName = payload.fileName || "drawing";
+  dwgpdfState.sheets = payload.sheets || [];
+  dwgpdfState.modelEntities = payload.modelEntities || 0;
+  dwgpdfState.hasPrintableSheets = !!payload.hasPrintableSheets;
+  const status = dwgpdfEl("dwgpdfFileStatus");
+  if (status) status.textContent = `${dwgpdfState.fileName} — ready.`;
+  renderDwgpdfSheets();
+}
+
+function dwgpdfHandleError(result) {
+  const status = dwgpdfEl("dwgpdfFileStatus");
+  if (status) status.textContent = result?.error || "Could not read the drawing.";
+  const oda = dwgpdfEl("dwgpdfOdaNote");
+  if (oda) oda.hidden = !result?.needsOda;
+}
+
+async function dwgpdfAnalyzeFile(file) {
+  if (!ensureLicensedToolAccess((msg, kind) => { const s = dwgpdfEl("dwgpdfFileStatus"); if (s) s.textContent = msg; })) return;
+  const status = dwgpdfEl("dwgpdfFileStatus");
+  const name = (file.name || "").toLowerCase();
+  if (!name.endsWith(".dwg") && !name.endsWith(".dxf")) {
+    if (status) status.textContent = "Drop a DWG or DXF file.";
+    return;
+  }
+  if (file.size > 60 * 1024 * 1024) {
+    if (status) status.textContent = "That file is very large — use the Choose file… button instead (opens straight off disk).";
+    return;
+  }
+  if (status) status.textContent = `Reading ${file.name}…`;
+  try {
+    const dataUrl = await readFileAsDataUrl(file);
+    const response = await fetch("./api/dwg-pdf/analyze", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ file: { name: file.name, dataUrl } }),
+    });
+    const result = await readJsonResponse(response);
+    if (!response.ok || !result.ok) { dwgpdfHandleError(result); return; }
+    dwgpdfApplyAnalysis(result);
+  } catch (error) {
+    if (status) status.textContent = error.message || "Could not read the drawing.";
+  }
+}
+
+async function dwgpdfPickFile() {
+  const status = dwgpdfEl("dwgpdfFileStatus");
+  if (status) status.textContent = "Choose a DWG or DXF in the dialog…";
+  try {
+    const response = await fetch("./api/dwg-pdf/pick", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    const result = await readJsonResponse(response);
+    if (!response.ok || !result.ok) {
+      if (result?.cancelled) { if (status) status.textContent = ""; return; }
+      dwgpdfHandleError(result); return;
+    }
+    dwgpdfApplyAnalysis(result);
+  } catch (error) {
+    if (status) status.textContent = error.message || "Could not open the drawing.";
+  }
+}
+
+async function dwgpdfGenerate() {
+  const status = dwgpdfEl("dwgpdfStatus");
+  const selected = dwgpdfSelectedSheets();
+  if (!dwgpdfState.token || !selected.length) return;
+  const mode = document.querySelector('input[name="dwgpdfMode"]:checked')?.value || "merged";
+  const btn = dwgpdfEl("dwgpdfGenerateButton");
+  if (btn) btn.disabled = true;
+  if (status) status.textContent = "Rendering… choose where to save when prompted.";
+  try {
+    const response = await fetch("./api/dwg-pdf/generate", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        token: dwgpdfState.token,
+        sheets: selected,
+        mode,
+        modelPaper: dwgpdfEl("dwgpdfPaperSelect")?.value || "tabloid",
+        baseName: dwgpdfState.fileName,
+      }),
+    });
+    const result = await readJsonResponse(response);
+    if (!response.ok || !result.ok) throw new Error(result.error || `Print failed with server status ${response.status}.`);
+    if (status) status.textContent = `${result.message} ${result.paths.length > 1 ? "Saved: " + result.paths.join(", ") : "Saved: " + result.path}`;
+  } catch (error) {
+    if (status) status.textContent = error.message === "Save cancelled." ? "Save cancelled." : (error.message || "Print failed.");
+  }
+  if (btn) btn.disabled = false;
+  syncDwgpdfControls();
+}
+
+function initDwgpdf() {
+  const drop = dwgpdfEl("dwgpdfDrop");
+  if (!drop) return;
+  const input = dwgpdfEl("dwgpdfFileInput");
+  drop.addEventListener("click", () => input?.click());
+  drop.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") input?.click(); });
+  input?.addEventListener("change", () => { if (input.files?.[0]) dwgpdfAnalyzeFile(input.files[0]); });
+  drop.addEventListener("dragover", (event) => { event.preventDefault(); drop.classList.add("drag-over"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("drag-over"));
+  drop.addEventListener("drop", (event) => {
+    event.preventDefault(); drop.classList.remove("drag-over");
+    const file = [...(event.dataTransfer?.files || [])][0];
+    if (file) dwgpdfAnalyzeFile(file);
+  });
+  dwgpdfEl("dwgpdfPickButton")?.addEventListener("click", dwgpdfPickFile);
+  dwgpdfEl("dwgpdfGenerateButton")?.addEventListener("click", dwgpdfGenerate);
+  dwgpdfEl("dwgpdfClearButton")?.addEventListener("click", dwgpdfReset);
+  document.querySelectorAll('input[name="dwgpdfMode"]').forEach((el) => el.addEventListener("change", syncDwgpdfControls));
+}
+
 // ===================== Convert PDF to CAD =====================
 const pdfcadState = { token: null, pageCount: 0, page: 0, groups: [], fileName: "", dims: null, textLines: 0, observer: null };
 
@@ -16804,6 +16989,7 @@ function wireEvents() {
   initHangerSpacing();
   initVicinityTool();
   initHydreport();
+  initDwgpdf();
   initPdfcad();
   initSeismic();
   initEarlyAccess();
