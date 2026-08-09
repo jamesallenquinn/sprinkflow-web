@@ -9604,6 +9604,24 @@ body[data-view-mode="simple"][data-simple-step="intake"] [data-tool-panel="submi
 .vicinity-map-shell .vmap-street:hover { stroke-opacity: 0.55; }
 .vicinity-map-shell .vmap-drag { cursor: grab; }
 .vicinity-map-shell .vmap-drag:active { cursor: grabbing; }
+/* North arrow style picker - live previews drawn by the same SVG generators the map uses. */
+.vicinity-arrows { align-items: center; display: flex; flex-direction: column; gap: 6px; margin: 14px auto 0; width: max-content; }
+.vicinity-arrow-choices { display: flex; gap: 8px; }
+.vicinity-arrow-choice {
+  align-items: center;
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px 6px;
+}
+.vicinity-arrow-choice svg { height: 58px; width: 50px; }
+.vicinity-arrow-choice span { color: #444; font-size: 0.68rem; font-weight: 600; }
+.vicinity-arrow-choice:hover { border-color: var(--accent); }
+.vicinity-arrow-choice.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(255, 176, 58, 0.25); }
 /* Pan control lives BELOW the map (not over it) so the map screenshots clean. */
 .vicinity-pan { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 12px auto 0; width: max-content; }
 .vicinity-pan-label { color: var(--muted); font-size: 0.76rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
@@ -9861,7 +9879,51 @@ body[data-theme="plain-light"] .seismic-brace-chip.is-fail .rack-dot { backgroun
 .seismic-constraint.is-pass { border-left-color: var(--ok, #3ddc97); }
 .seismic-constraint.is-fail { border-left-color: #ff8177; }
 .seismic-constraint.is-unavailable { border-left-color: #ffce85; }
-.seismic-constraint-head { display: flex; font: 700 0.84rem Inter; justify-content: space-between; }
+/* The governing element caps the whole assembly - it must read at a glance.
+   Uses --accent (amber) so it stands apart from the pass/fail green/red rail
+   rather than competing with it: "this is the limit", not "this is wrong". */
+/* NOTE: the left rail deliberately keeps its PASS/FAIL color. "Governs" and
+   "passes" are orthogonal facts - the weakest element is usually still passing -
+   so governing is carried by the amber fill, ring and badge instead of
+   overwriting the status rail. */
+.seismic-constraint.is-governing {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+.seismic-badge.is-governs {
+  background: var(--accent);
+  border-radius: 999px;
+  color: #1a0d06;
+  font: 700 0.66rem 'Space Grotesk';
+  letter-spacing: 0.08em;
+  margin-left: auto;
+  margin-right: 8px;
+  padding: 2px 8px;
+}
+.seismic-margin { color: var(--muted); font-weight: 600; white-space: nowrap; }
+.seismic-constraint.is-governing .seismic-margin { color: var(--ink); }
+
+.seismic-governing {
+  border: 1px solid var(--accent);
+  border-left: 4px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  border-radius: 10px;
+  margin: 10px 0 8px;
+  padding: 10px 12px;
+}
+.seismic-governing.is-fail { border-color: #ff8177; border-left-color: #ff8177;
+  background: color-mix(in srgb, #ff8177 10%, transparent); }
+.seismic-governing-head { align-items: center; display: flex; gap: 10px; justify-content: space-between; }
+.seismic-governing-pct { color: var(--ink); font: 700 0.9rem 'Space Grotesk'; white-space: nowrap; }
+.seismic-governing-main { font: 700 0.98rem Inter; margin-top: 3px; }
+.seismic-governing-el { color: var(--muted); font-weight: 600; margin-left: 6px; }
+.seismic-governing-nums { font: 500 0.9rem Inter; margin-top: 4px; }
+.seismic-governing-why { color: var(--muted); font: 500 0.82rem/1.45 Inter; margin-top: 5px; }
+.seismic-governing-refs { color: var(--muted); font: 600 0.74rem Inter; letter-spacing: 0.02em; margin-top: 4px; }
+.seismic-margin-toggle { margin: 4px 0 8px; }
+
+.seismic-constraint-head { align-items: center; display: flex; font: 700 0.84rem Inter; gap: 8px; justify-content: space-between; }
 .seismic-constraint.is-pass .seismic-badge { color: var(--ok, #3ddc97); }
 .seismic-constraint.is-fail .seismic-badge { color: #ff8177; }
 .seismic-constraint.is-unavailable .seismic-badge { color: #ffce85; }
@@ -9947,3 +10009,458 @@ body[data-theme="plain-light"] .seismic-constraint.is-unavailable { border-left-
 body[data-theme="plain-light"] .seismic-cond-badge { border-color: #157a3c; color: #157a3c; }
 .seismic-cond.is-acked { border-left-color: var(--ok, #3ddc97); color: var(--ink); }
 body[data-theme="plain-light"] .seismic-cond.is-acked { border-left-color: #157a3c; }
+
+/* ---------------------------------------------------------------------------
+   Plan Symbol Library
+   Every color here is a theme token so the tab reads correctly in Plain Light
+   and Dark.  The one deliberate exception is the preview backdrop swatches
+   (.symbols-grid[data-preview-bg]) -- those are literal paper/plan colors the
+   user is judging the artwork against, so they must NOT flip with the theme.
+--------------------------------------------------------------------------- */
+.symbols-help { border: 1px solid var(--line); border-radius: 8px; color: var(--muted);
+  font-size: 0.8rem; margin: 0 0 14px; padding: 8px 12px; }
+.symbols-help strong { color: var(--ink); font-weight: 800; }
+
+.symbols-toolbar { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+.symbols-toolbar-row { align-items: end; display: flex; flex-wrap: wrap; gap: 16px; }
+.symbols-control { display: flex; flex-direction: column; gap: 6px; }
+.symbols-control .eyebrow em { font-style: normal; opacity: 0.75; text-transform: none; }
+.symbols-search-field { display: flex; flex: 1 1 260px; flex-direction: column; gap: 6px; min-width: 220px; }
+.symbols-search-field input { background: var(--surface-soft); border: 1px solid var(--line);
+  border-radius: 8px; color: var(--ink); font: inherit; padding: 8px 10px; width: 100%; }
+.symbols-search-field input:focus-visible { border-color: var(--line-strong); outline: 2px solid var(--water); outline-offset: 1px; }
+
+.symbols-chiprow { display: flex; flex-wrap: wrap; gap: 6px; }
+.symbols-chip { background: var(--surface-soft); border: 1px solid var(--line); border-radius: 999px;
+  color: var(--muted); cursor: pointer; font: inherit; font-size: 0.78rem; font-weight: 700;
+  line-height: 1.2; padding: 7px 13px; white-space: nowrap; }
+.symbols-chip:hover { border-color: var(--line-strong); color: var(--ink); }
+.symbols-chip[aria-pressed="true"] { background: var(--surface-lift); border-color: var(--water); color: var(--ink); }
+.symbols-chip:disabled { cursor: not-allowed; opacity: 0.45; }
+
+.symbols-swatches .symbols-chip { padding-left: 9px; }
+.symbols-swatch-dot { border: 1px solid var(--line-strong); border-radius: 50%; display: inline-block;
+  height: 11px; margin-right: 6px; vertical-align: -1px; width: 11px; }
+
+.symbols-layout { align-items: stretch; display: grid; gap: 16px; grid-template-columns: 220px minmax(0, 1fr); }
+.symbols-rail { display: flex; flex-direction: column; gap: 10px; }
+.symbols-rail-list { display: flex; flex-direction: column; gap: 3px; }
+.symbols-rail-group { color: var(--muted); font-size: 0.64rem; font-weight: 800; letter-spacing: 0.08em;
+  margin: 10px 0 2px; text-transform: uppercase; }
+.symbols-rail-button { background: none; border: 1px solid transparent; border-left: 3px solid transparent;
+  border-radius: 6px; color: var(--muted); cursor: pointer; display: flex; font: inherit; font-size: 0.84rem;
+  gap: 8px; justify-content: space-between; padding: 7px 9px; text-align: left; width: 100%; }
+.symbols-rail-button:hover { background: var(--surface-soft); color: var(--ink); }
+.symbols-rail-button[aria-pressed="true"] { background: var(--surface-lift); border-left-color: var(--water); color: var(--ink); font-weight: 700; }
+.symbols-rail-button span:last-child { color: var(--muted); flex: none; font-size: 0.74rem; font-variant-numeric: tabular-nums; }
+
+.symbols-main { display: flex; flex-direction: column; gap: 12px; }
+.symbols-main-heading { align-items: baseline; display: flex; gap: 10px; justify-content: space-between; }
+.symbols-count { color: var(--muted); font-size: 0.78rem; margin: 0; }
+.symbols-empty { color: var(--muted); font-size: 0.86rem; margin: 18px 0; text-align: center; }
+.symbols-status { margin: 0; min-height: 1.1em; }
+.symbols-status[data-kind="error"] { color: var(--brand); }
+.symbols-status[data-kind="success"] { color: var(--ok); }
+
+.symbols-grid { display: grid; flex: 1 1 auto; gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); }
+.symbols-grid:focus-visible { outline: 2px solid var(--water); outline-offset: 4px; }
+
+.symbols-card { background: var(--surface-soft); border: 1px solid var(--line); border-radius: 10px;
+  display: flex; flex-direction: column; gap: 0; overflow: hidden; position: relative; }
+.symbols-card:hover { border-color: var(--line-strong); }
+.symbols-card.is-selected { border-color: var(--water); box-shadow: 0 0 0 1px var(--water); }
+
+.symbols-card-preview { align-items: center; background: none; border: 0; cursor: pointer;
+  display: flex; justify-content: center; padding: 14px; width: 100%; }
+.symbols-card-preview img { display: block; height: 108px; object-fit: contain; width: 108px; }
+.symbols-card-preview:focus-visible { outline: 2px solid var(--water); outline-offset: -3px; }
+
+/* Judged-against-paper backdrops: intentionally theme-independent. */
+.symbols-grid[data-preview-bg="white"] .symbols-card-preview { background: #ffffff; }
+.symbols-grid[data-preview-bg="gray"] .symbols-card-preview { background: #9aa3ab; }
+.symbols-grid[data-preview-bg="dark"] .symbols-card-preview { background: #1a1f26; }
+.symbols-grid[data-preview-bg="busy"] .symbols-card-preview {
+  background-color: #f3f1e9;
+  background-image:
+    linear-gradient(rgba(30, 55, 90, 0.30) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30, 55, 90, 0.30) 1px, transparent 1px),
+    linear-gradient(58deg, transparent 0 34%, rgba(140, 30, 30, 0.32) 34% 34.9%, transparent 35.4% 100%),
+    linear-gradient(122deg, transparent 0 61%, rgba(30, 55, 90, 0.26) 61% 61.8%, transparent 62.3% 100%);
+  background-size: 13px 13px, 13px 13px, auto, auto;
+}
+
+.symbols-card-foot { align-items: center; border-top: 1px solid var(--line); display: flex; gap: 4px;
+  padding: 7px 6px 7px 10px; }
+.symbols-card-name { color: var(--ink); flex: 1 1 auto; font-size: 0.78rem; font-weight: 700; line-height: 1.25;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.symbols-icon-button { background: none; border: 1px solid transparent; border-radius: 6px; color: var(--muted);
+  cursor: pointer; flex: none; font: inherit; font-size: 0.9rem; line-height: 1; padding: 4px 7px; }
+.symbols-icon-button:hover { background: var(--surface-lift); color: var(--ink); }
+.symbols-icon-button.is-on { color: var(--accent); }
+
+.symbols-card-badge { background: var(--surface-lift); border: 1px solid var(--line-strong); border-radius: 4px;
+  color: var(--muted); font-size: 0.58rem; font-weight: 900; left: 8px; letter-spacing: 0.05em; padding: 1px 5px;
+  position: absolute; text-transform: uppercase; top: 8px; }
+
+.symbols-menu { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 8px;
+  box-shadow: var(--shadow); display: flex; flex-direction: column; min-width: 160px; padding: 4px;
+  position: absolute; right: 8px; top: calc(100% - 42px); z-index: 30; }
+.symbols-menu button { background: none; border: 0; border-radius: 5px; color: var(--ink); cursor: pointer;
+  font: inherit; font-size: 0.8rem; padding: 7px 10px; text-align: left; }
+.symbols-menu button:hover { background: var(--surface-lift); }
+
+.symbols-toast { align-items: center; background: var(--surface); border: 1px solid var(--line-strong);
+  border-left: 3px solid var(--ok); border-radius: 8px; bottom: 22px; box-shadow: var(--shadow); color: var(--ink);
+  display: flex; font-size: 0.84rem; gap: 12px; left: 50%; padding: 10px 14px; position: fixed;
+  transform: translateX(-50%); z-index: 60; }
+.symbols-toast[data-kind="error"] { border-left-color: var(--brand); }
+.symbols-toast .compact-button { flex: none; }
+
+@media (max-width: 900px) {
+  .symbols-layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ==========================================================================
+   Additional appearance themes (Blueprint, Vellum, Graphite).
+   Each is a drop-in override of the same tokens Plain Light uses.
+   ========================================================================== */
+
+/* ===== Blueprint =========================================================
+   Cyanotype drafting ground: prussian paper, pale cyan ink, flame accent with
+   somewhere cold to sit. Dark theme, so the base rules already apply - only
+   the tokens and the paper itself change. */
+body[data-theme="blueprint"] {
+  --bg: #0a1a2f;
+  --surface: #102943;
+  --surface-soft: #16334f;
+  --surface-lift: #1c3e60;
+  --ink: #e9f2fb;
+  --muted: #9dbdda;
+  --line: #254a72;
+  --line-strong: #43749f;
+  --brand: #ff7a45;
+  --brand-2: #e0512a;
+  --accent: #ffc46e;
+  --water: #5ecbf0;
+  --water-deep: #1a7fa8;
+  --accent-soft: #15314e;
+  --ok: #4fd6a0;
+  --shadow: 0 18px 44px rgba(3, 12, 24, 0.5);
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(168deg, #071426 0%, #0b1e35 46%, #102a45 100%),
+    #0a1a2f;
+  background-attachment: fixed;
+  background-size: 30px 30px, 30px 30px, auto, auto;
+  color: var(--ink);
+  color-scheme: dark;
+}
+body[data-theme="blueprint"]::before {
+  background:
+    linear-gradient(118deg, transparent 0 17%, rgba(255, 122, 69, 0.10) 17% 17.3%, transparent 17.7% 100%),
+    linear-gradient(298deg, transparent 0 66%, rgba(94, 203, 240, 0.12) 66% 66.3%, transparent 66.7% 100%);
+}
+
+
+/* ===== Graphite ==========================================================
+   The quiet dark: neutral charcoal, brass and copper instead of flame, slate
+   blue for water. Nothing glows - the diagonal streak overlay is switched off
+   on purpose. */
+body[data-theme="graphite"] {
+  --bg: #15171b;
+  --surface: #1d2126;
+  --surface-soft: #242930;
+  --surface-lift: #2c323a;
+  --ink: #edeff2;
+  --muted: #9aa3ae;
+  --line: #30363f;
+  --line-strong: #4e5761;
+  --brand: #cf7a43;
+  --brand-2: #a85b2b;
+  --accent: #d9a441;
+  --water: #6fb0cb;
+  --water-deep: #31708b;
+  --accent-soft: #2a2318;
+  --ok: #6fbf8f;
+  --shadow: 0 16px 40px rgba(0, 0, 0, 0.46);
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(170deg, #101216 0%, #171a1f 55%, #1b1f24 100%),
+    #15171b;
+  background-attachment: fixed;
+  background-size: 34px 34px, 34px 34px, auto, auto;
+  color: var(--ink);
+  color-scheme: dark;
+}
+body[data-theme="graphite"]::before { display: none; }
+
+
+/* ===== Vellum ============================================================
+   Warm light theme: drafting vellum instead of screen-white, sepia-black ink,
+   red-oxide brand. The chrome rules below mirror the plain-light ones with
+   their cool blue-greys re-tinted warm (generated - see gen_themes.py). */
+body[data-theme="vellum"] {
+  --bg: #f5f0e4;
+  --surface: #fffdf7;
+  --surface-soft: #f3ecdd;
+  --surface-lift: #ebe2ce;
+  --ink: #2a2318;
+  --muted: #63584a;
+  --line: #d8ccb6;
+  --line-strong: #a6977d;
+  --brand: #b03f28;
+  --brand-2: #8a2f1d;
+  --accent: #8a6112;
+  --water: #1b6580;
+  --water-deep: #134a5e;
+  --accent-soft: #f8eed8;
+  --ok: #3c6a37;
+  --shadow: 0 10px 26px rgba(84, 68, 42, 0.14);
+  background:
+    linear-gradient(#e6dcc6 1px, transparent 1px),
+    linear-gradient(90deg, #e6dcc6 1px, transparent 1px),
+    linear-gradient(180deg, #fbf7ee 0%, #f2ebdc 100%);
+  background-attachment: fixed;
+  background-size: 34px 34px, 34px 34px, auto;
+  color: var(--ink);
+  color-scheme: light;
+}
+body[data-theme="vellum"]::before { display: none; }
+
+
+/* --- Vellum chrome: plain-light rules, re-tinted warm --- */
+body[data-theme="vellum"]::before { display: none; }
+body[data-theme="vellum"] .theme-control select option { background: #fffdf7; color: #2a2318; }
+body[data-theme="vellum"] .topbar { background: #fffdf7; border-color: #d6cbb7; box-shadow: var(--shadow); }
+body[data-theme="vellum"] .brand-mark { border-color: #ccba9a; box-shadow: inset 0 0 0 1px rgba(176, 63, 40, 0.18); }
+body[data-theme="vellum"] .app-refresh-button,
+body[data-theme="vellum"] .license-pill,
+body[data-theme="vellum"] .theme-control,
+body[data-theme="vellum"] .view-mode-toggle { background: #fbf9f6; border-color: #d6cbb7; }
+body[data-theme="vellum"] .app-refresh-button,
+body[data-theme="vellum"] .theme-control select { color: var(--ink); }
+body[data-theme="vellum"] .view-mode-button.active { background: #fffdf7; border-color: var(--brand); box-shadow: inset 0 -3px 0 var(--brand); color: var(--ink); }
+body[data-theme="vellum"] .tool-tabs { background: #f5f0e7; border-color: #d6cab5; box-shadow: 0 8px 18px rgba(70, 57, 34, 0.1); }
+body[data-theme="vellum"] .tool-tab { background: #fffdf7; border-color: #ded3c0; color: #5d4d31; }
+body[data-theme="vellum"] .tool-tab.active { background: #f9f0dd; border-color: var(--brand); box-shadow: inset 0 -3px 0 var(--brand); color: #2a2318; }
+body[data-theme="vellum"] .license-tool-gate { background: #f9f0dd; border-color: #da7b67; box-shadow: var(--shadow); }
+/* Light mode: the dark disabled styling above reads as a rendering bug inside
+   white cards — swap to a light muted treatment (PROJECT_CONFORMANCE §5a). */
+body[data-theme="vellum"] .calculator-section input:disabled { background: repeating-linear-gradient(135deg, rgba(42, 35, 24, 0.04) 0 6px, transparent 6px 12px), var(--surface-lift); border-color: var(--line); color: var(--muted); }
+body[data-theme="vellum"] .calculator-section label:has(input:disabled) { color: var(--muted); }
+/* Light mode: the badge/status colors above are tuned for dark fills and wash out
+   on the light tints — swap to the app's light-safe ink-on-tint tokens. */
+body[data-theme="vellum"] .ai-conf-high { color: var(--ok); }
+body[data-theme="vellum"] .ai-conf-medium { color: var(--accent); }
+body[data-theme="vellum"] .ai-conf-low { color: var(--brand-2); }
+body[data-theme="vellum"] .ai-result-status.error { color: var(--brand); }
+body[data-theme="vellum"] .simple-step-nav,
+body[data-theme="vellum"] .panel-section,
+body[data-theme="vellum"] .preview-toolbar { background: #fffdf7; border-color: #d6cbb7; box-shadow: var(--shadow); }
+body[data-theme="vellum"] .simple-step-nav { background: #f8f4ee; }
+body[data-theme="vellum"] .panel-section::before { height: 4px; opacity: 1; }
+body[data-theme="vellum"] .project-controls-section::before,
+body[data-theme="vellum"] .project-intake-section::before { background: #1b6580; }
+body[data-theme="vellum"] .contractor-section::before { background: #3c6a37; }
+body[data-theme="vellum"] .datasheet-database-section::before,
+body[data-theme="vellum"] .selected-sheets-section::before { background: #b03f28; }
+body[data-theme="vellum"] .cover-template-section::before { background: #8a6112; }
+body[data-theme="vellum"] input,
+body[data-theme="vellum"] select,
+body[data-theme="vellum"] textarea { background: #fffdf7; border-color: #c2b59d; color: #2a2318; }
+body[data-theme="vellum"] input::file-selector-button { background: #f4eee5; border-color: #c2b59d; color: #2a2318; }
+body[data-theme="vellum"] ::placeholder { color: #8c7d63; }
+body[data-theme="vellum"] input:focus,
+body[data-theme="vellum"] select:focus,
+body[data-theme="vellum"] textarea:focus { border-color: #1b6580; box-shadow: 0 0 0 3px rgba(27, 101, 128, 0.16); }
+body[data-theme="vellum"] .cover-additional-toggle,
+body[data-theme="vellum"] .hydraulic-contractor-toggle,
+body[data-theme="vellum"] .cover-additional-fields { background: #fbf8f4; border-color: #d6cbb7; }
+body[data-theme="vellum"] .cover-additional-summary span { background: #fffdf7; border-color: #e0d6c5; }
+body[data-theme="vellum"] .image-intake,
+body[data-theme="vellum"] .datasheet-drop,
+body[data-theme="vellum"] .logo-paste-drop { background: #fbf8f4; border-color: #c2b59d; color: #63584a; }
+body[data-theme="vellum"] .image-intake strong,
+body[data-theme="vellum"] .datasheet-drop strong,
+body[data-theme="vellum"] .logo-paste-drop strong { color: #1b6580; }
+body[data-theme="vellum"] .remote-area-badge { background: #f6f1e9; border-color: #ccba9a; color: #1b6580; }
+body[data-theme="vellum"] .remote-area-badge.muted { background: #f8f4ee; border-color: #ded3c0; color: #63584a; }
+body[data-theme="vellum"] .image-intake.drag-over,
+body[data-theme="vellum"] .datasheet-drop.drag-over,
+body[data-theme="vellum"] .logo-paste-drop.drag-over { background: #f6f1e9; border-color: #1b6580; box-shadow: 0 0 0 3px rgba(27, 101, 128, 0.16); }
+body[data-theme="vellum"] .primary-button { background: #b03f28; border-color: #8a2f1d; color: #fffdf7; }
+body[data-theme="vellum"] .secondary-button { background: #fffdf7; border-color: #b03f28; color: #8a2f1d; }
+body[data-theme="vellum"] .ghost-button { background: #fbf9f6; border-color: #c2b59d; color: #2a2318; }
+body[data-theme="vellum"] .danger-ghost-button { border-color: #b03f28; color: #8a2f1d; }
+body[data-theme="vellum"] .cover-template-option { background: #fcfaf7; border-color: #ded3c0; }
+body[data-theme="vellum"] .generate-dock { background: #fffdf7; border-color: #d6cbb7; box-shadow: 0 12px 30px rgba(70, 57, 34, 0.18); }
+body[data-theme="vellum"] .row-menu .row-menu-danger { color: var(--brand); }
+body[data-theme="vellum"] .option-row,
+body[data-theme="vellum"] .email-attachment-panel,
+body[data-theme="vellum"] .loadout-panel,
+body[data-theme="vellum"] .category-rail,
+body[data-theme="vellum"] .catalog-content-panel,
+body[data-theme="vellum"] .catalog-panel-header,
+body[data-theme="vellum"] .catalog-selected-filter,
+body[data-theme="vellum"] .catalog-item { background: #fffdf7; border-color: #ded3c0; color: #2a2318; }
+body[data-theme="vellum"] .category-rail,
+body[data-theme="vellum"] .catalog-results { background: #fbf8f4; }
+body[data-theme="vellum"] .category-tab { background: #fffdf7; border-color: #ded3c0; color: #8a2f1d; }
+body[data-theme="vellum"] .category-tab.active { background: #f9f0dd; border-color: #b03f28; box-shadow: inset 4px 0 0 #b03f28; }
+body[data-theme="vellum"] .catalog-item.remote-item { border-color: #ccba9a; }
+body[data-theme="vellum"] .catalog-status span { border-color: #ded3c0; }
+body[data-theme="vellum"] .catalog-status.local-status span:first-child,
+body[data-theme="vellum"] .verified-source-badge { color: #3c6a37; }
+/* the base .dialog-actions is a sticky themed footer band (white in Plain
+   Light, via a body[data-theme] rule — match its specificity) with negative
+   margins sized for the standard 22px dialogs. Inside the dark branded card
+   it renders as a white strip around the buttons. Flatten it. */
+.review-dialog.startup-login-dialog .dialog-actions,
+body[data-theme="vellum"] .startup-login-dialog .dialog-actions { background: transparent; border-top: 0; /* the base row draws a light divider — the "white line" over the buttons */ bottom: auto; justify-content: stretch; margin: 4px 0 0; padding: 0; position: static; }
+/* Buttons inside the dark branded card: the base ghost/primary styles carry
+   light-theme backgrounds/borders that read as a sloppy white sliver here —
+   pin them to the shell's own palette (constants, not theme tokens). */
+/* the status line under the fields is themed white — keep it transparent on
+   the dark card so sign-in progress/errors don't paint a white strip */
+.review-dialog.startup-login-dialog .generate-status,
+body[data-theme="vellum"] .startup-login-dialog .generate-status { background: transparent; border: 0; }
+body[data-theme="vellum"] .license-overview-card,
+body[data-theme="vellum"] .license-form-card { background: #fffdf7; border-color: #d8ccb6; box-shadow: 0 1px 0 rgba(40, 32, 17, 0.04); }
+body[data-theme="vellum"] .license-detail-grid > div { background: #fcfaf7; border-color: #d8ccb6; }
+body[data-theme="vellum"] .advanced-license-token { background: #f8f5ef; border-color: #d8ccb6; }
+body[data-theme="vellum"] .beta-invite-results li { background: #fcfaf7; border-color: #d8ccb6; }
+body[data-theme="vellum"] .beta-invite-results[data-tone="error"] > p { color: #9c2f22; }
+body[data-theme="vellum"] .dialog-actions { background: linear-gradient(180deg, rgba(255, 253, 247, 0), rgba(252, 251, 249, 0.98) 28%), #fcfbf9; border-top: 1px solid #e9e2d6; }
+body[data-theme="vellum"] .annotation-action-button { border-color: #1b6580; color: #134a5e; }
+body[data-theme="vellum"] .pdf-annotation-dialog { background: #fffdf7; border-color: #d8ccb6; }
+body[data-theme="vellum"] .pdf-annotation-header { background: linear-gradient(90deg, rgba(176, 63, 40, 0.06), transparent 42%, rgba(27, 101, 128, 0.08)), #fcfbf9; border-bottom-color: #e9e2d6; }
+body[data-theme="vellum"] .pdf-annotation-header span[data-status="success"] { color: #3c6a37; }
+body[data-theme="vellum"] .pdf-annotation-header span[data-status="error"] { color: #9c2f22; }
+body[data-theme="vellum"] .pdf-annotation-toolbar { background: #fcfbf9; border-bottom-color: #e9e2d6; }
+body[data-theme="vellum"] .annotation-tool-button { background: #fffdf7; border-color: #c2b59d; color: #2a2318; }
+body[data-theme="vellum"] .annotation-tool-button.active,
+body[data-theme="vellum"] .annotation-tool-button.save-button { background: #b03f28; border-color: #8a2f1d; color: #fffdf7; }
+body[data-theme="vellum"] .annotation-color-control { background: #fffdf7; border-color: #c2b59d; color: #63584a; }
+body[data-theme="vellum"] .toolbar-divider { background: #e0d8c9; }
+body[data-theme="vellum"] #pdfAnnotationZoomLabel { color: #63584a; }
+body[data-theme="vellum"] .pdf-annotation-workspace { background: linear-gradient(#eee7da 1px, transparent 1px), linear-gradient(90deg, #eee7da 1px, transparent 1px), #f8f4ee; background-size: 34px 34px, 34px 34px, auto; }
+body[data-theme="vellum"] .annotation-loading { background: #fffdf7; border-color: #d8ccb6; color: #63584a; }
+body[data-theme="vellum"] .annotation-page { box-shadow: 0 14px 34px rgba(70, 57, 34, 0.2); }
+body[data-theme="vellum"] .calculator-hero { background: #fffdf7; border-color: #d6cbb7; box-shadow: var(--shadow); }
+body[data-theme="vellum"] .calculator-hero h2 { color: #2a2318; }
+body[data-theme="vellum"] .calculator-result-card,
+body[data-theme="vellum"] .flow-result-card,
+body[data-theme="vellum"] .feet-result-card,
+body[data-theme="vellum"] .water-result-card { background: #fcfaf7; border-color: #d6cbb7; }
+body[data-theme="vellum"] .calculator-result-card span,
+body[data-theme="vellum"] .calculator-result-card strong { color: #2a2318; }
+body[data-theme="vellum"] .calculator-result-card span,
+body[data-theme="vellum"] .formula-chip,
+body[data-theme="vellum"] .calculator-status { color: #69593d; }
+body[data-theme="vellum"] .segmented-control { background: #f8f4ee; border-color: #d6cbb7; }
+body[data-theme="vellum"] .segmented-control span { color: #69593d; }
+body[data-theme="vellum"] .segmented-control input:checked + span { background: #b03f28; color: #fffdf7; }
+body[data-theme="vellum"] .formula-chip,
+body[data-theme="vellum"] .layout-result-lines,
+body[data-theme="vellum"] .water-flow-card,
+body[data-theme="vellum"] .water-demand-row,
+body[data-theme="vellum"] .water-math-panel div,
+body[data-theme="vellum"] .pdf-options-panel,
+body[data-theme="vellum"] .pdf-compression-progress,
+body[data-theme="vellum"] .feet-help-list div,
+body[data-theme="vellum"] .scale-chart-wrap,
+body[data-theme="vellum"] .common-code-reference-row,
+body[data-theme="vellum"] .code-result-card,
+body[data-theme="vellum"] .common-code-section-grid > div,
+body[data-theme="vellum"] .code-language-panel,
+body[data-theme="vellum"] .empty-state,
+body[data-theme="vellum"] .empty-preview,
+body[data-theme="vellum"] pre,
+body[data-theme="vellum"] .source-item,
+body[data-theme="vellum"] .reference-grid span,
+body[data-theme="vellum"] .preview-selected-values,
+body[data-theme="vellum"] .curve-card,
+body[data-theme="vellum"] .nfpa1142-report-shell { background: #fcfaf7; border-color: #ded3c0; color: #2a2318; }
+body[data-theme="vellum"] .layout-diagram-shell,
+body[data-theme="vellum"] .bracing-diagram-shell,
+body[data-theme="vellum"] .water-chart-shell,
+body[data-theme="vellum"] .storage-analysis-frame,
+body[data-theme="vellum"] #nfpa1142ReportSvg { background: #fcfaf7; border-color: #d6cbb7; }
+body[data-theme="vellum"] .layout-stage,
+body[data-theme="vellum"] .water-chart-bg,
+body[data-theme="vellum"] .nfpa1142-empty-bg { fill: #fcfaf7; }
+body[data-theme="vellum"] .layout-area-rect { fill: #fffdf7; stroke: #69593d; }
+body[data-theme="vellum"] .layout-head-dot { fill: #2a2318; }
+body[data-theme="vellum"] .layout-arrow,
+body[data-theme="vellum"] .layout-dim-label,
+body[data-theme="vellum"] .layout-axis-title,
+body[data-theme="vellum"] .layout-legend,
+body[data-theme="vellum"] .brace-marker text,
+body[data-theme="vellum"] .water-axis-text,
+body[data-theme="vellum"] .water-axis-title,
+body[data-theme="vellum"] .water-demand-label,
+body[data-theme="vellum"] .water-chart-title,
+body[data-theme="vellum"] .water-chart-empty { fill: #2a2318; }
+body[data-theme="vellum"] .layout-dim-line,
+body[data-theme="vellum"] .bracing-end-line,
+body[data-theme="vellum"] .brace-marker line,
+body[data-theme="vellum"] .brace-marker path { stroke: #69593d; }
+body[data-theme="vellum"] .water-grid-line { stroke: rgba(105, 89, 61, 0.22); }
+body[data-theme="vellum"] .water-plot-border { stroke: rgba(105, 89, 61, 0.78); }
+body[data-theme="vellum"] .pdf-merge-workspace-section,
+body[data-theme="vellum"] .hydraulic-workspace-section { background: #fffdf7; border-color: #d6cbb7; outline-color: rgba(27, 101, 128, 0.18); }
+body[data-theme="vellum"] .pdf-merge-workspace-section.drag-over,
+body[data-theme="vellum"] .hydraulic-workspace-section.drag-over { background: #f6f1e9; border-color: #1b6580; box-shadow: inset 0 0 0 1px rgba(27, 101, 128, 0.22), 0 12px 28px rgba(70, 57, 34, 0.14); }
+body[data-theme="vellum"] .pdf-merge-list:empty::before,
+body[data-theme="vellum"] .hydraulic-list:empty::before { background: #fbf8f4; border-color: #c2b59d; color: #69593d; }
+body[data-theme="vellum"] .pdf-options-panel,
+body[data-theme="vellum"] .pdf-compression-option,
+body[data-theme="vellum"] .pdf-merge-item,
+body[data-theme="vellum"] .hydraulic-item { background: #fbf8f4; border-color: #d6cbb7; }
+body[data-theme="vellum"] .pdf-compression-option.active { background: #fff3ed; border-color: #b03f28; box-shadow: inset 0 0 0 1px rgba(176, 63, 40, 0.18); }
+body[data-theme="vellum"] .pdf-compression-option.active strong { color: #8a2f1d; }
+body[data-theme="vellum"] .pdf-merge-preview { background: #f4eee5; }
+body[data-theme="vellum"] .pdf-merge-actions .icon-button { background: #fffdf7; border-color: #d6cbb7; }
+body[data-theme="vellum"] .scale-chart-table th { background: #f4eee5; color: #8a6112; }
+body[data-theme="vellum"] .scale-chart-table td:first-child,
+body[data-theme="vellum"] .scale-chart-table tbody tr.is-highlighted td,
+body[data-theme="vellum"] .scale-chart-table tbody tr.is-highlighted td:first-child { color: #2a2318; }
+body[data-theme="vellum"] .scale-chart-table tbody tr:nth-child(even) { background: #fbf8f4; }
+body[data-theme="vellum"] .scale-chart-table tbody tr.is-highlighted { background: #fff3d7; }
+body[data-theme="vellum"] .common-code-reference-row:hover,
+body[data-theme="vellum"] .common-code-reference-row:focus-within { background: #f8f4ee; border-color: #b03f28; }
+body[data-theme="vellum"] .code-language-panel p,
+body[data-theme="vellum"] pre { color: #2a2318; }
+body[data-theme="vellum"] .source-note { border-top-color: #ded3c0; color: #69593d; }
+body[data-theme="vellum"] .criteria-notes,
+body[data-theme="vellum"] .source-item span,
+body[data-theme="vellum"] .reference-grid span,
+body[data-theme="vellum"] .pdf-merge-copy span { color: #69593d; }
+body[data-theme="vellum"] tr.best-row { background: #eaf6ef; outline-color: #9bcfb3; }
+body[data-theme="vellum"] tbody tr[data-candidate-id]:hover,
+body[data-theme="vellum"] tbody tr[data-candidate-id]:focus { background: #f6f1e9; outline-color: #ccba9a; }
+body[data-theme="vellum"] .app-toast { background: #fffdf7; color: #2a2318; border-color: #d8cfc0; }
+body[data-theme="vellum"] .unsaved-indicator { color: #b3641a; }
+body[data-theme="vellum"] .update-pill { border-color: #775d30; background: #f6f1e8; color: #594625; }
+body[data-theme="vellum"] .account-updates-card { background: #faf8f4; border-color: #ddd5c8; }
+/* In light mode --accent is a dark brown, so the on-accent text must be light. */
+body[data-theme="vellum"] .estimator-seg-btn.active { color: #ffffff; }
+body[data-theme="vellum"] .prelim-status.bad { color: #b42318; }
+body[data-theme="vellum"] .seismic-brace-chip.is-pass .rack-dot { background: #3c6a37; }
+body[data-theme="vellum"] .seismic-brace-chip.is-fail .rack-dot { background: #b3261e; }
+/* status colors: dark-first (app default theme), plain-light overrides below */
+.seismic-overall { border-radius: 999px; font: 800 0.78rem Inter; letter-spacing: 0.04em; padding: 4px 12px; }
+body[data-theme="vellum"] .seismic-overall.is-pass,
+body[data-theme="vellum"] .seismic-constraint.is-pass .seismic-badge { color: #3c6a37; }
+body[data-theme="vellum"] .seismic-overall.is-fail,
+body[data-theme="vellum"] .seismic-constraint.is-fail .seismic-badge { color: #b02a20; }
+body[data-theme="vellum"] .seismic-overall.is-unavailable,
+body[data-theme="vellum"] .seismic-constraint.is-unavailable .seismic-badge { color: #8a5f0a; }
+body[data-theme="vellum"] .seismic-constraint.is-pass { border-left-color: #3c6a37; }
+body[data-theme="vellum"] .seismic-constraint.is-fail { border-left-color: #b02a20; }
+body[data-theme="vellum"] .seismic-constraint.is-unavailable { border-left-color: #8a5f0a; }
+body[data-theme="vellum"] .seismic-cond-badge { border-color: #3c6a37; color: #3c6a37; }
+body[data-theme="vellum"] .seismic-cond.is-acked { border-left-color: #3c6a37; }

@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0805-0421-ceb61a6" />
+    <link rel="stylesheet" href="./styles.css?v=b0809-1525-9b61dc3" />
   </head>
   <body>
     <div class="app-shell">
@@ -42,6 +42,9 @@
             <select id="themeSelect" aria-label="Appearance theme">
               <option value="default">Dark</option>
               <option value="plain-light">Plain Light</option>
+              <option value="blueprint">Blueprint</option>
+              <option value="vellum">Vellum</option>
+              <option value="graphite">Graphite</option>
             </select>
           </label>
         </div>
@@ -57,6 +60,7 @@
         <button class="tool-tab" type="button" data-tool-tab="layout" aria-pressed="false">Head Layout Generator</button>
         <button class="tool-tab" type="button" data-tool-tab="vicinity" aria-pressed="false">Vicinity Map</button>
         <button class="tool-tab" type="button" data-tool-tab="hanger" aria-pressed="false">Hanger Detail</button>
+        <button class="tool-tab" type="button" data-tool-tab="symbols" aria-pressed="false">Plan Symbols</button>
         <button class="tool-tab" type="button" data-tool-tab="estimator" aria-pressed="false">Bid Estimator</button>
 
         <div class="tool-tab-group">Design Tools</div>
@@ -308,6 +312,7 @@
             <p class="generate-status" id="generateStatus" role="status" aria-live="polite"></p>
             <div class="output-actions" id="materialOutputActions" hidden>
               <span class="output-actions-label">Last generated submittal:</span>
+              <button class="ghost-button compact-button" id="materialOpenPdfButton" type="button">Open PDF</button>
               <button class="ghost-button compact-button" id="materialOpenFolderButton" type="button">Open Folder</button>
               <button class="ghost-button compact-button" id="materialCopyPathButton" type="button">Copy Path</button>
             </div>
@@ -900,6 +905,11 @@
 
             <div class="section-heading hydreport-subhead"><p class="eyebrow">Results</p><span id="seismicOverall" class="seismic-overall">&mdash;</span></div>
             <div id="seismicDemand" class="seismic-demand"></div>
+            <div id="seismicGoverning" class="seismic-governing" hidden></div>
+            <label class="option-row seismic-margin-toggle">
+              <input id="seismicShowMargin" type="checkbox" />
+              <span>Show safety margin %<span class="field-hint"> &mdash; unused capacity, (capacity &minus; demand) &divide; capacity</span></span>
+            </label>
             <div id="seismicConstraints" class="seismic-constraints"></div>
             <div id="seismicSuggest" class="seismic-suggest" hidden>
               <button class="secondary-button compact-button" id="seismicSuggestBtn" type="button" title="Try verified variations of your inputs and show only the ones that flip this brace to PASS">&#128161; Suggest Fixes</button>
@@ -1450,6 +1460,10 @@
               <svg id="vicinitySvg" viewBox="0 0 1200 1015" role="img" aria-label="Vicinity map preview"></svg>
               <div class="vicinity-map-empty" id="vicinityMapEmpty">Pick an address and hit Generate - the map renders here.</div>
             </div>
+            <div class="vicinity-arrows" id="vicinityArrows" aria-label="North arrow style">
+              <span class="vicinity-pan-label">North arrow</span>
+              <div class="vicinity-arrow-choices" id="vicinityArrowChoices"></div>
+            </div>
             <div class="vicinity-pan" id="vicinityPan" hidden aria-label="Pan the map">
               <span class="vicinity-pan-label">Pan the frame</span>
               <div class="vicinity-pan-grid">
@@ -1793,6 +1807,7 @@
             <div class="cadview-oda" id="pdfcadOdaNote" hidden>
               Want a <strong>DWG</strong> instead of DXF? Install the <strong>free ODA File Converter</strong> and this button converts straight to DWG.
               <button class="link-button" id="pdfcadOdaLink" type="button">Download it here (free, opendesign.com)</button>
+              <button class="secondary-button compact-button oda-recheck" data-oda-recheck type="button">I&rsquo;ve installed it &mdash; check again</button>
             </div>
           </section>
           <section class="panel-section calculator-section pdfcad-summary-section">
@@ -1835,9 +1850,13 @@
 
             <div id="cadxSummary" class="pdfcad-summary hydreport-subhead"></div>
 
-            <button class="primary-button full-width-button" id="cadxConvertButton" type="button" disabled>Explode &amp; Save DXF...</button>
+            <button class="primary-button full-width-button" id="cadxConvertButton" type="button" disabled>Explode &amp; Save DWG...</button>
             <p class="calculator-status" id="cadxStatus"></p>
-            <p class="hydreport-note" id="cadxOdaNote" hidden>DWG files are read with the free <strong>ODA File Converter</strong> (no AutoCAD, no Autodesk license). <a href="https://www.opendesign.com/guestfiles/oda_file_converter" target="_blank" rel="noopener">Download it here</a>, install it, then re-import. DXF files work without it.</p>
+            <div class="cadview-oda" id="cadxOdaOutNote" hidden>
+              Want a <strong>DWG</strong> back instead of DXF? Install the <strong>free ODA File Converter</strong> and the exploded drawing saves straight to DWG.
+              <button class="link-button" id="cadxOdaOutLink" type="button">Download it here (free, opendesign.com)</button>
+             <button class="secondary-button compact-button oda-recheck" data-oda-recheck type="button">I&rsquo;ve installed it &mdash; check again</button></div>
+            <p class="hydreport-note" id="cadxOdaNote" hidden>DWG files are read with the free <strong>ODA File Converter</strong> (no AutoCAD, no Autodesk license). <a href="https://www.opendesign.com/guestfiles/oda_file_converter" target="_blank" rel="noopener">Download it here</a>, install it, then re-import. DXF files work without it. <button class="secondary-button compact-button oda-recheck" data-oda-recheck type="button">I&rsquo;ve installed it &mdash; check again</button></p>
           </section>
           <section class="panel-section calculator-section pdfcad-summary-section">
             <div class="section-heading">
@@ -1845,7 +1864,7 @@
               <span id="cadxBlockHint" class="pdfcad-sheet-hint">Import a DWG or DXF to see its blocks</span>
             </div>
             <div class="pdfcad-cards" id="cadxBlocks" style="display:block;">
-              <div class="pdfcad-cards-empty" id="cadxBlocksEmpty">Drop or import a drawing and the blocks it contains are listed here, most-used first. Then hit Explode &amp; Save to flatten them all into a plain DXF.</div>
+              <div class="pdfcad-cards-empty" id="cadxBlocksEmpty">Drop or import a drawing and the blocks it contains are listed here, most-used first. Then hit Explode &amp; Save to flatten them all into a plain drawing.</div>
             </div>
           </section>
         </div>
@@ -1890,7 +1909,7 @@
             </label>
             <button class="primary-button full-width-button" id="dwgpdfGenerateButton" type="button" disabled>Generate PDF&hellip;</button>
             <p class="calculator-status" id="dwgpdfStatus"></p>
-            <p class="hydreport-note" id="dwgpdfOdaNote" hidden>DWG files are read with the free <strong>ODA File Converter</strong> (no AutoCAD, no Autodesk license). <a href="https://www.opendesign.com/guestfiles/oda_file_converter" target="_blank" rel="noopener">Download it here</a>, install it, then re-import. DXF files work without it.</p>
+            <p class="hydreport-note" id="dwgpdfOdaNote" hidden>DWG files are read with the free <strong>ODA File Converter</strong> (no AutoCAD, no Autodesk license). <a href="https://www.opendesign.com/guestfiles/oda_file_converter" target="_blank" rel="noopener">Download it here</a>, install it, then re-import. DXF files work without it. <button class="secondary-button compact-button oda-recheck" data-oda-recheck type="button">I&rsquo;ve installed it &mdash; check again</button></p>
           </section>
           <section class="panel-section calculator-section pdfcad-summary-section">
             <div class="section-heading">
@@ -1900,6 +1919,13 @@
             <div id="dwgpdfSheets" class="dwgpdf-sheets">
               <div class="pdfcad-cards-empty">Drop or import a DWG/DXF and its paper-space sheets are listed here. Check the ones to print, then hit Generate.</div>
             </div>
+          </section>
+          <section class="panel-section calculator-section pdfcad-summary-section" id="dwgpdfXrefsWrap" hidden>
+            <div class="section-heading">
+              <p class="eyebrow">Reference drawings (xrefs)</p>
+              <span id="dwgpdfXrefHint" class="pdfcad-sheet-hint"></span>
+            </div>
+            <div id="dwgpdfXrefs" class="dwgpdf-sheets"></div>
           </section>
         </div>
       </section>
@@ -2099,6 +2125,7 @@
             <p class="calculator-status" id="hydraulicStatus"></p>
             <div class="output-actions" id="hydraulicOutputActions" hidden>
               <span class="output-actions-label">Last generated calc package:</span>
+              <button class="ghost-button compact-button" id="hydraulicOpenPdfButton" type="button">Open PDF</button>
               <button class="ghost-button compact-button" id="hydraulicOpenFolderButton" type="button">Open Folder</button>
               <button class="ghost-button compact-button" id="hydraulicCopyPathButton" type="button">Copy Path</button>
             </div>
@@ -2881,6 +2908,81 @@
         </section>
       </section>
 
+      <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="symbols" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">Detailing Tool</p>
+            <h2>Plan Symbol Library</h2>
+          </div>
+          <button class="ghost-button" id="symbolsHelpButton" type="button" aria-expanded="false">Keyboard shortcuts</button>
+        </div>
+
+        <p class="symbols-help" id="symbolsHelp" hidden>
+          <strong>/</strong> search &nbsp;&middot;&nbsp; <strong>&larr; &uarr; &rarr; &darr;</strong> move
+          &nbsp;&middot;&nbsp; <strong>Enter</strong> copy PNG &nbsp;&middot;&nbsp; <strong>C</strong> copy SVG
+          &nbsp;&middot;&nbsp; <strong>1&ndash;4</strong> Standard / Bold / Solid / Halo
+        </p>
+
+        <section class="panel-section calculator-section symbols-toolbar">
+          <div class="symbols-toolbar-row">
+            <label class="symbols-search-field">
+              <span class="eyebrow">Search</span>
+              <input
+                id="symbolsSearchInput"
+                type="search"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="Try &quot;siamese&quot;, &quot;os&amp;y&quot;, &quot;pendant&quot;&hellip;"
+              />
+            </label>
+            <div class="symbols-control">
+              <span class="eyebrow">Style family</span>
+              <div class="symbols-chiprow" id="symbolsFamilyRow" role="group" aria-label="Style family"></div>
+            </div>
+            <div class="symbols-control">
+              <span class="eyebrow">Color</span>
+              <div class="symbols-chiprow symbols-swatches" id="symbolsColorRow" role="group" aria-label="Ink color"></div>
+            </div>
+          </div>
+          <div class="symbols-toolbar-row">
+            <div class="symbols-control">
+              <span class="eyebrow">Export size</span>
+              <div class="symbols-chiprow" id="symbolsSizeRow" role="group" aria-label="Export size"></div>
+            </div>
+            <div class="symbols-control">
+              <span class="eyebrow">Background</span>
+              <div class="symbols-chiprow" id="symbolsBgRow" role="group" aria-label="Exported background"></div>
+            </div>
+            <div class="symbols-control">
+              <span class="eyebrow">Preview backdrop <em>(view only)</em></span>
+              <div class="symbols-chiprow" id="symbolsPreviewBgRow" role="group" aria-label="Preview backdrop"></div>
+            </div>
+          </div>
+        </section>
+
+        <div class="symbols-layout">
+          <aside class="panel-section calculator-section symbols-rail" aria-label="Symbol categories">
+            <div class="section-heading"><p class="eyebrow">Browse</p></div>
+            <div class="symbols-rail-list" id="symbolsCategoryList"></div>
+          </aside>
+
+          <section class="panel-section calculator-section symbols-main">
+            <div class="section-heading symbols-main-heading">
+              <p class="eyebrow" id="symbolsGridHeading">All symbols</p>
+              <p class="symbols-count" id="symbolsCount"></p>
+            </div>
+            <div class="symbols-grid" id="symbolsGrid" role="listbox" aria-label="Plan symbols" tabindex="0"></div>
+            <p class="symbols-empty" id="symbolsEmpty" hidden>No symbols match that search.</p>
+            <p class="field-hint symbols-status" id="symbolsStatus" role="status"></p>
+          </section>
+        </div>
+
+        <div class="symbols-toast" id="symbolsToast" role="status" aria-live="polite" hidden>
+          <span id="symbolsToastText"></span>
+          <button class="compact-button" id="symbolsToastAction" type="button" hidden>Download PNG</button>
+        </div>
+      </section>
+
       <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="settings" hidden>
         <div class="calculator-hero">
           <div>
@@ -3507,11 +3609,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0805-0421-ceb61a6"></script>
-    <script src="./app.js?v=b0805-0421-ceb61a6"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0805-0421-ceb61a6"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0805-0421-ceb61a6"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0805-0421-ceb61a6"></script>
-    <script src="./prelim-calc-desktop.js?v=b0805-0421-ceb61a6"></script>
+    <script src="./web-backend.js?v=b0809-1525-9b61dc3"></script>
+    <script src="./app.js?v=b0809-1525-9b61dc3"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0809-1525-9b61dc3"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0809-1525-9b61dc3"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0809-1525-9b61dc3"></script>
+    <script src="./prelim-calc-desktop.js?v=b0809-1525-9b61dc3"></script>
   </body>
 </html>

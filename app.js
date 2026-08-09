@@ -335,9 +335,11 @@ const dom = {
   legacySaveProjectButton: document.querySelector("#legacySaveProjectButton"),
   unsavedIndicator: document.querySelector("#unsavedIndicator"),
   materialOutputActions: document.querySelector("#materialOutputActions"),
+  materialOpenPdfButton: document.querySelector("#materialOpenPdfButton"),
   materialOpenFolderButton: document.querySelector("#materialOpenFolderButton"),
   materialCopyPathButton: document.querySelector("#materialCopyPathButton"),
   hydraulicOutputActions: document.querySelector("#hydraulicOutputActions"),
+  hydraulicOpenPdfButton: document.querySelector("#hydraulicOpenPdfButton"),
   hydraulicOpenFolderButton: document.querySelector("#hydraulicOpenFolderButton"),
   hydraulicCopyPathButton: document.querySelector("#hydraulicCopyPathButton"),
   updateAvailablePill: document.querySelector("#updateAvailablePill"),
@@ -780,7 +782,7 @@ function applySavedState(parsed) {
   state.specRequirements = (parsed.specRequirements && typeof parsed.specRequirements === "object") ? parsed.specRequirements : null;
   resetCatalogFilters();
   state.coverTemplate = coverTemplateById(parsed.coverTemplate)?.id || "technical-navy";
-  state.theme = parsed.theme === "default" ? "default" : "plain-light";
+  state.theme = parsed.theme ? normalizeTheme(parsed.theme) : "plain-light";
   state.viewMode = parsed.viewMode === "standard" ? "standard" : "simple";
   state.simpleStep = SIMPLE_STEPS.includes(parsed.simpleStep) ? parsed.simpleStep : "intake";
   state.settings = normalizeSettings(parsed.settings);
@@ -2423,6 +2425,19 @@ function maybeShowSessionBanner() {
   }
 }
 
+async function openGeneratedOutputFile(type, statusFn) {
+  const path = runtime.generatedOutputs[type]?.path;
+  if (!path) return;
+  try {
+    await readApiJson("./api/open-recent-output", {
+      method: "POST",
+      body: JSON.stringify({ path }),
+    });
+  } catch (error) {
+    statusFn(`Could not open the PDF: ${error.message || "unknown error."}`, "error");
+  }
+}
+
 async function openGeneratedOutputFolder(type, statusFn) {
   const path = runtime.generatedOutputs[type]?.path;
   if (!path) return;
@@ -2506,7 +2521,7 @@ async function createMaterialSubmittalOutput({ openGeneratedPdf = state.settings
   }
   runtime.generatedOutputs.material = { path: result.path, createdAt: new Date().toISOString() };
   renderGeneratedPackageActions();
-  return result.path;
+  return result;
 }
 
 function hydraulicPackagePayload(openGeneratedPdf) {
@@ -2563,7 +2578,20 @@ async function createHydraulicPackageOutput({ openGeneratedPdf = state.settings.
   if (!response.ok || !result.ok) throw new Error(result.error || `Hydraulic package generation failed with server status ${response.status}.`);
   runtime.generatedOutputs.hydraulic = { path: result.path, createdAt: new Date().toISOString() };
   renderGeneratedPackageActions();
-  return result.path;
+  return result;
+}
+
+// Status line for a generated PDF that reflects what ACTUALLY happened -
+// the server reports whether the viewer launched, the folder was revealed
+// as a fallback, or nothing could be opened.
+function generatedOutputMessage(result, label) {
+  const path = result.path || "";
+  switch (result.opened) {
+    case "pdf": return `${label} generated and opened: ${path}`;
+    case "folder": return `${label} generated. Your PDF viewer didn't launch, so its folder is open with the file selected: ${path}`;
+    case "none": return `${label} generated but couldn't be opened automatically. Use Open PDF / Open Folder below. Saved to: ${path}`;
+    default: return `${label} generated: ${path}`;
+  }
 }
 
 function setProjectPackageStatus(message, type = "info") {
@@ -2591,11 +2619,11 @@ async function exportProjectPackage() {
     let hydraulicPath = "";
     if (hasMaterial) {
       setProjectPackageStatus("Generating material submittal...", "info");
-      materialPath = await createMaterialSubmittalOutput({ openGeneratedPdf: false });
+      materialPath = (await createMaterialSubmittalOutput({ openGeneratedPdf: false })).path;
     }
     if (hasCalcs) {
       setProjectPackageStatus("Generating calc package...", "info");
-      hydraulicPath = await createHydraulicPackageOutput({ openGeneratedPdf: false });
+      hydraulicPath = (await createHydraulicPackageOutput({ openGeneratedPdf: false })).path;
     }
     setProjectPackageStatus("Choose a destination folder for the project package...", "info");
     const response = await fetch("./api/project-package", {
@@ -2806,7 +2834,7 @@ async function generateAndEmailFullSubmittal() {
     if (shouldGenerateHydraulic) {
       try {
         setGenerateStatus("Generating hydraulic calc package for email...", "info");
-        attachments.push(await createHydraulicPackageOutput({ openGeneratedPdf: false }));
+        attachments.push((await createHydraulicPackageOutput({ openGeneratedPdf: false })).path);
       } catch (error) {
         failures.push(`Hydraulic calcs: ${error.message || "generation failed"}`);
       }
@@ -2814,7 +2842,7 @@ async function generateAndEmailFullSubmittal() {
     if (shouldGenerateMaterial) {
       try {
         setGenerateStatus("Generating material data submittal for email...", "info");
-        attachments.push(await createMaterialSubmittalOutput({ openGeneratedPdf: false }));
+        attachments.push((await createMaterialSubmittalOutput({ openGeneratedPdf: false })).path);
       } catch (error) {
         failures.push(`Material submittal: ${error.message || "generation failed"}`);
       }
@@ -3854,9 +3882,9 @@ async function generateMaterialDataSubmittal() {
 
   let generated = false;
   try {
-    const path = await createMaterialSubmittalOutput({ openGeneratedPdf: openAfter });
+    const result = await createMaterialSubmittalOutput({ openGeneratedPdf: openAfter });
     generated = true;
-    setGenerateStatus(`${openAfter ? "Generated and opened" : "Generated"}: ${path}`, "success");
+    setGenerateStatus(generatedOutputMessage(result, "Submittal"), result.opened === "none" ? "info" : "success");
   } catch (error) {
     setGenerateStatus(`Could not generate submittal: ${error.message || "PDF generation failed. Check that the selected PDFs still exist, then try Refresh Database."}`, "error");
   } finally {
@@ -5055,12 +5083,21 @@ function planChoiceConfig(record, category) {
       { label: "Sway Brace", terms: ["sway brace", "sway brace attachment", "seismic brace attachment", "seismic clamp"], pattern: /\bsway\b|\bseismic\b/ },
     ],
     Valves: [
-      { label: "Check Valve", terms: ["check valve", "riser check", "alarm check"], pattern: /\bcheck valves?\b|\briser check\b|\balarm check\b/ },
+      // Backflow MUST be tested before Check Valve: rules are resolved with
+      // .find() (first match wins) and a "Double Check Valve Assembly" or
+      // "Double Check Detector Assembly" contains the literal words "check
+      // valve", so it used to be filed as a plain check valve.
+      { label: "Backflow", terms: ["backflow", "double check", "rpz", "reduced pressure", "dcda", "dcva", "rpda"],
+        pattern: /\bbackflow\b|\bdouble check\b|\brpz\b|\brpda\b|\bdcda\b|\bdcva\b|\breduced pressure\b/ },
+      // A "detector check valve" IS a real fire-service check valve, so
+      // "detector" alone is NOT excluded - only the backflow assemblies are.
+      { label: "Check Valve", terms: ["check valve", "riser check", "alarm check"],
+        excludeTerms: ["backflow", "double check", "rpz", "rpda", "dcda", "dcva", "reduced pressure"],
+        pattern: /\bcheck valves?\b|\briser check\b|\balarm check\b/ },
       { label: "Butterfly Valve", terms: ["butterfly valve"], pattern: /\bbutterfly valves?\b/ },
       { label: "Gate Valve", terms: ["gate valve", "os&y", "os y", "nrs"], pattern: /\bgate valves?\b|\bos\s*y\b|\bnrs\b/ },
       { label: "Dry Pipe Valve", terms: ["dry pipe valve"], pattern: /\bdry pipe valves?\b/ },
       { label: "Deluge Valve", terms: ["deluge valve"], pattern: /\bdeluge valves?\b/ },
-      { label: "Backflow", terms: ["backflow", "double check", "rpz"], pattern: /\bbackflow\b|\bdouble check\b|\brpz\b/ },
       { label: "Test and Drain", terms: ["test and drain"], pattern: /\btest\s*(?:and|n|&)\s*drain\b/ },
       { label: "Air Vent", terms: ["air vent"], pattern: /\bair vents?\b/ },
       { label: "Riser Assembly", terms: ["riser assembly", "umc", "easypac", "manifold check"], pattern: /\briser assembl(?:y|ies)\b|\bumc\b|\beasypac\b|\bmanifold check\b/ },
@@ -5637,8 +5674,19 @@ function showPlansReviewDialog(review) {
       suggestion.checked = true;
       refreshPlansReviewSuggestionList(review);
     };
+    // Dismiss-on-backdrop must require the PRESS to start on the backdrop, not
+    // just the release. A `click` dispatches on the nearest common ancestor of
+    // its mousedown/mouseup targets, so pressing inside the dialog and drifting
+    // out before releasing (selecting text, dragging a scrollbar) lands the
+    // click on the <dialog> itself and used to throw away a whole scan.
+    let pressedOnBackdrop = false;
+    const onBackdropPress = (event) => {
+      pressedOnBackdrop = event.target === dom.plansReviewDialog;
+    };
     const onBackdropClick = (event) => {
       if (event.target !== dom.plansReviewDialog) return;
+      if (!pressedOnBackdrop) return;   // drag that began inside: not a dismiss
+      pressedOnBackdrop = false;
       const ok = window.confirm("Close this scan result? The detected results will not be saved unless you apply them first.");
       if (!ok) return;
       cleanup();
@@ -5653,6 +5701,7 @@ function showPlansReviewDialog(review) {
       dom.plansReviewSuggestions.removeEventListener("click", onImport);
       dom.plansReviewSuggestions.removeEventListener("change", onChoiceChange);
       dom.plansReviewDialog.removeEventListener("cancel", onCancel);
+      dom.plansReviewDialog.removeEventListener("pointerdown", onBackdropPress);
       dom.plansReviewDialog.removeEventListener("click", onBackdropClick);
     };
     dom.plansReviewCancelButton.addEventListener("click", onCancel);
@@ -5662,6 +5711,7 @@ function showPlansReviewDialog(review) {
     dom.plansReviewSuggestions.addEventListener("click", onImport);
     dom.plansReviewSuggestions.addEventListener("change", onChoiceChange);
     dom.plansReviewDialog.addEventListener("cancel", onCancel);
+    dom.plansReviewDialog.addEventListener("pointerdown", onBackdropPress);
     dom.plansReviewDialog.addEventListener("click", onBackdropClick);
     const opened = openDialogSafely(dom.plansReviewDialog);
     if (!opened) {
@@ -8188,8 +8238,22 @@ function setViewMode(mode) {
   saveState();
 }
 
+// Appearance themes. `light` drives the light/dark decision for embedded tools
+// and the browser theme-color; `color` is the address-bar / titlebar tint.
+const THEME_META = {
+  "default": { label: "Dark", light: false, color: "#111820" },
+  "plain-light": { label: "Plain Light", light: true, color: "#f4f7fb" },
+  "blueprint": { label: "Blueprint", light: false, color: "#0a1a2f" },
+  "vellum": { label: "Vellum", light: true, color: "#f5f0e4" },
+  "graphite": { label: "Graphite", light: false, color: "#15171b" },
+};
+
+function normalizeTheme(theme) {
+  return Object.prototype.hasOwnProperty.call(THEME_META, theme) ? theme : "default";
+}
+
 function setTheme(theme) {
-  state.theme = theme === "plain-light" ? "plain-light" : "default";
+  state.theme = normalizeTheme(theme);
   updateThemeUI();
   saveState();
 }
@@ -8197,13 +8261,15 @@ function setTheme(theme) {
 function updateThemeUI() {
   document.body.dataset.theme = state.theme;
   if (dom.themeSelect) dom.themeSelect.value = state.theme;
-  const themeColor = state.theme === "plain-light" ? "#f4f7fb" : "#111820";
+  const themeColor = THEME_META[state.theme]?.color || THEME_META.default.color;
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", themeColor);
   updateEmbeddedToolThemes();
 }
 
 function updateEmbeddedToolThemes() {
-  const theme = state.theme === "plain-light" ? "plain-light" : "default";
+  // Embedded tools (hanger detail iframe, etc.) only know light vs dark, so a
+  // new theme maps onto whichever of the two originals it resembles.
+  const theme = THEME_META[state.theme]?.light ? "plain-light" : "default";
 
   // Hanger Detail iframe: postMessage the theme (works cross-origin and does NOT
   // reload the frame, so the in-progress drawing is preserved). hanger.html applies
@@ -9594,6 +9660,63 @@ const VICINITY_MAJOR_CLASSES = new Set(["motorway", "trunk", "primary", "seconda
 const VICINITY_MINOR_CLASSES = new Set(["residential", "unclassified", "living_street"]);
 const VICINITY_SVG_W = 1200;
 const VICINITY_SVG_H = 1015;
+// North arrow styles: id -> {name, svg(cx, cy, r) -> markup}. The same
+// geometry is mirrored in the DXF exporter (vicinityDxfNorthArrow) — keep both
+// in sync when adding a style.
+const VICINITY_ARROWS = {
+  classic: {
+    name: "Classic",
+    svg(cx, cy, r) {
+      return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="white" stroke="black" stroke-width="${r * 0.048}"/>`
+        + `<line x1="${cx}" y1="${cy + r - r * 0.115}" x2="${cx}" y2="${cy - r + r * 0.115}" stroke="black" stroke-width="${r * 0.058}"/>`
+        + `<line x1="${cx - r + r * 0.115}" y1="${cy}" x2="${cx + r - r * 0.115}" y2="${cy}" stroke="black" stroke-width="${r * 0.027}"/>`
+        + `<path d="M${cx},${cy - r + r * 0.038} L${cx - r * 0.135},${cy - r + r * 0.42} L${cx + r * 0.135},${cy - r + r * 0.42} Z" fill="black"/>`
+        + `<text x="${cx}" y="${cy - r - r * 0.23}" text-anchor="middle" font-family="Arial, sans-serif" font-size="${r * 0.65}" font-weight="bold">N</text>`;
+    },
+  },
+  compass: {
+    name: "Compass rose",
+    svg(cx, cy, r) {
+      const R = r * 0.92, w = r * 0.22;   // long points, half-width at center
+      const pt = (dx1, dy1, dx2, dy2, dx3, dy3, fill) =>
+        `<path d="M${cx + dx1},${cy + dy1} L${cx + dx2},${cy + dy2} L${cx + dx3},${cy + dy3} Z" fill="${fill}" stroke="black" stroke-width="${r * 0.03}"/>`;
+      return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="white" stroke="black" stroke-width="${r * 0.048}"/>`
+        + `<circle cx="${cx}" cy="${cy}" r="${r * 0.52}" fill="none" stroke="black" stroke-width="${r * 0.024}"/>`
+        + pt(0, -R, -w, 0, w, 0, "black")          // N — filled
+        + pt(0, R, -w, 0, w, 0, "white")           // S
+        + pt(-R, 0, 0, -w, 0, w, "white")          // W
+        + pt(R, 0, 0, -w, 0, w, "white")           // E
+        + `<circle cx="${cx}" cy="${cy}" r="${r * 0.07}" fill="black"/>`
+        + `<text x="${cx}" y="${cy - r - r * 0.23}" text-anchor="middle" font-family="Arial, sans-serif" font-size="${r * 0.65}" font-weight="bold">N</text>`;
+    },
+  },
+  bold: {
+    name: "Bold arrow",
+    svg(cx, cy, r) {
+      const headW = r * 0.62, headTop = cy - r * 0.92, headBase = cy + r * 0.05;
+      const shaftW = r * 0.2, shaftBot = cy + r * 0.95;
+      return `<path d="M${cx},${headTop} L${cx - headW},${headBase} L${cx - shaftW},${headBase} L${cx - shaftW},${shaftBot} L${cx + shaftW},${shaftBot} L${cx + shaftW},${headBase} L${cx + headW},${headBase} Z"`
+        + ` fill="black" stroke="black" stroke-width="${r * 0.02}" stroke-linejoin="miter"/>`
+        + `<text x="${cx}" y="${cy - r - r * 0.23}" text-anchor="middle" font-family="Arial, sans-serif" font-size="${r * 0.72}" font-weight="bold">N</text>`;
+    },
+  },
+  split: {
+    name: "Half-shaded",
+    svg(cx, cy, r) {
+      const tipY = cy - r + r * 0.1, baseY = cy + r * 0.62, w = r * 0.42;
+      return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="white" stroke="black" stroke-width="${r * 0.048}"/>`
+        + `<path d="M${cx},${tipY} L${cx + w},${baseY} L${cx},${cy + r * 0.28} Z" fill="black"/>`
+        + `<path d="M${cx},${tipY} L${cx - w},${baseY} L${cx},${cy + r * 0.28} Z" fill="white" stroke="black" stroke-width="${r * 0.035}"/>`
+        + `<text x="${cx}" y="${cy - r - r * 0.23}" text-anchor="middle" font-family="Arial, sans-serif" font-size="${r * 0.65}" font-weight="bold">N</text>`;
+    },
+  },
+};
+
+function vicinityArrowStyle() {
+  const saved = localStorage.getItem("vicinityArrowStyle");
+  return VICINITY_ARROWS[saved] ? saved : "classic";
+}
+
 const vicinityState = { point: null, label: "", ways: [], overrides: {}, suggestTimer: null,
   workOffset: { dx: 0, dy: 0 },   // AREA OF WORK rectangle, dragged (SVG px from the address point)
   labelOffset: { dx: 0, dy: 0 },  // AREA OF WORK label box, dragged independently (SVG px from its default spot)
@@ -9754,13 +9877,9 @@ function renderVicinityMap() {
     + `<rect id="vmap-label-box" x="${lbx.toFixed(1)}" y="${lby.toFixed(1)}" width="${VICINITY_LABEL_W}" height="${VICINITY_LABEL_H}" fill="white" stroke="black" stroke-width="2.5"/>`
     + `<text id="vmap-label-text" x="${g.labelCx.toFixed(1)}" y="${(g.labelCy + 9).toFixed(1)}" text-anchor="middle" font-family="Arial, sans-serif" font-size="25" font-weight="bold">AREA OF WORK</text>`
     + `</g>`);
-  // north arrow + attribution
+  // north arrow (user-selectable style) + attribution
   const cx = VICINITY_SVG_W - 95, cy = VICINITY_SVG_H - 105, cr = 52;
-  parts.push(`<circle cx="${cx}" cy="${cy}" r="${cr}" fill="white" stroke="black" stroke-width="2.5"/>`);
-  parts.push(`<line x1="${cx}" y1="${cy + cr - 6}" x2="${cx}" y2="${cy - cr + 6}" stroke="black" stroke-width="3"/>`);
-  parts.push(`<line x1="${cx - cr + 6}" y1="${cy}" x2="${cx + cr - 6}" y2="${cy}" stroke="black" stroke-width="1.4"/>`);
-  parts.push(`<path d="M${cx},${cy - cr + 2} L${cx - 7},${cy - cr + 22} L${cx + 7},${cy - cr + 22} Z" fill="black"/>`);
-  parts.push(`<text x="${cx}" y="${cy - cr - 12}" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="bold">N</text>`);
+  parts.push(VICINITY_ARROWS[vicinityArrowStyle()].svg(cx, cy, cr));
   parts.push(`<text x="10" y="${VICINITY_SVG_H - 8}" font-family="Arial, sans-serif" font-size="12" fill="#666">Map data (c) OpenStreetMap contributors</text>`);
   dom.vicinitySvg.innerHTML = parts.join("");
   if (dom.vicinityMapEmpty) dom.vicinityMapEmpty.hidden = true;
@@ -10169,12 +10288,47 @@ function buildVicinityDxf() {
   emitPolyline([[(gg.leader.x1 - gg.ax) * pxToFt, (gg.ay - gg.leader.y1) * pxToFt],
                 [(gg.leader.x2 - gg.ax) * pxToFt, (gg.ay - gg.leader.y2) * pxToFt]], "VMAP-WORK", 0);
   emitText(labelCxFt, labelCyFt, textH, 0, "AREA OF WORK", "VMAP-TEXT");
-  // north arrow: simple circle + needle at the NE corner of the map extents
+  // north arrow (matches the selected on-screen style) at the NE corner
   const mapHalfWFt = mapWidthFt / 2, mapHalfHFt = mapHalfWFt * (VICINITY_SVG_H / VICINITY_SVG_W);
   const ncx = mapHalfWFt * 0.86, ncy = -mapHalfHFt * 0.82, ncr = mapWidthFt * 0.03;
-  p(0, "CIRCLE"); p(8, "VMAP-NORTH"); p(10, n(ncx)); p(20, n(ncy)); p(30, 0); p(40, n(ncr));
-  emitPolyline([[ncx, ncy - ncr], [ncx, ncy + ncr]], "VMAP-NORTH", 0);
-  emitText(ncx, ncy + ncr * 1.35, textH, 0, "N", "VMAP-NORTH");
+  const circle = (x, y, r) => { p(0, "CIRCLE"); p(8, "VMAP-NORTH"); p(10, n(x)); p(20, n(y)); p(30, 0); p(40, n(r)); };
+  const solid = (a, b, c, d) => {   // filled triangle/quad (d optional; DXF wants 3rd/4th swapped)
+    const q = d || c;
+    p(0, "SOLID"); p(8, "VMAP-NORTH");
+    p(10, n(a[0])); p(20, n(a[1])); p(30, 0);
+    p(11, n(b[0])); p(21, n(b[1])); p(31, 0);
+    p(12, n(q[0])); p(22, n(q[1])); p(32, 0);
+    p(13, n(c[0])); p(23, n(c[1])); p(33, 0);
+  };
+  const style = vicinityArrowStyle();
+  if (style === "compass") {
+    const R = ncr * 0.92, w = ncr * 0.22;
+    circle(ncx, ncy, ncr);
+    circle(ncx, ncy, ncr * 0.52);
+    solid([ncx, ncy + R], [ncx - w, ncy], [ncx + w, ncy]);                       // N point filled (y-up)
+    emitPolyline([[ncx, ncy - R], [ncx - w, ncy], [ncx + w, ncy], [ncx, ncy - R]], "VMAP-NORTH", 0); // S point outline
+    emitPolyline([[ncx - R, ncy], [ncx, ncy + w], [ncx, ncy - w], [ncx - R, ncy]], "VMAP-NORTH", 0);   // W
+    emitPolyline([[ncx + R, ncy], [ncx, ncy + w], [ncx, ncy - w], [ncx + R, ncy]], "VMAP-NORTH", 0);   // E
+    emitText(ncx, ncy + ncr * 1.35, textH, 0, "N", "VMAP-NORTH");
+  } else if (style === "bold") {
+    const headW = ncr * 0.62, headTop = ncy + ncr * 0.92, headBase = ncy - ncr * 0.05;
+    const shaftW = ncr * 0.2, shaftBot = ncy - ncr * 0.95;
+    solid([ncx, headTop], [ncx - headW, headBase], [ncx + headW, headBase]);
+    solid([ncx - shaftW, headBase], [ncx + shaftW, headBase], [ncx - shaftW, shaftBot], [ncx + shaftW, shaftBot]);
+    emitText(ncx, ncy + ncr * 1.35, textH, 0, "N", "VMAP-NORTH");
+  } else if (style === "split") {
+    const tipY = ncy + ncr - ncr * 0.1, baseY = ncy - ncr * 0.62, w = ncr * 0.42, notchY = ncy - ncr * 0.28;
+    circle(ncx, ncy, ncr);
+    solid([ncx, tipY], [ncx + w, baseY], [ncx, notchY]);                          // right half filled
+    emitPolyline([[ncx, tipY], [ncx - w, baseY], [ncx, notchY], [ncx, tipY]], "VMAP-NORTH", 0);  // left half outline
+    emitText(ncx, ncy + ncr * 1.35, textH, 0, "N", "VMAP-NORTH");
+  } else {   // classic
+    circle(ncx, ncy, ncr);
+    emitPolyline([[ncx, ncy - ncr], [ncx, ncy + ncr]], "VMAP-NORTH", 0);
+    emitPolyline([[ncx - ncr + ncr * 0.115, ncy], [ncx + ncr - ncr * 0.115, ncy]], "VMAP-NORTH", 0);
+    solid([ncx, ncy + ncr - ncr * 0.038], [ncx - ncr * 0.135, ncy + ncr - ncr * 0.42], [ncx + ncr * 0.135, ncy + ncr - ncr * 0.42]);
+    emitText(ncx, ncy + ncr * 1.35, textH, 0, "N", "VMAP-NORTH");
+  }
   emitText(-mapHalfWFt * 0.95, -mapHalfHFt * 1.02, textH * 0.4, 0, "Map data (c) OpenStreetMap contributors", "VMAP-TEXT");
   p(0, "ENDSEC"); p(0, "EOF");
   return out.join("\n");
@@ -10682,10 +10836,12 @@ function dwgpdfEl(id) { return document.getElementById(id); }
 function dwgpdfReset() {
   dwgpdfState.token = null; dwgpdfState.fileName = "";
   dwgpdfState.sheets = []; dwgpdfState.modelEntities = 0; dwgpdfState.hasPrintableSheets = false;
+  dwgpdfState.xrefs = [];
   ["dwgpdfFileStatus", "dwgpdfStatus"].forEach((id) => { const el = dwgpdfEl(id); if (el) el.textContent = ""; });
   const input = dwgpdfEl("dwgpdfFileInput"); if (input) input.value = "";
   const oda = dwgpdfEl("dwgpdfOdaNote"); if (oda) oda.hidden = true;
   renderDwgpdfSheets();
+  renderDwgpdfXrefs();
 }
 
 function dwgpdfSelectedSheets() {
@@ -10733,6 +10889,34 @@ function renderDwgpdfSheets() {
   syncDwgpdfControls();
 }
 
+function dwgpdfSelectedXrefs() {
+  return [...document.querySelectorAll("#dwgpdfXrefs input[type=checkbox]:checked")].map((el) => el.value);
+}
+
+function renderDwgpdfXrefs() {
+  const wrap = dwgpdfEl("dwgpdfXrefsWrap");
+  const box = dwgpdfEl("dwgpdfXrefs");
+  const hint = dwgpdfEl("dwgpdfXrefHint");
+  if (!wrap || !box) return;
+  const xrefs = dwgpdfState.xrefs || [];
+  wrap.hidden = !xrefs.length;
+  if (!xrefs.length) { box.innerHTML = ""; return; }
+  box.innerHTML = xrefs.map((x) => {
+    const sub = x.resolvable
+      ? escapeHtml(x.path || "")
+      : "not found — use Choose file… on the original drawing so its reference files sit next to it";
+    return `
+      <label class="dwgpdf-sheet${x.resolvable ? "" : " empty"}">
+        <input type="checkbox" value="${escapeHtml(x.name)}" ${x.resolvable ? "checked" : "disabled"} />
+        <span class="dwgpdf-sheet-name">${escapeHtml(x.name)}</span>
+        <span class="dwgpdf-sheet-sub">${sub}</span>
+      </label>`;
+  }).join("");
+  const usable = xrefs.filter((x) => x.resolvable).length;
+  const missing = xrefs.length - usable;
+  if (hint) hint.textContent = `${usable} of ${xrefs.length} available${missing ? ` · ${missing} not found` : ""} — checked ones are merged into the print`;
+}
+
 function syncDwgpdfControls() {
   const selected = dwgpdfSelectedSheets();
   const modeWrap = dwgpdfEl("dwgpdfModeWrap");
@@ -10752,9 +10936,18 @@ async function dwgpdfApplyAnalysis(payload) {
   dwgpdfState.sheets = payload.sheets || [];
   dwgpdfState.modelEntities = payload.modelEntities || 0;
   dwgpdfState.hasPrintableSheets = !!payload.hasPrintableSheets;
+  dwgpdfState.xrefs = payload.xrefs || [];
   const status = dwgpdfEl("dwgpdfFileStatus");
-  if (status) status.textContent = `${dwgpdfState.fileName} — ready.`;
+  if (status) {
+    const xrefs = dwgpdfState.xrefs;
+    const missing = xrefs.filter((x) => !x.resolvable).length;
+    let msg = `${dwgpdfState.fileName} — ready.`;
+    if (xrefs.length) msg += ` ${xrefs.length} reference drawing${xrefs.length === 1 ? "" : "s"} (xrefs) found — pick which to include below.`;
+    if (missing) msg += ` ⚠ ${missing} of them can't be found from here — use Choose file… on the original drawing.`;
+    status.textContent = msg;
+  }
   renderDwgpdfSheets();
+  renderDwgpdfXrefs();
 }
 
 function dwgpdfHandleError(result) {
@@ -10824,6 +11017,8 @@ async function dwgpdfGenerate() {
         mode,
         modelPaper: dwgpdfEl("dwgpdfPaperSelect")?.value || "tabloid",
         baseName: dwgpdfState.fileName,
+        // only the checked reference drawings get merged into the print
+        xrefs: dwgpdfSelectedXrefs(),
       }),
     });
     const result = await readJsonResponse(response);
@@ -10834,6 +11029,551 @@ async function dwgpdfGenerate() {
   }
   if (btn) btn.disabled = false;
   syncDwgpdfControls();
+}
+
+
+// ---------------------------------------------------------------------------
+// Plan Symbol Library
+// Token resolution MIRRORS symbol_library/render.py exactly: source SVGs carry
+// var(--sym-*) placeholders and are resolved by SUBSTITUTION into a concrete
+// SVG before rasterizing. We never rely on the CSS cascade, because the same
+// resolved string is also the SVG export and must stand alone.
+// ---------------------------------------------------------------------------
+const SYMBOLS_LIBRARY_URL = "./assets/symbols/library.json";
+const SYMBOL_PREVIEW_BACKDROPS = ["white", "gray", "dark", "plan"];
+
+const symbolsState = {
+  loaded: false,
+  themes: null,
+  houseStyle: "weighted",
+  symbols: [],
+  category: "all",
+  query: "",
+  family: "standard",
+  color: "black",
+  size: 512,
+  transparent: true,
+  backdrop: "white",
+  selected: 0,
+  favorites: new Set(),
+  recents: [],
+  blobCache: new Map(),
+};
+
+function symbolsEl(id) { return document.getElementById(id); }
+
+function symbolsLoadPrefs() {
+  try {
+    const fav = JSON.parse(localStorage.getItem("symbolsFavorites") || "[]");
+    if (Array.isArray(fav)) symbolsState.favorites = new Set(fav);
+    const rec = JSON.parse(localStorage.getItem("symbolsRecents") || "[]");
+    if (Array.isArray(rec)) symbolsState.recents = rec.slice(0, 12);
+  } catch (error) { /* first run, or storage blocked - defaults are fine */ }
+}
+
+function symbolsSavePrefs() {
+  try {
+    localStorage.setItem("symbolsFavorites", JSON.stringify([...symbolsState.favorites]));
+    localStorage.setItem("symbolsRecents", JSON.stringify(symbolsState.recents.slice(0, 12)));
+  } catch (error) { /* non-fatal */ }
+}
+
+// --- token resolution (mirror of render.py) --------------------------------
+function symbolsTokens(family, colorKey, forKnockout) {
+  const t = symbolsState.themes;
+  const hs = t.house_styles[symbolsState.houseStyle];
+  const fam = t.style_families[family] || t.style_families.standard;
+  const stroke = t.colors[colorKey] || "#000000";
+  const bg = t.default_bg || "#FFFFFF";
+  const scale = fam.weight_scale || 1;
+  if (forKnockout) {
+    // every paint becomes the knockout color; all three weights become the
+    // halo width; caps/joins go round so the underlay stays smooth
+    const haloWidth = hs.lw_heavy * hs.halo_w;
+    return {
+      "--sym-stroke": bg, "--sym-ink": bg, "--sym-fill": bg, "--sym-bg": bg,
+      "--sym-lw": String(haloWidth), "--sym-lw-heavy": String(haloWidth),
+      "--sym-lw-light": String(haloWidth),
+      "--sym-cap": "round", "--sym-join": "round", "--sym-halo-w": String(hs.halo_w),
+    };
+  }
+  return {
+    "--sym-stroke": stroke,
+    "--sym-ink": stroke,
+    "--sym-fill": fam.solid_fill ? stroke : "none",
+    "--sym-bg": bg,
+    "--sym-lw": String(hs.lw * scale),
+    "--sym-lw-heavy": String(hs.lw_heavy * scale),
+    "--sym-lw-light": String(hs.lw_light * scale),
+    "--sym-cap": hs.cap,
+    "--sym-join": hs.join,
+    "--sym-halo-w": String(hs.halo_w),
+  };
+}
+
+function symbolsSubstitute(svgText, tokens) {
+  let out = svgText;
+  for (const [name, value] of Object.entries(tokens)) {
+    out = out.split(`var(${name})`).join(value);
+  }
+  const leftover = out.match(/var\(--[a-z-]+\)/);
+  if (leftover) throw new Error(`unresolved token ${leftover[0]}`);
+  return out;
+}
+
+/** Resolved standalone SVG. Halo emits the knockout pass FIRST, artwork on top. */
+function symbolsResolveSvg(svgText, family, colorKey) {
+  const fam = symbolsState.themes.style_families[family] || {};
+  const main = symbolsSubstitute(svgText, symbolsTokens(family, colorKey, false));
+  if (!fam.halo) return main;
+  const knockout = symbolsSubstitute(svgText, symbolsTokens(family, colorKey, true));
+  const inner = (text) => {
+    const open = text.indexOf(">", text.indexOf("<svg"));
+    const close = text.lastIndexOf("</svg>");
+    return text.slice(open + 1, close);
+  };
+  const head = main.slice(0, main.indexOf(">", main.indexOf("<svg")) + 1);
+  return `${head}<g data-sym-pass="knockout">${inner(knockout)}</g>${inner(main)}</svg>`;
+}
+
+function symbolsEffectiveFamily(symbol) {
+  // Solid floods closed shapes, which erases interior detail (a circled R
+  // becomes a black disc). Never render it for symbols flagged solid_ok:false.
+  if (symbolsState.family === "solid" && symbol.solid_ok === false) return "standard";
+  return symbolsState.family;
+}
+
+function symbolsSvgDataUrl(resolvedSvg) {
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(resolvedSvg);
+}
+
+/** Render to a canvas at 2x then downsample once - thin CAD linework needs it. */
+async function symbolsRenderCanvas(symbol, family, colorKey, sizePx, transparent) {
+  const resolved = symbolsResolveSvg(symbol.svg, family, colorKey);
+  const image = new Image();
+  image.decoding = "sync";
+  await new Promise((resolve, reject) => {
+    image.onload = resolve;
+    image.onerror = () => reject(new Error(`could not rasterize ${symbol.id}`));
+    image.src = symbolsSvgDataUrl(resolved);
+  });
+  const big = document.createElement("canvas");
+  big.width = sizePx * 2;
+  big.height = sizePx * 2;
+  const bctx = big.getContext("2d");
+  if (!transparent) {
+    bctx.fillStyle = symbolsState.themes.default_bg || "#FFFFFF";
+    bctx.fillRect(0, 0, big.width, big.height);
+  }
+  bctx.drawImage(image, 0, 0, big.width, big.height);
+  const out = document.createElement("canvas");
+  out.width = sizePx;
+  out.height = sizePx;
+  const octx = out.getContext("2d");
+  octx.imageSmoothingEnabled = true;
+  octx.imageSmoothingQuality = "high";
+  octx.drawImage(big, 0, 0, sizePx, sizePx);
+  return out;
+}
+
+async function symbolsPngBlob(symbol, sizeOverride) {
+  const family = symbolsEffectiveFamily(symbol);
+  const size = sizeOverride || symbolsState.size;
+  const key = `${symbol.id}|${family}|${symbolsState.color}|${size}|${symbolsState.transparent}`;
+  if (symbolsState.blobCache.has(key)) return symbolsState.blobCache.get(key);
+  const canvas = await symbolsRenderCanvas(symbol, family, symbolsState.color, size,
+                                           symbolsState.transparent);
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+  symbolsState.blobCache.set(key, blob);
+  return blob;
+}
+
+// --- filtering / search ----------------------------------------------------
+function symbolsMatches(symbol, query) {
+  if (!query) return true;
+  const q = query.toLowerCase().trim();
+  const hay = [symbol.name, symbol.id, ...(symbol.aliases || []), ...(symbol.tags || [])]
+    .join(" ").toLowerCase();
+  if (hay.includes(q)) return true;
+  // token-wise match so "4 way fdc" finds "4-way fdc"
+  return q.split(/[\s-]+/).filter(Boolean).every((part) => hay.includes(part));
+}
+
+function symbolsVisible() {
+  const { category, query } = symbolsState;
+  let list = symbolsState.symbols;
+  if (category === "favorites") list = list.filter((s) => symbolsState.favorites.has(s.id));
+  else if (category === "recents") {
+    const order = symbolsState.recents;
+    list = order.map((id) => list.find((s) => s.id === id)).filter(Boolean);
+  } else if (category !== "all") list = list.filter((s) => s.category === category);
+  return list.filter((s) => symbolsMatches(s, query));
+}
+
+// --- rendering the UI ------------------------------------------------------
+function symbolsRenderChips() {
+  const t = symbolsState.themes;
+  const chip = (value, label, active, extra = "") =>
+    `<button type="button" class="symbols-chip${active ? " active" : ""}" data-value="${escapeHtml(value)}"${extra}>${label}</button>`;
+
+  const famRow = symbolsEl("symbolsFamilyRow");
+  if (famRow) {
+    famRow.innerHTML = (t.style_family_order || Object.keys(t.style_families))
+      .map((k) => chip(k, escapeHtml(t.style_families[k].label), symbolsState.family === k)).join("");
+  }
+  const colorRow = symbolsEl("symbolsColorRow");
+  if (colorRow) {
+    colorRow.innerHTML = (t.color_order || Object.keys(t.colors)).map((k) =>
+      chip(k, `<span class="symbols-swatch" style="background:${t.colors[k]}"></span><span class="symbols-swatch-name">${escapeHtml(k)}</span>`,
+           symbolsState.color === k, ` title="${escapeHtml(k)}"`)).join("");
+  }
+  const sizeRow = symbolsEl("symbolsSizeRow");
+  if (sizeRow) {
+    sizeRow.innerHTML = [256, 512, 1024, 2048]
+      .map((n) => chip(String(n), `${n} px`, symbolsState.size === n)).join("");
+  }
+  const bgRow = symbolsEl("symbolsBgRow");
+  if (bgRow) {
+    bgRow.innerHTML = chip("transparent", "Transparent", symbolsState.transparent)
+      + chip("white", "White", !symbolsState.transparent);
+  }
+  const previewRow = symbolsEl("symbolsPreviewBgRow");
+  if (previewRow) {
+    previewRow.innerHTML = SYMBOL_PREVIEW_BACKDROPS.map((k) =>
+      chip(k, escapeHtml(k === "plan" ? "busy plan" : k), symbolsState.backdrop === k)).join("");
+  }
+}
+
+function symbolsRenderRail() {
+  const rail = symbolsEl("symbolsCategoryList");
+  if (!rail) return;
+  const counts = {};
+  symbolsState.symbols.forEach((s) => { counts[s.category] = (counts[s.category] || 0) + 1; });
+  const labels = {
+    sheet: "Sheet furniture", site: "Site &amp; underground",
+    riser: "Riser &amp; system", heads: "Heads &amp; coverage",
+    hangers: "Hangers &amp; bracing", markup: "Markup",
+  };
+  const rows = [
+    { key: "favorites", label: "&#9733; Favorites", count: symbolsState.favorites.size },
+    { key: "recents", label: "Recents", count: symbolsState.recents.length },
+    { key: "all", label: "All symbols", count: symbolsState.symbols.length },
+  ];
+  Object.keys(counts).sort().forEach((cat) => {
+    rows.push({ key: cat, label: labels[cat] || escapeHtml(cat), count: counts[cat] });
+  });
+  rail.innerHTML = rows.map((r) =>
+    `<button type="button" class="symbols-rail-item${symbolsState.category === r.key ? " active" : ""}" data-category="${escapeHtml(r.key)}">
+       <span>${r.label}</span><span class="symbols-rail-count">${r.count}</span>
+     </button>`).join("");
+}
+
+async function symbolsPaintCard(card, symbol) {
+  try {
+    const family = symbolsEffectiveFamily(symbol);
+    const resolved = symbolsResolveSvg(symbol.svg, family, symbolsState.color);
+    const holder = card.querySelector(".symbols-card-art");
+    if (holder) holder.innerHTML = resolved;
+  } catch (error) {
+    const holder = card.querySelector(".symbols-card-art");
+    if (holder) holder.textContent = "!";
+  }
+}
+
+function symbolsRenderGrid() {
+  const grid = symbolsEl("symbolsGrid");
+  const empty = symbolsEl("symbolsEmpty");
+  const count = symbolsEl("symbolsCount");
+  const heading = symbolsEl("symbolsGridHeading");
+  if (!grid) return;
+  const list = symbolsVisible();
+  if (heading) {
+    const names = { all: "All symbols", favorites: "Favorites", recents: "Recently used" };
+    heading.textContent = names[symbolsState.category]
+      || (symbolsState.symbols.find((s) => s.category === symbolsState.category)?.category || "Symbols");
+  }
+  if (count) count.textContent = `${list.length} symbol${list.length === 1 ? "" : "s"}`;
+  if (empty) empty.hidden = list.length > 0;
+  if (symbolsState.selected >= list.length) symbolsState.selected = Math.max(0, list.length - 1);
+
+  grid.dataset.backdrop = symbolsState.backdrop;
+  grid.innerHTML = list.map((symbol, index) => {
+    const fav = symbolsState.favorites.has(symbol.id);
+    const noSolid = symbolsState.family === "solid" && symbol.solid_ok === false;
+    return `<div class="symbols-card${index === symbolsState.selected ? " selected" : ""}"
+                 role="option" tabindex="-1" data-id="${escapeHtml(symbol.id)}" data-index="${index}"
+                 aria-selected="${index === symbolsState.selected}" title="Click to copy PNG">
+      <button type="button" class="symbols-fav${fav ? " on" : ""}" data-fav="${escapeHtml(symbol.id)}"
+              title="${fav ? "Remove from favorites" : "Add to favorites"}" aria-label="Favorite">&#9733;</button>
+      <div class="symbols-card-art"></div>
+      <div class="symbols-card-name">${escapeHtml(symbol.name)}</div>
+      ${noSolid ? '<div class="symbols-card-note">Solid n/a &mdash; shown Standard</div>' : ""}
+      <div class="symbols-card-actions">
+        <button type="button" class="compact-button" data-act="svg" data-id="${escapeHtml(symbol.id)}">Copy SVG</button>
+        <button type="button" class="compact-button" data-act="png" data-id="${escapeHtml(symbol.id)}">PNG</button>
+      </div>
+    </div>`;
+  }).join("");
+
+  grid.querySelectorAll(".symbols-card").forEach((card) => {
+    const symbol = list[Number(card.dataset.index)];
+    if (symbol) symbolsPaintCard(card, symbol);
+  });
+}
+
+function symbolsRenderAll() {
+  symbolsRenderChips();
+  symbolsRenderRail();
+  symbolsRenderGrid();
+}
+
+// --- toast + clipboard -----------------------------------------------------
+let symbolsToastTimer = null;
+function symbolsToast(message, fallbackSymbol) {
+  const toast = symbolsEl("symbolsToast");
+  const text = symbolsEl("symbolsToastText");
+  const action = symbolsEl("symbolsToastAction");
+  if (!toast || !text) return;
+  text.textContent = message;
+  if (action) {
+    action.hidden = !fallbackSymbol;
+    action.onclick = fallbackSymbol ? () => symbolsDownloadPng(fallbackSymbol) : null;
+  }
+  toast.hidden = false;
+  window.clearTimeout(symbolsToastTimer);
+  symbolsToastTimer = window.setTimeout(() => { toast.hidden = true; }, fallbackSymbol ? 9000 : 3500);
+}
+
+function symbolsNoteRecent(symbol) {
+  symbolsState.recents = [symbol.id, ...symbolsState.recents.filter((id) => id !== symbol.id)].slice(0, 12);
+  symbolsSavePrefs();
+  if (symbolsState.category === "recents" || symbolsState.category === "favorites") symbolsRenderGrid();
+  else symbolsRenderRail();
+}
+
+function symbolsDescribe(symbol) {
+  const bg = symbolsState.transparent ? "transparent" : "white";
+  return `${symbol.name} copied — ${symbolsState.size} px, ${symbolsState.color}, ${bg}`;
+}
+
+/**
+ * Copy PNG. MUST be invoked straight from the click handler: Safari rejects a
+ * clipboard write if unrelated async work is awaited first, so the
+ * ClipboardItem is constructed with the PROMISE, not the resolved blob.
+ */
+function symbolsCopyPng(symbol) {
+  const pending = symbolsPngBlob(symbol);
+  if (!navigator.clipboard || !window.ClipboardItem) {
+    pending.then(() => symbolsToast("Clipboard images are not supported here — use Download PNG.", symbol))
+      .catch(() => symbolsToast("Could not render that symbol.", null));
+    return;
+  }
+  try {
+    const item = new ClipboardItem({ "image/png": pending });
+    navigator.clipboard.write([item]).then(() => {
+      symbolsToast(symbolsDescribe(symbol), null);
+      symbolsNoteRecent(symbol);
+    }).catch(() => {
+      symbolsToast("Clipboard was blocked — use Download PNG instead.", symbol);
+    });
+  } catch (error) {
+    symbolsToast("Clipboard was blocked — use Download PNG instead.", symbol);
+  }
+}
+
+async function symbolsCopySvg(symbol) {
+  try {
+    const resolved = symbolsResolveSvg(symbol.svg, symbolsEffectiveFamily(symbol), symbolsState.color);
+    await navigator.clipboard.writeText(resolved);
+    symbolsToast(`${symbol.name} SVG copied — ${symbolsState.color}`, null);
+    symbolsNoteRecent(symbol);
+  } catch (error) {
+    symbolsToast("Could not copy the SVG — use the download instead.", symbol);
+  }
+}
+
+async function symbolsDownloadPng(symbol) {
+  try {
+    const blob = await symbolsPngBlob(symbol);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${symbol.id}-${symbolsState.color}-${symbolsState.size}.png`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+    symbolsToast(`${symbol.name} downloaded.`, null);
+    symbolsNoteRecent(symbol);
+  } catch (error) {
+    symbolsToast("Could not build that PNG.", null);
+  }
+}
+
+function symbolsById(id) { return symbolsState.symbols.find((s) => s.id === id); }
+
+// --- init ------------------------------------------------------------------
+async function symbolsEnsureLoaded() {
+  if (symbolsState.loaded) return true;
+  const status = symbolsEl("symbolsStatus");
+  try {
+    const response = await fetch(SYMBOLS_LIBRARY_URL, { cache: "no-cache" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    symbolsState.themes = data.themes;
+    symbolsState.houseStyle = data.settled_house_style || "weighted";
+    symbolsState.symbols = data.symbols || [];
+    symbolsState.loaded = true;
+    if (status) status.textContent = "";
+    symbolsLoadPrefs();
+    symbolsRenderAll();
+    return true;
+  } catch (error) {
+    if (status) status.textContent = `Could not load the symbol library (${error.message}).`;
+    return false;
+  }
+}
+
+// ---- ODA File Converter re-check -------------------------------------------
+// Someone who installs the converter mid-session should not have to reload the
+// window (which only reloads the web view, not the Python process) or restart
+// the app. This re-probes the disk on demand and flips every DWG-capable
+// control in place.
+async function odaRecheck(button) {
+  const original = button.textContent;
+  button.disabled = true;
+  button.textContent = "Checking…";
+  try {
+    const r = await readApiJson("./api/oda-status", { method: "POST", body: "{}" });
+    if (r.dwgCapable) {
+      button.textContent = "Found it — DWG output is on";
+      // flip every DWG-capable control in place
+      pdfcadState.dwgCapable = true;
+      cadxState.dwgCapable = true;
+      const convBtn = document.getElementById("pdfcadConvertButton");
+      if (convBtn) convBtn.textContent = "Convert & Save DWG";
+      if (typeof cadxApplyOutputFormat === "function") cadxApplyOutputFormat();
+      document.querySelectorAll("#pdfcadOdaNote, #cadxOdaNote, #cadxOdaOutNote, #dwgpdfOdaNote")
+        .forEach((note) => { note.hidden = true; });
+    } else {
+      button.textContent = "Still not found — install it, then check again";
+      button.disabled = false;
+      window.setTimeout(() => { button.textContent = original; }, 6000);
+    }
+  } catch (error) {
+    button.textContent = "Could not check — try again";
+    button.disabled = false;
+    window.setTimeout(() => { button.textContent = original; }, 6000);
+  }
+}
+
+function initOdaRecheck() {
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-oda-recheck]");
+    if (button) odaRecheck(button);
+  });
+}
+
+function initSymbols() {
+  const grid = symbolsEl("symbolsGrid");
+  if (!grid) return;
+
+  symbolsEl("symbolsHelpButton")?.addEventListener("click", (event) => {
+    const help = symbolsEl("symbolsHelp");
+    if (!help) return;
+    help.hidden = !help.hidden;
+    event.currentTarget.setAttribute("aria-expanded", String(!help.hidden));
+  });
+
+  symbolsEl("symbolsSearchInput")?.addEventListener("input", (event) => {
+    symbolsState.query = event.target.value || "";
+    symbolsState.selected = 0;
+    symbolsRenderGrid();
+  });
+
+  const chipRows = {
+    symbolsFamilyRow: (v) => { symbolsState.family = v; },
+    symbolsColorRow: (v) => { symbolsState.color = v; },
+    symbolsSizeRow: (v) => { symbolsState.size = Number(v); },
+    symbolsBgRow: (v) => { symbolsState.transparent = v === "transparent"; },
+    symbolsPreviewBgRow: (v) => { symbolsState.backdrop = v; },
+  };
+  Object.entries(chipRows).forEach(([rowId, apply]) => {
+    symbolsEl(rowId)?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-value]");
+      if (!button) return;
+      apply(button.dataset.value);
+      symbolsRenderAll();
+    });
+  });
+
+  symbolsEl("symbolsCategoryList")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-category]");
+    if (!button) return;
+    symbolsState.category = button.dataset.category;
+    symbolsState.selected = 0;
+    symbolsRenderAll();
+  });
+
+  grid.addEventListener("click", (event) => {
+    const fav = event.target.closest("[data-fav]");
+    if (fav) {
+      const id = fav.dataset.fav;
+      if (symbolsState.favorites.has(id)) symbolsState.favorites.delete(id);
+      else symbolsState.favorites.add(id);
+      symbolsSavePrefs();
+      symbolsRenderAll();
+      return;
+    }
+    const action = event.target.closest("[data-act]");
+    if (action) {
+      const symbol = symbolsById(action.dataset.id);
+      if (!symbol) return;
+      if (action.dataset.act === "svg") symbolsCopySvg(symbol);
+      else symbolsDownloadPng(symbol);
+      return;
+    }
+    const card = event.target.closest(".symbols-card");
+    if (!card) return;
+    symbolsState.selected = Number(card.dataset.index) || 0;
+    const symbol = symbolsById(card.dataset.id);
+    if (symbol) symbolsCopyPng(symbol);   // fired directly from the click
+    symbolsRenderGrid();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    const panel = document.querySelector('[data-tool-panel="symbols"]');
+    if (!panel || panel.hidden) return;
+    const search = symbolsEl("symbolsSearchInput");
+    if (event.key === "/" && document.activeElement !== search) {
+      event.preventDefault();
+      search?.focus();
+      return;
+    }
+    if (document.activeElement === search && event.key !== "Escape") return;
+    const list = symbolsVisible();
+    if (["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp"].includes(event.key)) {
+      event.preventDefault();
+      const perRow = Math.max(1, Math.round(grid.clientWidth / 150));
+      const step = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: perRow, ArrowUp: -perRow }[event.key];
+      symbolsState.selected = Math.min(list.length - 1, Math.max(0, symbolsState.selected + step));
+      symbolsRenderGrid();
+      return;
+    }
+    const current = list[symbolsState.selected];
+    if (!current) return;
+    if (event.key === "Enter") { event.preventDefault(); symbolsCopyPng(current); }
+    else if (event.key.toLowerCase() === "c") { event.preventDefault(); symbolsCopySvg(current); }
+    else if (["1", "2", "3", "4"].includes(event.key)) {
+      event.preventDefault();
+      symbolsState.family = (symbolsState.themes?.style_family_order
+        || ["standard", "bold", "solid", "halo"])[Number(event.key) - 1];
+      symbolsRenderAll();
+    }
+  });
+
+  document.querySelector('[data-tool-tab="symbols"]')?.addEventListener("click", symbolsEnsureLoaded);
+  if (!document.querySelector('[data-tool-panel="symbols"]')?.hidden) symbolsEnsureLoaded();
 }
 
 function initDwgpdf() {
@@ -12341,13 +13081,9 @@ async function seismicRunCalc() {
       line("Wp (incl. allowance)", `${r.wpLb.toLocaleString()} lb`) +
       line("Horizontal force Fpw", `${r.fpwLb.toLocaleString()} lb`) +
       line("Net vertical at brace", `${r.verticalReactionLb.toLocaleString()} lb`);
-    seismicEl("seismicConstraints").innerHTML = r.constraints.map((c) => `
-      <div class="seismic-constraint is-${c.status.toLowerCase()}">
-        <div class="seismic-constraint-head"><span>${escapeHtml(c.name)}</span>
-          <span class="seismic-badge">${c.status}</span></div>
-        <div class="seismic-constraint-body">${c.demandLb != null ? `${c.demandLb.toLocaleString()} lb demand` : ""}${c.capacity != null ? ` vs ${c.capacity.toLocaleString()} ${escapeHtml(c.capacityUnit || "lb")} capacity` : ""}
-          ${escapeHtml((c.detail || "").slice(0, 160))}</div>
-      </div>`).join("");
+    seismicState.lastResult = r;
+    seismicRenderGoverning(r);
+    seismicRenderConstraints(r);
     // interactive code-condition verification checklist
     const condBox = seismicEl("seismicConditions");
     if (condBox) {
@@ -12427,6 +13163,79 @@ async function seismicExport(mode) {
     if (status) status.textContent = (error.message === "Save cancelled." ? "Save cancelled." : (error.message || "Export failed."));
   }
   btn.disabled = false;
+}
+
+// ---- governing element + safety margin -------------------------------------
+// A brace assembly is only as strong as its weakest element. The engine flags
+// the least-margin constraint as isGoverning; surface it prominently so the
+// answer to "what's my max allowable load, and why" is one glance, not a hunt.
+const SEISMIC_MARGIN_KEY = "sprinkflow.seismic.showMarginPct";
+
+function seismicShowMarginPct() {
+  const box = seismicEl("seismicShowMargin");
+  if (box) return !!box.checked;
+  try { return localStorage.getItem(SEISMIC_MARGIN_KEY) === "1"; } catch { return false; }
+}
+
+/**
+ * Safety margin as a percentage of CAPACITY - the unused portion of what the
+ * element can take. Matches the house convention set by the Supply Safety
+ * Margin tool (margin measured against the supply side, not the demand side).
+ */
+function seismicMarginPct(c) {
+  if (!c || c.capacity == null || c.demandLb == null || !c.capacity) return null;
+  return ((c.capacity - c.demandLb) / c.capacity) * 100;
+}
+
+function seismicRenderConstraints(r) {
+  const box = seismicEl("seismicConstraints");
+  if (!box || !r || !r.constraints) return;
+  const showMargin = seismicShowMarginPct();
+  box.innerHTML = r.constraints.map((c) => {
+    const pct = seismicMarginPct(c);
+    // margin only means something where a load capacity meets a load demand;
+    // a spacing limit in FEET has no demand and must never be shown a "margin"
+    const marginBits = c.marginLb == null ? "" :
+      `<span class="seismic-margin">${c.marginLb.toLocaleString()} lb spare${
+        showMargin && pct != null ? ` &middot; ${pct.toFixed(1)}% margin` : ""}</span>`;
+    return `
+      <div class="seismic-constraint is-${String(c.status).toLowerCase()}${c.isGoverning ? " is-governing" : ""}">
+        <div class="seismic-constraint-head"><span>${escapeHtml(c.name)}</span>
+          ${c.isGoverning ? '<span class="seismic-badge is-governs" title="This element sets the maximum allowable load">GOVERNS</span>' : ""}
+          <span class="seismic-badge">${c.status}</span></div>
+        <div class="seismic-constraint-body">${c.demandLb != null ? `${c.demandLb.toLocaleString()} lb demand` : ""}${c.capacity != null ? ` vs ${c.capacity.toLocaleString()} ${escapeHtml(c.capacityUnit || "lb")} capacity` : ""}
+          ${marginBits}
+          ${escapeHtml((c.detail || "").slice(0, 160))}</div>
+      </div>`;
+  }).join("");
+}
+
+function seismicRenderGoverning(r) {
+  const box = seismicEl("seismicGoverning");
+  if (!box) return;
+  const g = r && r.governingDetail;
+  if (!g || g.capacityLb == null) { box.hidden = true; box.innerHTML = ""; return; }
+  const pct = seismicMarginPct({ capacity: g.capacityLb, demandLb: g.demandLb });
+  const showPct = seismicShowMarginPct() && pct != null;
+  const failing = String(g.status).toUpperCase() === "FAIL";
+  box.hidden = false;
+  box.className = `seismic-governing ${failing ? "is-fail" : "is-pass"}`;
+  box.innerHTML = `
+    <div class="seismic-governing-head">
+      <span class="eyebrow">Governing element &mdash; sets the maximum allowable load</span>
+      ${showPct ? `<span class="seismic-governing-pct">${pct.toFixed(1)}% margin</span>` : ""}
+    </div>
+    <div class="seismic-governing-main">
+      <strong>${escapeHtml(g.name)}</strong>
+      ${g.element ? `<span class="seismic-governing-el">${escapeHtml(g.element)}</span>` : ""}
+    </div>
+    <div class="seismic-governing-nums">
+      Max allowable <strong>${g.capacityLb.toLocaleString()} ${escapeHtml(g.capacityUnit || "lb")}</strong>
+      vs demand <strong>${g.demandLb != null ? g.demandLb.toLocaleString() : "&mdash;"} lb</strong>
+      ${g.marginLb != null ? `(<span class="seismic-margin">${g.marginLb.toLocaleString()} lb spare</span>)` : ""}
+    </div>
+    <div class="seismic-governing-why">${escapeHtml((g.why || "").slice(0, 200))}</div>
+    ${(g.refs || []).length ? `<div class="seismic-governing-refs">${escapeHtml(g.refs.join(", "))}</div>` : ""}`;
 }
 
 // ---- saved braces (localStorage, hydreport saved-report pattern) ----
@@ -12981,6 +13790,19 @@ function seismicApplyOptimize() {
 
 function initSeismic() {
   if (!seismicEl("seismicEdition")) return;
+  // safety margin % toggle: remembered across sessions, re-renders in place so
+  // you can flick it on/off against an existing result without recalculating
+  const marginBox = seismicEl("seismicShowMargin");
+  if (marginBox) {
+    try { marginBox.checked = localStorage.getItem(SEISMIC_MARGIN_KEY) === "1"; } catch { /* default off */ }
+    marginBox.addEventListener("change", () => {
+      try { localStorage.setItem(SEISMIC_MARGIN_KEY, marginBox.checked ? "1" : "0"); } catch { /* non-fatal */ }
+      if (seismicState.lastResult) {
+        seismicRenderGoverning(seismicState.lastResult);
+        seismicRenderConstraints(seismicState.lastResult);
+      }
+    });
+  }
   seismicLoadMeta().then(() => {
     seismicAddRow("seismicZoiRows", "zoi");
     seismicAddRow("seismicComponentRows", "component", "structure_attachment");
@@ -13235,19 +14057,21 @@ function initDemoStage() {
   stage();
 }
 
-// ---- early-access flags -----------------------------------------------------
+// ---- experimental flags ------------------------------------------------------
 // The paid pitch is "Material Data Submittal Generator + extra goodies" -
-// tools still maturing carry an EARLY ACCESS mark so nobody buys expecting
+// tools still maturing carry an EXPERIMENTAL mark so nobody buys expecting
 // polish we haven't shipped yet. Framed as a perk, not an apology.
-const EARLY_ACCESS_TOOLS = ["hanger", "estimator", "seismic"];
+// (The .ea-* class names predate the rename and stay put; only the wording
+// changed, so the existing stylesheet and dismissal keys keep working.)
+const EXPERIMENTAL_TOOLS = ["hanger", "estimator", "seismic", "symbols"];
 
 function initEarlyAccess() {
-  EARLY_ACCESS_TOOLS.forEach((key) => {
+  EXPERIMENTAL_TOOLS.forEach((key) => {
     const tab = document.querySelector(`[data-tool-tab="${key}"]`);
     if (tab && !tab.querySelector(".ea-pill")) {
       tab.classList.add("is-early-access");
       tab.insertAdjacentHTML("beforeend",
-        '<span class="ea-pill" title="Early Access — fully usable, still getting polish">Early Access</span>');
+        '<span class="ea-pill" title="Experimental — fully usable, still getting polish">Experimental</span>');
     }
     const panel = document.querySelector(`[data-tool-panel="${key}"]`);
     if (!panel || panel.querySelector(".ea-banner")) return;
@@ -13256,7 +14080,7 @@ function initEarlyAccess() {
     if (!hero) return;
     const div = document.createElement("div");
     div.className = "ea-banner";
-    div.innerHTML = `<span class="ea-pill">Early Access</span>
+    div.innerHTML = `<span class="ea-pill">Experimental</span>
       <span class="ea-banner-text">One of the extra goodies included with SprinkFlow — fully usable and improving with every release. Expect a rough edge here and there; your feedback shapes what gets built next.</span>
       <button class="ghost-button compact-button" type="button" data-ea-dismiss>Got it</button>`;
     hero.insertAdjacentElement("afterend", div);
@@ -13332,12 +14156,26 @@ function initPdfcad() {
 }
 
 // ---- Explode CAD Blocks ----
-const cadxState = { token: null, fileName: "", stats: null, picked: false, dataUrl: "", webXrefFiles: [] };
+const cadxState = { token: null, fileName: "", stats: null, picked: false, dataUrl: "", webXrefFiles: [], dwgCapable: undefined };
+
+// DWG out is the default deliverable (AutoSPRINK users want DWG); the server
+// reports whether the free ODA converter is installed, and we fall back to DXF
+// wording when it isn't (or when the web engine, which has no ODA, is in play).
+function cadxApplyOutputFormat() {
+  const btn = document.getElementById("cadxConvertButton");
+  if (btn) btn.textContent = cadxState.dwgCapable ? "Explode & Save DWG..." : "Explode & Save DXF...";
+  const note = document.getElementById("cadxOdaOutNote");
+  // the note points at a desktop install, so it stays hidden in the web build
+  if (note) note.hidden = cadxState.dwgCapable !== false || !!window.__SPRINKFLOW_WEB__;
+}
 
 function cadxApplyAnalyze(payload, fileName, picked) {
   cadxState.token = payload.token;
   cadxState.stats = payload;
   cadxState.picked = !!picked;
+  if (payload.dwgCapable !== undefined) cadxState.dwgCapable = !!payload.dwgCapable;
+  else if (window.__SPRINKFLOW_WEB__) cadxState.dwgCapable = false;   // browser engine writes DXF only
+  cadxApplyOutputFormat();
   if (fileName) cadxState.fileName = fileName;
   renderCadxSummary(payload);
   renderCadxBlocks(payload);
@@ -13433,10 +14271,11 @@ async function cadxConvert() {
   if (!cadxState.token) return;
   const btn = document.getElementById("cadxConvertButton");
   if (btn) btn.disabled = true;
-  if (status) status.textContent = "Exploding blocks... choose where to save the DXF.";
+  const wantFmt = cadxState.dwgCapable ? "dwg" : "dxf";
+  if (status) status.textContent = `Exploding blocks... choose where to save the ${wantFmt.toUpperCase()}.`;
   try {
     const base = (cadxState.fileName || "drawing").replace(/\.(dwg|dxf)$/i, "");
-    const convBody = { token: cadxState.token, defaultName: `${base}-exploded.dxf` };
+    const convBody = { token: cadxState.token, format: wantFmt, defaultName: `${base}-exploded.${wantFmt}` };
     if (window.__SPRINKFLOW_WEB__) {
       // web is token-less: resend the drawing + any added xref files so the
       // in-browser engine can stage them together and bind before exploding
@@ -13452,7 +14291,13 @@ async function cadxConvert() {
     let tail = boundN ? ` Bound ${boundN} xref${boundN === 1 ? "" : "s"} first.` : "";
     if (missing.length) tail += ` ⚠ ${missing.length} xref${missing.length === 1 ? "" : "s"} could not bind (${missing.map((m) => m.name).slice(0, 3).join(", ")}) — ${missing[0].reason}.`;
     if (payload.dropped) tail += ` (${payload.dropped} unresolved reference${payload.dropped === 1 ? "" : "s"} dropped.)`;
-    if (status) status.textContent = `Saved DXF: ${payload.path} - exploded ${(payload.exploded || 0).toLocaleString()} block${payload.exploded === 1 ? "" : "s"} into ${(payload.after || 0).toLocaleString()} entities.` + tail;
+    if (payload.dwgFallback) {
+      tail += " (DWG needs the free ODA File Converter — saved DXF instead.)";
+      cadxState.dwgCapable = false;
+      cadxApplyOutputFormat();
+    }
+    const savedFmt = (payload.format || "dxf").toUpperCase();
+    if (status) status.textContent = `Saved ${savedFmt}: ${payload.path} - exploded ${(payload.exploded || 0).toLocaleString()} block${payload.exploded === 1 ? "" : "s"} into ${(payload.after || 0).toLocaleString()} entities.` + tail;
   } catch (error) {
     if (status) status.textContent = (error.message === "Save cancelled." ? "Save cancelled." : (error.message || "Explode failed."));
     if (/ODA File Converter/i.test(error.message || "")) { const oda = document.getElementById("cadxOdaNote"); if (oda) oda.hidden = false; }
@@ -13479,9 +14324,11 @@ function initCadx() {
   drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("drag-over"); });
   drop.addEventListener("dragleave", () => drop.classList.remove("drag-over"));
   drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("drag-over"); if (e.dataTransfer.files[0]) takeFile(e.dataTransfer.files[0]); });
+  // the button keeps its markup default (DWG) until analyze reports what this
+  // machine can actually write; it is disabled until then anyway
   const pickBtn = document.getElementById("cadxPickButton");
   if (pickBtn) {
-    if (window.__SPRINKFLOW_WEB__) pickBtn.closest(".pdfcad-pick-row").hidden = true;   // native dialogs are desktop-only
+    if (window.__SPRINKFLOW_WEB__) { pickBtn.closest(".pdfcad-pick-row").hidden = true; cadxState.dwgCapable = false; cadxApplyOutputFormat(); }   // native dialogs are desktop-only
     else pickBtn.addEventListener("click", cadxPick);
   }
   const xrefInput = document.getElementById("cadxXrefInput");
@@ -13502,9 +14349,11 @@ function initCadx() {
     }
   });
   document.getElementById("cadxConvertButton")?.addEventListener("click", cadxConvert);
+  document.getElementById("cadxOdaOutLink")?.addEventListener("click", () => window.open(ODA_DOWNLOAD_URL, "_blank", "noopener"));
   document.getElementById("cadxClearButton")?.addEventListener("click", () => {
     cadxState.token = null; cadxState.fileName = ""; cadxState.stats = null;
     cadxState.dataUrl = ""; cadxState.webXrefFiles = []; cadxState.picked = false;
+    cadxApplyOutputFormat();   // keep the button on the format this machine can write
     const xrow = document.getElementById("cadxXrefRow"); if (xrow) xrow.hidden = true;
     document.getElementById("cadxConvertButton").disabled = true;
     document.getElementById("cadxFileStatus").textContent = "";
@@ -13512,7 +14361,7 @@ function initCadx() {
     document.getElementById("cadxSummary").innerHTML = "";
     const oda = document.getElementById("cadxOdaNote"); if (oda) oda.hidden = true;
     const blocks = document.getElementById("cadxBlocks");
-    if (blocks) blocks.innerHTML = '<div class="pdfcad-cards-empty">Drop or import a drawing and the blocks it contains are listed here, most-used first. Then hit Explode &amp; Save to flatten them all into a plain DXF.</div>';
+    if (blocks) blocks.innerHTML = '<div class="pdfcad-cards-empty">Drop or import a drawing and the blocks it contains are listed here, most-used first. Then hit Explode &amp; Save to flatten them all into a plain drawing.</div>';
     const hint = document.getElementById("cadxBlockHint"); if (hint) hint.textContent = "Import a DWG or DXF to see its blocks";
   });
 }
@@ -13673,6 +14522,23 @@ function initHydreport() {
   generateHydreport();
 }
 
+// North-arrow picker: one preview button per style, drawn with the same SVG
+// generators the map uses, so the preview IS the arrow.
+function initVicinityArrowPicker() {
+  const box = document.getElementById("vicinityArrowChoices");
+  if (!box) return;
+  const current = vicinityArrowStyle();
+  box.innerHTML = Object.entries(VICINITY_ARROWS).map(([id, def]) =>
+    `<button type="button" class="vicinity-arrow-choice${id === current ? " active" : ""}" data-arrow="${id}" title="${def.name}">`
+    + `<svg viewBox="0 0 76 90" aria-hidden="true">${def.svg(38, 52, 26)}</svg>`
+    + `<span>${def.name}</span></button>`).join("");
+  box.querySelectorAll(".vicinity-arrow-choice").forEach((btn) => btn.addEventListener("click", () => {
+    localStorage.setItem("vicinityArrowStyle", btn.dataset.arrow);
+    box.querySelectorAll(".vicinity-arrow-choice").forEach((b) => b.classList.toggle("active", b === btn));
+    if (vicinityState.point && vicinityState.ways.length) renderVicinityMap();
+  }));
+}
+
 function initVicinityTool() {
   dom.vicinityAddressInput?.addEventListener("input", () => {
     vicinityState.point = null;
@@ -13684,6 +14550,7 @@ function initVicinityTool() {
   });
   dom.vicinityGenerateButton?.addEventListener("click", vicinityGenerate);
   initVicinityMapPicker();
+  initVicinityArrowPicker();
   dom.vicinityCopyButton?.addEventListener("click", vicinityCopyImage);
   dom.vicinityPngButton?.addEventListener("click", vicinityExportPng);
   dom.vicinityDxfButton?.addEventListener("click", vicinityExportDxf);
@@ -14856,8 +15723,8 @@ async function generateHydraulicPackage() {
     dom.hydraulicGenerateButton.textContent = "Generating...";
   }
   try {
-    const path = await createHydraulicPackageOutput({ openGeneratedPdf: state.settings.openGeneratedPdf });
-    setHydraulicStatus(`${state.settings.openGeneratedPdf ? "Generated and opened" : "Generated"}: ${path}`, "success");
+    const result = await createHydraulicPackageOutput({ openGeneratedPdf: state.settings.openGeneratedPdf });
+    setHydraulicStatus(generatedOutputMessage(result, "Calc package"), result.opened === "none" ? "info" : "success");
   } catch (error) {
     setHydraulicStatus(`Could not generate hydraulic calc package: ${error.message || "PDF generation failed."}`, "error");
   } finally {
@@ -16990,6 +17857,8 @@ function wireEvents() {
   initVicinityTool();
   initHydreport();
   initDwgpdf();
+  initSymbols();
+  initOdaRecheck();
   initPdfcad();
   initSeismic();
   initEarlyAccess();
@@ -17456,8 +18325,10 @@ function wireEvents() {
     btn.disabled = true;
     window.setTimeout(() => { btn.innerHTML = "&#128190; Save Project"; btn.disabled = false; }, 2200);
   });
+  dom.materialOpenPdfButton?.addEventListener("click", () => openGeneratedOutputFile("material", setGenerateStatus));
   dom.materialOpenFolderButton?.addEventListener("click", () => openGeneratedOutputFolder("material", setGenerateStatus));
   dom.materialCopyPathButton?.addEventListener("click", () => copyGeneratedOutputPath("material", setGenerateStatus));
+  dom.hydraulicOpenPdfButton?.addEventListener("click", () => openGeneratedOutputFile("hydraulic", setHydraulicStatus));
   dom.hydraulicOpenFolderButton?.addEventListener("click", () => openGeneratedOutputFolder("hydraulic", setHydraulicStatus));
   dom.hydraulicCopyPathButton?.addEventListener("click", () => copyGeneratedOutputPath("hydraulic", setHydraulicStatus));
   dom.loadProjectButton?.addEventListener("click", loadSelectedProject);
