@@ -11448,10 +11448,8 @@ async function odaRecheck(button) {
     if (r.dwgCapable) {
       button.textContent = "Found it — DWG output is on";
       // flip every DWG-capable control in place
-      pdfcadState.dwgCapable = true;
+      pdfcadApplyDwgCapable(true);
       cadxState.dwgCapable = true;
-      const convBtn = document.getElementById("pdfcadConvertButton");
-      if (convBtn) convBtn.textContent = "Convert & Save DWG";
       if (typeof cadxApplyOutputFormat === "function") cadxApplyOutputFormat();
       document.querySelectorAll("#pdfcadOdaNote, #cadxOdaNote, #cadxOdaOutNote, #dwgpdfOdaNote")
         .forEach((note) => { note.hidden = true; });
@@ -11657,12 +11655,8 @@ function pdfcadApplyAnalyze(payload, fileName, isFreshImport) {
     pdfcadState.dims = { w: payload.pageWidthIn, h: payload.pageHeightIn };
     pdfcadState.textLines = payload.textLines || 0;
     pdfcadState.layerMode = !!payload.layerMode;
-    if (payload.dwgCapable !== undefined) pdfcadState.dwgCapable = !!payload.dwgCapable;
+    if (payload.dwgCapable !== undefined) pdfcadApplyDwgCapable(!!payload.dwgCapable);
     if (fileName) pdfcadState.fileName = fileName;
-    const convBtn = document.getElementById("pdfcadConvertButton");
-    if (convBtn) convBtn.textContent = pdfcadState.dwgCapable ? "Convert & Save DWG" : "Convert & Save DXF";
-    const odaNote = document.getElementById("pdfcadOdaNote");
-    if (odaNote) odaNote.hidden = pdfcadState.dwgCapable !== false;
     const layerNote = document.getElementById("pdfcadLayerNote");
     if (layerNote) layerNote.textContent = pdfcadState.layerMode
       ? "This PDF carries real CAD layer data - each layer imports under its original name (like PDFIMPORT)."
@@ -14091,6 +14085,25 @@ function initEarlyAccess() {
   });
 }
 
+/** Single place that reflects DWG capability in the PDF-to-CAD controls. */
+function pdfcadApplyDwgCapable(capable) {
+  pdfcadState.dwgCapable = capable;
+  const convBtn = document.getElementById("pdfcadConvertButton");
+  if (convBtn) convBtn.textContent = capable ? "Convert & Save DWG..." : "Convert & Save DXF...";
+  const odaNote = document.getElementById("pdfcadOdaNote");
+  if (odaNote) odaNote.hidden = capable !== false;
+}
+
+/** Ask the backend once at startup whether the ODA converter is present. */
+async function pdfcadProbeDwgCapable() {
+  try {
+    const r = await readApiJson("./api/oda-status", { method: "POST", body: "{}" });
+    pdfcadApplyDwgCapable(!!r.dwgCapable);
+  } catch (error) {
+    /* offline or web edition: leave the markup default (DXF) alone */
+  }
+}
+
 function initPdfcad() {
   const drop = document.getElementById("pdfcadDrop");
   if (!drop) return;
@@ -14130,6 +14143,10 @@ function initPdfcad() {
   document.getElementById("pdfcadCustomScaleInput")?.addEventListener("input", syncPdfcadCustomScale);
   // ODA download link (PDF-to-CAD note)
   document.getElementById("pdfcadOdaLink")?.addEventListener("click", () => window.open(ODA_DOWNLOAD_URL, "_blank", "noopener"));
+  // Tell the truth about the output format BEFORE a PDF is loaded. The button
+  // markup says DXF, and until now that only got corrected once a PDF had been
+  // analysed - so with the converter installed it still read "Save DXF" at rest.
+  pdfcadProbeDwgCapable();
   document.getElementById("pdfcadConvertButton")?.addEventListener("click", pdfcadConvert);
   let pdfcadScrollTimer = null;
   document.getElementById("pdfcadCards")?.addEventListener("scroll", () => {
