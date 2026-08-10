@@ -11189,14 +11189,30 @@ async function symbolsPngBlob(symbol, sizeOverride) {
 }
 
 // --- filtering / search ----------------------------------------------------
+const SYMBOLS_ACRONYM_MAX = 4;
+
+/**
+ * Short tokens must match on a word boundary. A raw substring test makes every
+ * acronym noisy - "itc" lives inside "sw-itc-h", so it used to return the flow
+ * switch, the tamper switch and the butterfly valve alongside the inspector's
+ * test connection.
+ */
+function symbolsTokenHit(hay, token) {
+  if (token.length > SYMBOLS_ACRONYM_MAX) return hay.includes(token);
+  const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i").test(hay);
+}
+
 function symbolsMatches(symbol, query) {
   if (!query) return true;
   const q = query.toLowerCase().trim();
   const hay = [symbol.name, symbol.id, ...(symbol.aliases || []), ...(symbol.tags || [])]
-    .join(" ").toLowerCase();
-  if (hay.includes(q)) return true;
-  // token-wise match so "4 way fdc" finds "4-way fdc"
-  return q.split(/[\s-]+/).filter(Boolean).every((part) => hay.includes(part));
+    .join(" ").toLowerCase().replace(/-/g, " ");
+  const tokens = q.split(/[\s-]+/).filter(Boolean);
+  if (!tokens.length) return true;
+  // whole phrase first, then every token - so "4 way fdc" still finds "4-way fdc"
+  if (q.length > SYMBOLS_ACRONYM_MAX && hay.includes(q.replace(/-/g, " "))) return true;
+  return tokens.every((token) => symbolsTokenHit(hay, token));
 }
 
 function symbolsVisible() {
@@ -12147,7 +12163,11 @@ const SEISMIC_STEPS = [
 
 function seismicSetStep(step) {
   if (!SEISMIC_STEPS.some(([k]) => k === step)) step = "project";
+  const modeChanged = seismicState.wizStep !== step;
   seismicState.wizStep = step;
+  // crossing into the hardware steps flips the readout from pipe-ceiling to
+  // the real number, so re-run on every step change
+  if (modeChanged) seismicAutoSchedule();
   document.querySelectorAll(".seismic-step").forEach((el) =>
     el.classList.toggle("active", el.dataset.sstep === step));
   const idx = SEISMIC_STEPS.findIndex(([k]) => k === step);
@@ -12320,6 +12340,109 @@ function seismicApplyBraceTypeHints() {
   const bh = seismicEl("seismicBraceTypeHint");
   if (bh) bh.textContent = info.hint;
   seismicUpdateContextBar();
+}
+
+// ---- live max-spacing readout ------------------------------------------------
+// The optimizer answers "largest spacing that passes every check", but at Step 3
+// the hardware checks run against whatever is sitting in the form - which is how
+// it could report 40 ft for a stretch whose real anchor allows 9. So the basis is
+// explicit: PIPE CEILING until hardware exists (code max + Table 18.5.5.2 only),
+// then the real number, updating live as hardware is picked. A full sweep costs
+// ~43 ms, so a short debounce is plenty.
+const SEISMIC_AUTO_DEBOUNCE_MS = 350;
+//: steps at or before this one cannot know the hardware yet
+const SEISMIC_HARDWARE_STEPS = ["member", "attach", "fastener", "review"];
+
+const seismicAuto = { on: false, timer: null, seq: 0, last: null };
+
+/** Armed once the optimizer actually has a stretch to work with. */
+function seismicAutoArmed() {
+  const mainLen = seismicParseLength(seismicEl("seismicOptMainLen")?.value || "");
+  return Number(mainLen) > 0;
+}
+
+function seismicAutoMode() {
+  return SEISMIC_HARDWARE_STEPS.includes(seismicState.wizStep) ? "full" : "pipe";
+}
+
+function seismicAutoRender(state, r) {
+  const seg = seismicEl("ctxAutoSeg");
+  const val = seismicEl("ctxAutoMax");
+  const basis = seismicEl("ctxAutoBasis");
+  const weak = seismicEl("ctxAutoWeakest");
+  if (!seg || !val) return;
+  if (state === "off") { seg.hidden = true; return; }
+  seg.hidden = false;
+  seg.classList.toggle("is-stale", state === "working");
+  if (state === "working") { val.textContent = "…"; weak.textContent = ""; return; }
+  if (state === "error") { basis.textContent = ""; val.textContent = "—"; weak.textContent = "could not calculate"; return; }
+
+  // A longitudinal brace has no Table 18.5.5.2 limit, so a pipe-mode answer
+  // would just be the 80 ft code ceiling. Say that instead of printing it.
+  if (!r.pipeLimited) {
+    basis.textContent = "";
+    val.textContent = "—";
+    weak.textContent = "no pipe-based limit — pick hardware";
+    return;
+  }
+  // "Final" must mean the hardware checks actually RAN. The server reports
+  // codeComplete when nothing errored, but an unchosen fastener is simply not
+  // added as a constraint - so that alone would label a hardware-free answer
+  // final. Require the load-path checks to be present instead.
+  const REQUIRED = ["brace member capacity", "brace assembly capacity", "fastener capacity"];
+  const missing = REQUIRED.filter((n) => (r.skipped || []).includes(n));
+  const complete = r.codeComplete && !missing.length;
+  const basisKey = r.mode === "pipe" ? "pipe" : (complete ? "final" : "provisional");
+  basis.textContent = { pipe: "pipe only", final: "final", provisional: "provisional" }[basisKey];
+  seg.dataset.basis = basisKey;
+  val.textContent = r.spacingFt ? `${r.spacingFt} ft` : "none passes";
+
+  const w = r.weakest;
+  const limit = w ? `${w.element} · ${w.capacityLb.toLocaleString()} ${w.capacityUnit}` : "";
+  if (basisKey === "pipe") {
+    weak.textContent = limit || "code ceiling";
+  } else if (missing.length) {
+    const short = missing.map((n) => n.replace(" capacity", "").replace("brace ", ""));
+    weak.textContent = `${limit || "—"} · not yet picked: ${short.join(", ")}`;
+  } else {
+    weak.textContent = limit || (r.spacingFt ? "" : (r.governing || "").slice(0, 48));
+  }
+}
+
+function seismicAutoRun() {
+  if (!seismicAuto.on || !seismicAutoArmed()) { seismicAutoRender("off"); return; }
+  const stretch = seismicCollectStretch();
+  if (!stretch.length) { seismicAutoRender("off"); return; }
+  const mode = seismicAutoMode();
+  const seq = ++seismicAuto.seq;
+  seismicAutoRender("working");
+  readApiJson("./api/seismic/optimize", {
+    method: "POST",
+    body: JSON.stringify({ ...seismicBuildPayload(), stretch, mode }),
+  }).then((r) => {
+    if (seq !== seismicAuto.seq) return;      // a newer run already superseded this
+    seismicAuto.last = r;
+    seismicAutoRender("ready", r);
+  }).catch(() => {
+    if (seq === seismicAuto.seq) seismicAutoRender("error");
+  });
+}
+
+function seismicAutoSchedule() {
+  if (!seismicAuto.on) return;
+  window.clearTimeout(seismicAuto.timer);
+  seismicAuto.timer = window.setTimeout(seismicAutoRun, SEISMIC_AUTO_DEBOUNCE_MS);
+}
+
+/** Review guard: the applied spacing must still pass with the real hardware. */
+function seismicSpacingDriftWarning() {
+  const r = seismicAuto.last;
+  const applied = parseFloat(seismicEl("seismicSpacing")?.value);
+  if (!r || r.mode !== "full" || !r.spacingFt || !(applied > 0)) return "";
+  if (applied <= r.spacingFt) return "";
+  return `Spacing is set to ${applied} ft but the hardware you selected only allows `
+    + `${r.spacingFt} ft` + (r.weakest ? ` (${r.weakest.element}, ${r.weakest.capacityLb} ${r.weakest.capacityUnit})` : "")
+    + ". Reduce the spacing or change that component.";
 }
 
 // ---- always-visible brace context bar ---------------------------------------
@@ -13078,6 +13201,14 @@ async function seismicRunCalc() {
     seismicState.lastResult = r;
     seismicRenderGoverning(r);
     seismicRenderConstraints(r);
+    // Guard the case the live readout cannot: a spacing applied from the
+    // optimizer earlier, then hardware chosen that no longer supports it.
+    const drift = seismicSpacingDriftWarning();
+    const driftBox = seismicEl("seismicGoverning");
+    if (drift && driftBox && !driftBox.hidden) {
+      driftBox.insertAdjacentHTML("beforeend",
+        `<div class="seismic-drift">&#9888; ${escapeHtml(drift)}</div>`);
+    }
     // interactive code-condition verification checklist
     const condBox = seismicEl("seismicConditions");
     if (condBox) {
@@ -13707,16 +13838,14 @@ async function seismicExportAll() {
   btn.disabled = false;
 }
 
-async function seismicRunOptimize() {
-  const mSize = seismicEl("seismicOptMainSize").value;
-  const mSched = seismicEl("seismicOptMainSched").value;
-  const mLen = parseFloat(seismicEl("seismicOptMainLen").value);
+/** The stretch rows from the optimizer panel: main first, then the ZOI piping. */
+function seismicCollectStretch() {
+  const mSize = seismicEl("seismicOptMainSize")?.value;
+  const mSched = seismicEl("seismicOptMainSched")?.value;
+  const mLen = parseFloat(seismicEl("seismicOptMainLen")?.value);
   const mPipe = mSize ? seismicPipeLookup(mSize, mSched) : null;
-  if (!mPipe || !(mLen > 0)) {
-    seismicEl("seismicOptResult").innerHTML = '<p class="hydreport-note">Pick the main pipe size, type, and total length first.</p>';
-    return;
-  }
-  const stretch = [{
+  if (!mPipe || !(mLen > 0)) return [];
+  return [{
     label: `Main ${seismicPrettySize(mSize)}" ${seismicSchedShort(mSched)}`,
     size: mSize, schedule: mSched,
     weightPerFt: mPipe.lbPerFt, totalLengthFt: mLen, isMain: true,
@@ -13731,6 +13860,14 @@ async function seismicRunOptimize() {
       isMain: false,
     };
   }).filter((r) => r.weightPerFt > 0 && r.totalLengthFt > 0)];
+}
+
+async function seismicRunOptimize() {
+  const stretch = seismicCollectStretch();
+  if (!stretch.length) {
+    seismicEl("seismicOptResult").innerHTML = '<p class="hydreport-note">Pick the main pipe size, type, and total length first.</p>';
+    return;
+  }
   const payload = { ...seismicBuildPayload(), stretch };
   seismicEl("seismicOptimize").disabled = true;
   try {
@@ -13782,8 +13919,35 @@ function seismicApplyOptimize() {
   seismicScheduleCalc();
 }
 
+const SEISMIC_AUTO_KEY = "sprinkflow.seismic.autoOptimize";
+
+function initSeismicAutoOptimize() {
+  const box = seismicEl("seismicAutoOptimize");
+  if (!box) return;
+  try { box.checked = localStorage.getItem(SEISMIC_AUTO_KEY) === "1"; } catch { /* default off */ }
+  seismicAuto.on = box.checked;
+  box.addEventListener("change", () => {
+    seismicAuto.on = box.checked;
+    try { localStorage.setItem(SEISMIC_AUTO_KEY, box.checked ? "1" : "0"); } catch { /* non-fatal */ }
+    if (seismicAuto.on) seismicAutoRun();
+    else seismicAutoRender("off");
+  });
+  // Any hardware or stretch change re-runs it. `change` (not `input`) so the
+  // number settles on a committed choice instead of flickering mid-edit.
+  const panel = document.querySelector('[data-tool-panel="seismic"]');
+  panel?.addEventListener("change", (event) => {
+    if (event.target === box) return;
+    seismicAutoSchedule();
+  });
+  panel?.addEventListener("input", (event) => {
+    if (event.target?.id === "seismicOptMainLen") seismicAutoSchedule();
+  });
+  if (seismicAuto.on) seismicAutoSchedule();
+}
+
 function initSeismic() {
   if (!seismicEl("seismicEdition")) return;
+  initSeismicAutoOptimize();
   // safety margin % toggle: remembered across sessions, re-renders in place so
   // you can flick it on/off against an existing result without recalculating
   const marginBox = seismicEl("seismicShowMargin");

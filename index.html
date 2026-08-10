@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0809-1831-52c23b3" />
+    <link rel="stylesheet" href="./styles.css?v=b0810-1940-b0f309f" />
   </head>
   <body>
     <div class="app-shell">
@@ -534,6 +534,11 @@
               <span class="ctx-seg"><span class="ctx-label">Orientation</span><span class="ctx-val" id="ctxOrient">&mdash;</span></span>
               <span class="ctx-seg"><span class="ctx-label">Main Pipe</span><span class="ctx-val" id="ctxMain">&mdash;</span></span>
               <span class="ctx-seg"><span class="ctx-label">Spacing</span><span class="ctx-val" id="ctxSpacing">&mdash;</span></span>
+              <span class="ctx-seg ctx-auto" id="ctxAutoSeg" hidden>
+                <span class="ctx-label">Max spacing <span class="ctx-basis" id="ctxAutoBasis"></span></span>
+                <span class="ctx-val" id="ctxAutoMax">&mdash;</span>
+                <span class="ctx-weakest" id="ctxAutoWeakest"></span>
+              </span>
             </div>
 
             <div class="seismic-step" data-sstep="project">
@@ -731,6 +736,10 @@
                   <button class="compact-button" id="seismicAddStretchRow" type="button">+ Add pipe</button>
                   <button class="secondary-button" id="seismicOptimize" type="button">Find Max Spacing</button>
                 </div>
+                <label class="option-row seismic-auto-toggle">
+                  <input id="seismicAutoOptimize" type="checkbox" />
+                  <span>Auto-optimize<span class="field-hint"> &mdash; keep the max spacing live in the bar above as you pick hardware</span></span>
+                </label>
                 <div id="seismicOptResult" class="seismic-demand"></div>
               </details>
             </div>
@@ -3609,11 +3618,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0809-1831-52c23b3"></script>
-    <script src="./app.js?v=b0809-1831-52c23b3"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0809-1831-52c23b3"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0809-1831-52c23b3"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0809-1831-52c23b3"></script>
-    <script src="./prelim-calc-desktop.js?v=b0809-1831-52c23b3"></script>
+    <script src="./web-backend.js?v=b0810-1940-b0f309f"></script>
+    <script src="./app.js?v=b0810-1940-b0f309f"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0810-1940-b0f309f"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0810-1940-b0f309f"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0810-1940-b0f309f"></script>
+    <script src="./prelim-calc-desktop.js?v=b0810-1940-b0f309f"></script>
   </body>
 </html>

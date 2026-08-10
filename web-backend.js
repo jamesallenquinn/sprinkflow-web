@@ -25,7 +25,7 @@
   if (!WEB) return;                                 // desktop: do nothing
   window.__SPRINKFLOW_WEB__ = true;
   // stamped by packaging/build_web_edition.py at deploy time; "dev" locally
-  var WEB_BUILD = "b0809-1831-52c23b3";
+  var WEB_BUILD = "b0810-1940-b0f309f";
   window.__SPRINKFLOW_WEB_BUILD__ = WEB_BUILD;
   console.log("[web-backend] SprinkFlow Web Edition active — build " + WEB_BUILD);
   // mobile layer: web-only stylesheet (media-query gated), never active on desktop
@@ -775,7 +775,7 @@
   function dispatch(route, url, body) {
     switch (route) {
       // ---- boot ----
-      case "/api/app-info":   return Promise.resolve(jsonResp({ ok: true, app: { name: "SprinkFlow", version: "1.1.9" + (webIsAdmin() ? " · " + WEB_BUILD : ""), channel: "web", publisher: "SprinkFlow" }, license: webLicense() }));
+      case "/api/app-info":   return Promise.resolve(jsonResp({ ok: true, app: { name: "SprinkFlow", version: "1.1.10" + (webIsAdmin() ? " · " + WEB_BUILD : ""), channel: "web", publisher: "SprinkFlow" }, license: webLicense() }));
       case "/api/app-data":   return Promise.all([kvGet("state"), kvGet("projects")]).then(function (r) { return jsonResp({ ok: true, state: r[0] || {}, projects: r[1] || [] }); });
       case "/api/app-state":  return kvSet("state", body.state || {}).then(function () { return jsonResp({ ok: true }); });
       case "/api/projects":   return kvSet("projects", body.projects || []).then(function () { return jsonResp({ ok: true }); });

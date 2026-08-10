@@ -9882,6 +9882,29 @@ body[data-theme="plain-light"] .seismic-brace-chip.is-fail .rack-dot { backgroun
 /* The governing element caps the whole assembly - it must read at a glance.
    Uses --accent (amber) so it stands apart from the pass/fail green/red rail
    rather than competing with it: "this is the limit", not "this is wrong". */
+/* Live max-spacing readout in the context bar. The basis badge is the point:
+   a bare number cannot say whether it is a pipe-only ceiling or the real
+   hardware-limited answer, and those differ by a lot (40 ft vs 9 ft on the
+   same stretch). */
+.ctx-auto { align-items: flex-start; }
+.ctx-auto .ctx-basis {
+  border-radius: 999px; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.05em;
+  margin-left: 5px; padding: 1px 6px; text-transform: uppercase;
+}
+.ctx-auto[data-basis="pipe"] .ctx-basis { background: rgba(55, 183, 228, 0.18); color: var(--water); }
+.ctx-auto[data-basis="provisional"] .ctx-basis { background: rgba(255, 176, 58, 0.18); color: var(--accent); }
+.ctx-auto[data-basis="final"] .ctx-basis { background: rgba(61, 220, 151, 0.16); color: var(--ok); }
+.ctx-auto .ctx-weakest {
+  color: var(--muted); display: block; font-size: 0.7rem; font-weight: 600;
+  max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ctx-auto.is-stale { opacity: 0.55; }
+.seismic-auto-toggle { margin: 8px 0 2px; }
+.seismic-drift {
+  border-top: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  color: var(--ink); font: 600 0.84rem/1.45 Inter; margin-top: 8px; padding-top: 7px;
+}
+
 /* NOTE: the left rail deliberately keeps its PASS/FAIL color. "Governs" and
    "passes" are orthogonal facts - the weakest element is usually still passing -
    so governing is carried by the amber fill, ring and badge instead of

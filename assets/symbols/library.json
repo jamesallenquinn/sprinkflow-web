@@ -296,6 +296,215 @@
       "notes": "Cross-in-circle. Smallest symbol in the set - the small-size legibility benchmark.",
       "solid_ok": true,
       "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <circle cx=\"50\" cy=\"50\" r=\"16\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M50 26 L50 74\"/>\n    <path d=\"M26 50 L74 50\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "post-indicator-valve",
+      "name": "Post indicator valve (PIV)",
+      "category": "site",
+      "aliases": [
+        "piv",
+        "post indicator valve",
+        "post indicator",
+        "indicator post",
+        "wall piv",
+        "wpiv",
+        "yard valve"
+      ],
+      "tags": [
+        "site",
+        "underground",
+        "valve"
+      ],
+      "notes": "Post on the main with the indicator plate across it. WPIV variant planned.",
+      "solid_ok": true,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <path d=\"M12 86 H88\" stroke-width=\"var(--sym-lw-light)\"/>\n    <path d=\"M50 86 V56\"/>\n    <circle cx=\"50\" cy=\"40\" r=\"16\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M38 40 H62\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "butterfly-valve-tamper",
+      "name": "Butterfly valve with tamper switch",
+      "category": "site",
+      "aliases": [
+        "butterfly valve",
+        "bfv",
+        "butterfly",
+        "supervised butterfly",
+        "butterfly with tamper",
+        "wafer valve"
+      ],
+      "tags": [
+        "site",
+        "riser",
+        "valve",
+        "supervised"
+      ],
+      "notes": "Bowtie body with the supervisory switch housing above.",
+      "solid_ok": true,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <path d=\"M22 40 L22 72 L50 56 Z\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M78 40 L78 72 L50 56 Z\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M50 56 V28\"/>\n    <rect x=\"38\" y=\"10\" width=\"24\" height=\"18\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "check-valve-swing",
+      "name": "Swing check valve",
+      "category": "site",
+      "aliases": [
+        "check valve",
+        "swing check",
+        "swing check valve",
+        "non return valve",
+        "one way valve",
+        "clapper check"
+      ],
+      "tags": [
+        "site",
+        "riser",
+        "valve"
+      ],
+      "notes": "Flow arrow into the seat. Deliberately distinct from the backflow assemblies.",
+      "solid_ok": true,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <path d=\"M8 50 H92\" stroke-width=\"var(--sym-lw-light)\"/>\n    <path d=\"M36 32 L36 68 L64 50 Z\" fill=\"var(--sym-ink)\" stroke=\"none\"/>\n    <path d=\"M64 30 V70\" stroke-width=\"var(--sym-lw-heavy)\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "backflow-double-check",
+      "name": "Double check valve assembly (DCVA)",
+      "category": "site",
+      "aliases": [
+        "backflow",
+        "backflow preventer",
+        "double check",
+        "dcva",
+        "dcda",
+        "double check valve assembly",
+        "double check detector assembly"
+      ],
+      "tags": [
+        "site",
+        "underground",
+        "backflow"
+      ],
+      "notes": "Two checks in series inside the body; the body knocks out the main behind it. RPZ/RPDA variants planned.",
+      "solid_ok": true,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <path d=\"M6 50 H94\" stroke-width=\"var(--sym-lw-light)\"/>\n    <rect x=\"24\" y=\"32\" width=\"52\" height=\"36\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-bg)\"/>\n    <path d=\"M32 40 L32 60 L45 50 Z\" fill=\"var(--sym-ink)\" stroke=\"none\"/>\n    <path d=\"M55 40 L55 60 L68 50 Z\" fill=\"var(--sym-ink)\" stroke=\"none\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "tamper-switch",
+      "name": "Tamper switch",
+      "category": "riser",
+      "aliases": [
+        "tamper switch",
+        "tamper",
+        "supervisory switch",
+        "ts",
+        "valve supervisory",
+        "osy tamper"
+      ],
+      "tags": [
+        "riser",
+        "device",
+        "alarm"
+      ],
+      "notes": "Switch housing on the valve stem.",
+      "solid_ok": false,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <path d=\"M50 92 V62\" stroke-width=\"var(--sym-lw-light)\"/>\n    <rect x=\"30\" y=\"24\" width=\"40\" height=\"38\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M39 52 L59 34\"/>\n    <circle cx=\"39\" cy=\"52\" r=\"3.5\" fill=\"var(--sym-ink)\" stroke=\"none\"/>\n    <circle cx=\"61\" cy=\"34\" r=\"3.5\" fill=\"var(--sym-ink)\" stroke=\"none\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "main-drain",
+      "name": "Main drain",
+      "category": "riser",
+      "aliases": [
+        "main drain",
+        "drain",
+        "2 inch drain",
+        "riser drain",
+        "drain valve"
+      ],
+      "tags": [
+        "riser",
+        "drain"
+      ],
+      "notes": "Drain run with its valve and discharge.",
+      "solid_ok": true,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <path d=\"M10 26 H62 V80\"/>\n    <path d=\"M48 38 L76 38 L62 52 Z\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M48 66 L76 66 L62 52 Z\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M62 92 L54 74 L70 74 Z\" fill=\"var(--sym-ink)\" stroke=\"none\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "inspectors-test-connection",
+      "name": "Inspector's test connection",
+      "category": "riser",
+      "aliases": [
+        "inspectors test",
+        "inspector test connection",
+        "itc",
+        "test connection",
+        "end of line test",
+        "sight glass"
+      ],
+      "tags": [
+        "riser",
+        "test"
+      ],
+      "notes": "Test run, valve and orifice/sight glass.",
+      "solid_ok": true,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <path d=\"M8 30 H26\"/>\n    <path d=\"M26 18 L26 42 L48 30 Z\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M70 18 L70 42 L48 30 Z\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M70 30 H80 V60\"/>\n    <circle cx=\"80\" cy=\"72\" r=\"9\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M72 72 H88\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "system-type-tag-dry",
+      "name": "System type tag - DRY",
+      "category": "riser",
+      "aliases": [
+        "dry",
+        "dry system",
+        "dry pipe",
+        "dry tag",
+        "system type",
+        "system tag"
+      ],
+      "tags": [
+        "riser",
+        "tag",
+        "system type"
+      ],
+      "notes": "Companion to the WET tag; same box and single-stroke letterforms.",
+      "solid_ok": false,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <rect x=\"10\" y=\"34\" width=\"80\" height=\"32\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M22 42 V58 M22 42 H30 A8 8 0 0 1 30 58 H22\"/>\n    <path d=\"M44 58 V42 H52 A5 5 0 0 1 52 52 H44\"/>\n    <path d=\"M50 52 L58 58\"/>\n    <path d=\"M66 42 L72 50 L78 42\"/>\n    <path d=\"M72 50 V58\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "break-line",
+      "name": "Break line",
+      "category": "sheet",
+      "aliases": [
+        "break line",
+        "break",
+        "long break",
+        "cut line",
+        "continuation break"
+      ],
+      "tags": [
+        "sheet furniture",
+        "annotation"
+      ],
+      "notes": "Long break with the conventional zigzag.",
+      "solid_ok": true,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <path d=\"M6 50 H38 L46 34 L54 66 L62 50 H94\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "revision-delta-1",
+      "name": "Revision delta 1",
+      "category": "sheet",
+      "aliases": [
+        "revision",
+        "revision delta",
+        "delta",
+        "rev 1",
+        "revision tag",
+        "revision triangle",
+        "bulletin"
+      ],
+      "tags": [
+        "sheet furniture",
+        "annotation",
+        "revision"
+      ],
+      "notes": "Deltas 2-9 follow the same triangle with different single-stroke digits.",
+      "solid_ok": false,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <path d=\"M50 14 L84 74 L16 74 Z\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M44 44 L50 38 V64\"/>\n    <path d=\"M42 64 H58\"/>\n  </g>\n</svg>\n"
     }
   ]
 }
