@@ -372,6 +372,7 @@ const dom = {
   coverAdditionalInfoLicenseInput: document.querySelector("#coverAdditionalInfoLicenseInput"),
   coverAdditionalInfoSummary: document.querySelector("#coverAdditionalInfoSummary"),
   contractorSelect: document.querySelector("#contractorSelect"),
+  contractorNoneNote: document.querySelector("#contractorNoneNote"),
   saveContractorButton: document.querySelector("#saveContractorButton"),
   deleteContractorButton: document.querySelector("#deleteContractorButton"),
   contractorNameInput: document.querySelector("#contractorNameInput"),
@@ -648,6 +649,23 @@ const dom = {
   feetSecondaryResult: document.querySelector("#feetSecondaryResult"),
   feetCopyFeetButton: document.querySelector("#feetCopyFeetButton"),
   feetCopyDecimalButton: document.querySelector("#feetCopyDecimalButton"),
+  hazenPipeTypeSelect: document.querySelector("#hazenPipeTypeSelect"),
+  hazenPipeSizeField: document.querySelector("#hazenPipeSizeField"),
+  hazenPipeSizeSelect: document.querySelector("#hazenPipeSizeSelect"),
+  hazenCustomIdField: document.querySelector("#hazenCustomIdField"),
+  hazenCustomIdInput: document.querySelector("#hazenCustomIdInput"),
+  hazenCFactorInput: document.querySelector("#hazenCFactorInput"),
+  hazenFlowInput: document.querySelector("#hazenFlowInput"),
+  hazenLengthInput: document.querySelector("#hazenLengthInput"),
+  hazenClearButton: document.querySelector("#hazenClearButton"),
+  hazenStatus: document.querySelector("#hazenStatus"),
+  hazenPsiPerFtResult: document.querySelector("#hazenPsiPerFtResult"),
+  hazenVelocityNote: document.querySelector("#hazenVelocityNote"),
+  hazenTotalResult: document.querySelector("#hazenTotalResult"),
+  hazenTotalNote: document.querySelector("#hazenTotalNote"),
+  hazenCopyPsiButton: document.querySelector("#hazenCopyPsiButton"),
+  hazenCopyMathButton: document.querySelector("#hazenCopyMathButton"),
+  hazenFormulaBlock: document.querySelector("#hazenFormulaBlock"),
   codeConverterInput: document.querySelector("#codeConverterInput"),
   codeConverterButton: document.querySelector("#codeConverterButton"),
   codeConverterClearButton: document.querySelector("#codeConverterClearButton"),
@@ -2145,11 +2163,18 @@ function persistentStateSnapshot() {
   };
 }
 
+const NO_CONTRACTOR_ID = "__no_contractor__";
+
+function isNoContractorSelected() {
+  return state.activeContractorId === NO_CONTRACTOR_ID;
+}
+
 function currentContractor() {
   return state.contractors.find((contractor) => contractor.id === state.activeContractorId) || blankContractor();
 }
 
 function formContractor() {
+  if (isNoContractorSelected()) return blankContractor();
   return {
     ...currentContractor(),
     name: dom.contractorNameInput.value.trim(),
@@ -2484,7 +2509,7 @@ function selectedMaterialItemsForGeneration() {
 
 function materialSubmittalPayload(items, openGeneratedPdf) {
   return {
-    project: { ...state.project, coverTemplate: state.coverTemplate },
+    project: { ...state.project, coverTemplate: state.coverTemplate, hideContractor: isNoContractorSelected() },
     contractor: formContractor(),
     settings: { ...normalizeSettings(state.settings), openGeneratedPdf },
     items: items.map((item) => ({
@@ -3245,12 +3270,18 @@ function deleteSelectedLoadout() {
 }
 
 function renderContractorSelect() {
-  const options = ['<option value="">New contractor profile</option>'];
+  const options = [
+    '<option value="">New contractor profile</option>',
+    `<option value="${NO_CONTRACTOR_ID}">No Contractor (leave blank)</option>`,
+  ];
   for (const contractor of state.contractors) {
     options.push(`<option value="${escapeHtml(contractor.id)}">${escapeHtml(contractor.name || "Unnamed Contractor")}</option>`);
   }
   dom.contractorSelect.innerHTML = options.join("");
   dom.contractorSelect.value = state.activeContractorId;
+  const noContractor = isNoContractorSelected();
+  dom.contractorSelect.closest(".contractor-section")?.classList.toggle("no-contractor-active", noContractor);
+  if (dom.contractorNoneNote) dom.contractorNoneNote.hidden = !noContractor;
 }
 
 function renderCatalog() {
@@ -3978,6 +4009,19 @@ function renderCoverSheet(page, contractor) {
   const template = coverTemplateById(state.coverTemplate);
   const coverSubtitle = state.project.subtitle || DEFAULT_COVER_SUBTITLE;
   const additionalInfo = coverAdditionalInfoEntries();
+  const noContractor = isNoContractorSelected();
+  const contractorSection = noContractor
+    ? '<section class="cover-preview-contractor cover-preview-contractor-none" aria-hidden="true"></section>'
+    : `
+        <section class="cover-preview-contractor">
+          <div class="cover-preview-logo">
+            ${contractor.logo ? `<img src="${contractor.logo}" alt="Contractor logo" />` : "<span>Contractor Logo</span>"}
+          </div>
+          <h3>${escapeHtml(contractor.name || "Contractor Name")}</h3>
+          <p>${escapeHtml(contractor.address || "Contractor Address")}</p>
+          <strong>${escapeHtml(license)}</strong>
+          <strong>${escapeHtml(contractor.phone || "Phone Number")}</strong>
+        </section>`;
   return `
     <article class="sheet cover-sheet pdf-cover-preview cover-template-${escapeHtml(template.id)}">
       <header class="cover-preview-header">
@@ -4003,19 +4047,11 @@ function renderCoverSheet(page, contractor) {
             </dl>
           ` : ""}
         </section>
-        <section class="cover-preview-contractor">
-          <div class="cover-preview-logo">
-            ${contractor.logo ? `<img src="${contractor.logo}" alt="Contractor logo" />` : "<span>Contractor Logo</span>"}
-          </div>
-          <h3>${escapeHtml(contractor.name || "Contractor Name")}</h3>
-          <p>${escapeHtml(contractor.address || "Contractor Address")}</p>
-          <strong>${escapeHtml(license)}</strong>
-          <strong>${escapeHtml(contractor.phone || "Phone Number")}</strong>
-        </section>
+        ${contractorSection}
       </main>
       <footer class="cover-preview-footer">
         <div></div>
-        ${state.project.coverDisclaimerEnabled === false ? "" : `<p>${escapeHtml(contractor.disclaimer || DEFAULT_DISCLAIMER)}</p>`}
+        ${noContractor || state.project.coverDisclaimerEnabled === false ? "" : `<p>${escapeHtml(contractor.disclaimer || DEFAULT_DISCLAIMER)}</p>`}
       </footer>
       ${pageNumber(page)}
     </article>
@@ -7532,6 +7568,10 @@ function addManualItem() {
 }
 
 function saveContractor() {
+  if (isNoContractorSelected()) {
+    setGenerateStatus("No Contractor is selected. Switch to a contractor profile before saving.", "info");
+    return;
+  }
   const existing = currentContractor();
   const id = existing.id || crypto.randomUUID();
   const contractor = {
@@ -7553,7 +7593,7 @@ function saveContractor() {
 }
 
 function deleteContractor() {
-  if (!state.activeContractorId) return;
+  if (!state.activeContractorId || isNoContractorSelected()) return;
   state.contractors = state.contractors.filter((contractor) => contractor.id !== state.activeContractorId);
   state.activeContractorId = "";
   syncInputsFromState();
@@ -16288,6 +16328,196 @@ async function copyFeetResult(type) {
   }
 }
 
+// ============================================================================
+//  Hazen-Williams Calculator — straight-pipe friction loss (NFPA 13 form):
+//  p (psi/ft) = 4.52 * Q^1.85 / (C^1.85 * d^4.87), d = actual internal diameter.
+//  Internal diameters are the standard sprinkler-trade values; C defaults follow
+//  NFPA 13 Table 23.4.4.7.1 (wet systems — use C=100 for dry/preaction steel).
+// ============================================================================
+const HAZEN_PIPE_TYPES = [
+  {
+    id: "sch40", label: "Schedule 40 Black Steel", c: 120,
+    sizes: [
+      ["1\"", 1.049], ["1-1/4\"", 1.38], ["1-1/2\"", 1.61], ["2\"", 2.067],
+      ["2-1/2\"", 2.469], ["3\"", 3.068], ["3-1/2\"", 3.548], ["4\"", 4.026],
+      ["5\"", 5.047], ["6\"", 6.065], ["8\"", 7.981], ["10\"", 10.02], ["12\"", 11.938],
+    ],
+  },
+  {
+    id: "sch10", label: "Schedule 10 Black Steel", c: 120,
+    sizes: [
+      ["1\"", 1.097], ["1-1/4\"", 1.442], ["1-1/2\"", 1.682], ["2\"", 2.157],
+      ["2-1/2\"", 2.635], ["3\"", 3.26], ["3-1/2\"", 3.76], ["4\"", 4.26],
+      ["5\"", 5.295], ["6\"", 6.357], ["8\"", 8.249],
+    ],
+  },
+  {
+    id: "cpvc", label: "CPVC (SDR 13.5)", c: 150,
+    sizes: [
+      ["3/4\"", 0.874], ["1\"", 1.101], ["1-1/4\"", 1.394], ["1-1/2\"", 1.598],
+      ["2\"", 2.003], ["2-1/2\"", 2.423], ["3\"", 2.95],
+    ],
+  },
+  {
+    id: "ductile", label: "Cement-Lined Ductile Iron", c: 140,
+    sizes: [
+      ["4\"", 4.28], ["6\"", 6.4], ["8\"", 8.51], ["10\"", 10.62], ["12\"", 12.72],
+    ],
+  },
+  { id: "custom", label: "Custom Internal Diameter", c: 120, sizes: null },
+];
+
+const HAZEN_FORMULA_TEXT = "p = 4.52 × Q^1.85 / (C^1.85 × d^4.87)";
+let lastHazenMath = null;
+
+function hazenSelectedType() {
+  const id = dom.hazenPipeTypeSelect?.value;
+  return HAZEN_PIPE_TYPES.find((type) => type.id === id) || HAZEN_PIPE_TYPES[0];
+}
+
+function hazenSelectedDiameter() {
+  const type = hazenSelectedType();
+  if (!type.sizes) {
+    const custom = Number.parseFloat(dom.hazenCustomIdInput?.value);
+    return Number.isFinite(custom) && custom > 0
+      ? { d: custom, label: `custom pipe, ID ${custom}"` }
+      : null;
+  }
+  const index = Number.parseInt(dom.hazenPipeSizeSelect?.value, 10);
+  const size = type.sizes[Number.isFinite(index) ? index : -1];
+  return size ? { d: size[1], label: `${size[0]} ${type.label}` } : null;
+}
+
+// Compact number for the shown work: enough digits to check the math by hand
+// without trailing-zero noise (34.3500 -> 34.35, 10708.4 stays 10708.4).
+function hazenRound(value, decimals = 4) {
+  return String(Number(value.toFixed(decimals)));
+}
+
+function setHazenStatus(message, type = "info") {
+  if (!dom.hazenStatus) return;
+  dom.hazenStatus.textContent = message || "";
+  dom.hazenStatus.dataset.status = type;
+  scheduleStatusAutoClear(dom.hazenStatus, message, type, () => setHazenStatus(""));
+}
+
+function hazenPopulateSizeSelect() {
+  const type = hazenSelectedType();
+  if (dom.hazenPipeSizeField) dom.hazenPipeSizeField.hidden = !type.sizes;
+  if (dom.hazenCustomIdField) dom.hazenCustomIdField.hidden = Boolean(type.sizes);
+  if (dom.hazenCFactorInput) dom.hazenCFactorInput.value = String(type.c);
+  if (!type.sizes || !dom.hazenPipeSizeSelect) return;
+  const previousLabel = dom.hazenPipeSizeSelect.selectedOptions[0]?.dataset.nominal;
+  dom.hazenPipeSizeSelect.innerHTML = type.sizes
+    .map(([nominal, id], index) => `<option value="${index}" data-nominal="${escapeHtml(nominal)}">${escapeHtml(`${nominal} (ID ${id.toFixed(3)}")`)}</option>`)
+    .join("");
+  const keep = type.sizes.findIndex(([nominal]) => nominal === previousLabel);
+  const fallback = type.sizes.findIndex(([nominal]) => nominal === "2\"");
+  dom.hazenPipeSizeSelect.value = String(keep >= 0 ? keep : (fallback >= 0 ? fallback : 0));
+}
+
+function hazenRenderEmpty(message) {
+  lastHazenMath = null;
+  if (dom.hazenPsiPerFtResult) dom.hazenPsiPerFtResult.textContent = "-";
+  if (dom.hazenVelocityNote) dom.hazenVelocityNote.textContent = "";
+  if (dom.hazenTotalResult) dom.hazenTotalResult.textContent = "-";
+  if (dom.hazenTotalNote) dom.hazenTotalNote.textContent = "Enter a length to see the total.";
+  if (dom.hazenCopyPsiButton) dom.hazenCopyPsiButton.disabled = true;
+  if (dom.hazenCopyMathButton) dom.hazenCopyMathButton.disabled = true;
+  if (dom.hazenFormulaBlock) dom.hazenFormulaBlock.textContent = HAZEN_FORMULA_TEXT;
+  if (message) setHazenStatus(message, "info");
+}
+
+function calculateHazenWilliams() {
+  const type = hazenSelectedType();
+  const pipe = hazenSelectedDiameter();
+  const cFactor = Number.parseFloat(dom.hazenCFactorInput?.value);
+  const flow = Number.parseFloat(dom.hazenFlowInput?.value);
+  const length = Number.parseFloat(dom.hazenLengthInput?.value);
+  const hasLength = Number.isFinite(length) && length > 0;
+
+  if (!pipe) {
+    hazenRenderEmpty(type.sizes ? "Pick a pipe size." : "Enter the pipe's internal diameter in inches.");
+    return;
+  }
+  if (!Number.isFinite(cFactor) || cFactor <= 0) {
+    hazenRenderEmpty("Enter a C factor above zero (120 is typical for wet-system steel).");
+    return;
+  }
+  if (!Number.isFinite(flow) || flow <= 0) {
+    hazenRenderEmpty("Enter a flow in gpm.");
+    return;
+  }
+
+  const qPow = Math.pow(flow, 1.85);
+  const cPow = Math.pow(cFactor, 1.85);
+  const dPow = Math.pow(pipe.d, 4.87);
+  const psiPerFt = 4.52 * qPow / (cPow * dPow);
+  const totalPsi = hasLength ? psiPerFt * length : null;
+  const velocity = 0.4085 * flow / (pipe.d * pipe.d);
+
+  const lines = [
+    "Hazen-Williams friction loss (NFPA 13 form)",
+    HAZEN_FORMULA_TEXT,
+    "",
+    `Q = ${hazenRound(flow, 2)} gpm`,
+    `C = ${hazenRound(cFactor, 2)}`,
+    `d = ${pipe.d.toFixed(3)} in (${pipe.label})`,
+    "",
+    `p = 4.52 × ${hazenRound(flow, 2)}^1.85 / (${hazenRound(cFactor, 2)}^1.85 × ${pipe.d.toFixed(3)}^4.87)`,
+    `p = 4.52 × ${hazenRound(qPow, 2)} / (${hazenRound(cPow, 2)} × ${hazenRound(dPow, 2)})`,
+    `p = ${psiPerFt.toFixed(4)} psi/ft`,
+  ];
+  if (totalPsi !== null) {
+    lines.push("", `Total = ${psiPerFt.toFixed(4)} psi/ft × ${hazenRound(length, 2)} ft = ${totalPsi.toFixed(2)} psi`);
+  }
+  const math = lines.join("\n");
+
+  lastHazenMath = { psiPerFt, math };
+  if (dom.hazenPsiPerFtResult) dom.hazenPsiPerFtResult.textContent = `${psiPerFt.toFixed(4)} psi/ft`;
+  if (dom.hazenVelocityNote) dom.hazenVelocityNote.textContent = `Velocity: ${velocity.toFixed(1)} ft/s`;
+  if (dom.hazenTotalResult) dom.hazenTotalResult.textContent = totalPsi === null ? "-" : `${totalPsi.toFixed(2)} psi`;
+  if (dom.hazenTotalNote) {
+    dom.hazenTotalNote.textContent = totalPsi === null
+      ? "Enter a length to see the total."
+      : `${psiPerFt.toFixed(4)} psi/ft × ${hazenRound(length, 2)} ft`;
+  }
+  if (dom.hazenCopyPsiButton) dom.hazenCopyPsiButton.disabled = false;
+  if (dom.hazenCopyMathButton) dom.hazenCopyMathButton.disabled = false;
+  if (dom.hazenFormulaBlock) dom.hazenFormulaBlock.textContent = math;
+  setHazenStatus("");
+}
+
+function clearHazenCalculator() {
+  if (dom.hazenFlowInput) dom.hazenFlowInput.value = "";
+  if (dom.hazenLengthInput) dom.hazenLengthInput.value = "";
+  if (dom.hazenCustomIdInput) dom.hazenCustomIdInput.value = "";
+  if (dom.hazenCFactorInput) dom.hazenCFactorInput.value = String(hazenSelectedType().c);
+  hazenRenderEmpty("");
+  setHazenStatus("Pick a pipe and enter a flow — results update live.");
+  dom.hazenFlowInput?.focus();
+}
+
+async function copyHazenResult(kind) {
+  if (!lastHazenMath) return;
+  const text = kind === "math" ? lastHazenMath.math : lastHazenMath.psiPerFt.toFixed(4);
+  try {
+    await copyTextToClipboard(text);
+    setHazenStatus(kind === "math" ? "Copied the formula and math." : `Copied: ${text} psi/ft`, "success");
+  } catch (error) {
+    setHazenStatus(`Could not copy: ${error.message || "Clipboard failed."}`, "error");
+  }
+}
+
+function initHazenCalculator() {
+  if (!dom.hazenPipeTypeSelect) return;
+  dom.hazenPipeTypeSelect.innerHTML = HAZEN_PIPE_TYPES
+    .map((type) => `<option value="${type.id}">${escapeHtml(`${type.label} (C=${type.c})`)}</option>`)
+    .join("");
+  dom.hazenPipeTypeSelect.value = "sch40";
+  hazenPopulateSizeSelect();
+}
+
 function normalizeCodeLookup(value) {
   return String(value || "")
     .trim()
@@ -18210,6 +18440,18 @@ function wireEvents() {
   });
   dom.feetCopyFeetButton?.addEventListener("click", () => copyFeetResult("feet"));
   dom.feetCopyDecimalButton?.addEventListener("click", () => copyFeetResult("decimal"));
+  initHazenCalculator();
+  dom.hazenPipeTypeSelect?.addEventListener("change", () => {
+    hazenPopulateSizeSelect();
+    calculateHazenWilliams();
+  });
+  dom.hazenPipeSizeSelect?.addEventListener("change", calculateHazenWilliams);
+  [dom.hazenCustomIdInput, dom.hazenCFactorInput, dom.hazenFlowInput, dom.hazenLengthInput].forEach((input) => {
+    input?.addEventListener("input", calculateHazenWilliams);
+  });
+  dom.hazenClearButton?.addEventListener("click", clearHazenCalculator);
+  dom.hazenCopyPsiButton?.addEventListener("click", () => copyHazenResult("psi"));
+  dom.hazenCopyMathButton?.addEventListener("click", () => copyHazenResult("math"));
   document.querySelector(".scale-chart-table tbody")?.addEventListener("click", (event) => {
     const row = event.target.closest("tr");
     if (!row) return;

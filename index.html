@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0810-1940-b0f309f" />
+    <link rel="stylesheet" href="./styles.css?v=b0812-1546-714fd76" />
   </head>
   <body>
     <div class="app-shell">
@@ -71,6 +71,7 @@
         <button class="tool-tab" type="button" data-tool-tab="spacing" aria-pressed="false">Sprinkler Spacing Calculator</button>
         <button class="tool-tab" type="button" data-tool-tab="bracing" aria-pressed="false">Hangers / Bracing Spacing</button>
         <button class="tool-tab" type="button" data-tool-tab="feet" aria-pressed="false">Feet / Inch Calculator</button>
+        <button class="tool-tab" type="button" data-tool-tab="hazen" aria-pressed="false">Hazen-Williams Calculator</button>
 
         <div class="tool-tab-group">Code</div>
         <button class="tool-tab" type="button" data-tool-tab="code" aria-pressed="false">NFPA Code Assist</button>
@@ -249,6 +250,7 @@
               Saved Contractor
               <select id="contractorSelect"></select>
             </label>
+            <p class="contractor-none-note" id="contractorNoneNote" hidden>The cover sheet will leave the contractor area blank &mdash; no logo, name, license, phone, or disclaimer.</p>
             <div class="field-grid two">
               <label>
                 Contractor Name
@@ -2281,6 +2283,81 @@
         </div>
       </section>
 
+      <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="hazen" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">Hazen-Williams calculator</p>
+            <h2>Pipe Friction Loss</h2>
+          </div>
+          <button class="ghost-button" id="hazenClearButton" type="button">Clear</button>
+        </div>
+
+        <div class="calculator-grid hazen-calculator-grid">
+          <section class="panel-section calculator-section hazen-input-section">
+            <div class="section-heading">
+              <p class="eyebrow">Pipe &amp; flow</p>
+            </div>
+            <label>
+              Pipe Type
+              <select id="hazenPipeTypeSelect"></select>
+            </label>
+            <label id="hazenPipeSizeField">
+              Nominal Size
+              <select id="hazenPipeSizeSelect"></select>
+            </label>
+            <label id="hazenCustomIdField" hidden>
+              Internal Diameter (in)
+              <input id="hazenCustomIdInput" type="number" min="0" step="0.001" inputmode="decimal" placeholder="ex: 2.067" />
+            </label>
+            <label>
+              C Factor
+              <input id="hazenCFactorInput" type="number" min="1" step="1" inputmode="numeric" />
+            </label>
+            <label>
+              Flow (gpm)
+              <input id="hazenFlowInput" type="number" min="0" step="any" inputmode="decimal" placeholder="ex: 150" />
+            </label>
+            <label>
+              Length (ft) <span class="prelim-unit">optional &mdash; adds total loss</span>
+              <input id="hazenLengthInput" type="number" min="0" step="any" inputmode="decimal" placeholder="ex: 100" />
+            </label>
+            <p class="calculator-status" id="hazenStatus">Pick a pipe and enter a flow &mdash; results update live.</p>
+            <div class="feet-help-list hazen-c-reference">
+              <div><strong>C = 100</strong><span>black steel &mdash; dry pipe / preaction, unlined cast iron</span></div>
+              <div><strong>C = 120</strong><span>black steel &mdash; wet pipe / deluge, galvanized steel</span></div>
+              <div><strong>C = 140</strong><span>cement-lined ductile / cast iron</span></div>
+              <div><strong>C = 150</strong><span>copper tube, CPVC, PEX, HDPE</span></div>
+            </div>
+            <p class="hydreport-note hazen-c-note">Default C factors per NFPA 13 Table 23.4.4.7.1 &mdash; the values above load automatically with each pipe type, and you can override them for aged or specialty pipe.</p>
+          </section>
+
+          <section class="panel-section calculator-section hazen-results-section">
+            <div class="section-heading">
+              <p class="eyebrow">Results</p>
+            </div>
+            <div class="calculator-result-card hazen-result-card">
+              <span>Friction Loss</span>
+              <strong id="hazenPsiPerFtResult">-</strong>
+              <small id="hazenVelocityNote"></small>
+            </div>
+            <div class="calculator-result-card hazen-result-card">
+              <span>Total Friction Loss</span>
+              <strong id="hazenTotalResult">-</strong>
+              <small id="hazenTotalNote">Enter a length to see the total.</small>
+            </div>
+            <div class="project-actions">
+              <button class="secondary-button" id="hazenCopyPsiButton" type="button" disabled>Copy psi/ft</button>
+              <button class="secondary-button" id="hazenCopyMathButton" type="button" disabled>Copy Formula &amp; Math</button>
+            </div>
+            <div class="section-heading hazen-formula-heading">
+              <p class="eyebrow">Shown work</p>
+            </div>
+            <pre class="hazen-formula-block" id="hazenFormulaBlock">p = 4.52 &times; Q^1.85 / (C^1.85 &times; d^4.87)</pre>
+            <p class="hydreport-note">p = friction loss (psi/ft), Q = flow (gpm), C = Hazen-Williams roughness coefficient, d = actual internal diameter (in) &mdash; NFPA 13 form. Straight-pipe friction only; fittings and elevation are not included.</p>
+          </section>
+        </div>
+      </section>
+
       <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="code" hidden>
         <div class="calculator-hero">
           <div>
@@ -3618,11 +3695,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0810-1940-b0f309f"></script>
-    <script src="./app.js?v=b0810-1940-b0f309f"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0810-1940-b0f309f"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0810-1940-b0f309f"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0810-1940-b0f309f"></script>
-    <script src="./prelim-calc-desktop.js?v=b0810-1940-b0f309f"></script>
+    <script src="./web-backend.js?v=b0812-1546-714fd76"></script>
+    <script src="./app.js?v=b0812-1546-714fd76"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0812-1546-714fd76"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0812-1546-714fd76"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0812-1546-714fd76"></script>
+    <script src="./prelim-calc-desktop.js?v=b0812-1546-714fd76"></script>
   </body>
 </html>
