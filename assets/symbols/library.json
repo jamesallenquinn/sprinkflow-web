@@ -161,32 +161,9 @@
         "underground",
         "water supply"
       ],
-      "notes": "Body circle with two side nubs and a steamer connection.",
+      "notes": "Barrel with the bonnet flange stack above and a flanged pumper outlet to the side.",
       "solid_ok": true,
-      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <circle cx=\"50\" cy=\"50\" r=\"20\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M30 50 L14 50\"/>\n    <path d=\"M14 42 L14 58\"/>\n    <path d=\"M70 50 L86 50\"/>\n    <path d=\"M86 42 L86 58\"/>\n    <path d=\"M50 70 L50 84\"/>\n    <path d=\"M40 84 L60 84\"/>\n  </g>\n</svg>\n"
-    },
-    {
-      "id": "fdc-freestanding-4way",
-      "name": "Fire department connection, freestanding 4-way",
-      "category": "site",
-      "aliases": [
-        "fdc",
-        "fire department connection",
-        "siamese",
-        "siamese connection",
-        "standpipe inlet",
-        "4-way fdc",
-        "four way fdc",
-        "freestanding fdc"
-      ],
-      "tags": [
-        "site",
-        "underground",
-        "fire service"
-      ],
-      "notes": "Four inlets on a header over a riser body. Wall-mounted and 2-way variants planned.",
-      "solid_ok": true,
-      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <circle cx=\"50\" cy=\"78\" r=\"11\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M50 67 L50 54\" stroke-width=\"var(--sym-lw-heavy)\"/>\n    <path d=\"M20 54 L80 54\" stroke-width=\"var(--sym-lw-heavy)\"/>\n    <path d=\"M20 54 L20 45\" stroke-width=\"var(--sym-lw-light)\"/>\n    <path d=\"M40 54 L40 45\" stroke-width=\"var(--sym-lw-light)\"/>\n    <path d=\"M60 54 L60 45\" stroke-width=\"var(--sym-lw-light)\"/>\n    <path d=\"M80 54 L80 45\" stroke-width=\"var(--sym-lw-light)\"/>\n    <circle cx=\"20\" cy=\"38\" r=\"7\" fill=\"var(--sym-fill)\"/>\n    <circle cx=\"40\" cy=\"38\" r=\"7\" fill=\"var(--sym-fill)\"/>\n    <circle cx=\"60\" cy=\"38\" r=\"7\" fill=\"var(--sym-fill)\"/>\n    <circle cx=\"80\" cy=\"38\" r=\"7\" fill=\"var(--sym-fill)\"/>\n  </g>\n</svg>\n"
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- Plan hydrant: barrel with the bonnet flange stack above and a flanged -->\n    <!-- pumper outlet to the side, per the office legend. -->\n\n    <circle cx=\"46\" cy=\"52\" r=\"19\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <rect x=\"42\" y=\"48\" width=\"8\" height=\"8\"/>\n    <path d=\"M46 33 V22\"/>\n    <path d=\"M36 22 H56\" stroke-width=\"var(--sym-lw-heavy)\"/>\n    <path d=\"M39 16 H53\" stroke-width=\"var(--sym-lw-heavy)\"/>\n    <path d=\"M65 52 H80\"/>\n    <path d=\"M80 44 V60\" stroke-width=\"var(--sym-lw-heavy)\"/>\n    <path d=\"M86 46 V58\" stroke-width=\"var(--sym-lw-heavy)\"/>\n    <path d=\"M46 71 V80\"/>\n    <path d=\"M37 80 H55\" stroke-width=\"var(--sym-lw-heavy)\"/>\n  </g>\n</svg>\n"
     },
     {
       "id": "valve-gate-osy",
@@ -233,28 +210,6 @@
       "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- stroke=\"none\" keeps each wedge an exact 90 degrees: stroking them would\n         fatten the black quadrants and pinch the white ones (badly at Bold). -->\n    <path d=\"M50 50 L79.7 20.3 A42 42 0 0 1 79.7 79.7 Z\" fill=\"var(--sym-ink)\" stroke=\"none\"/>\n    <path d=\"M50 50 L20.3 20.3 A42 42 0 0 0 20.3 79.7 Z\" fill=\"var(--sym-ink)\" stroke=\"none\"/>\n    <circle cx=\"50\" cy=\"50\" r=\"42\" stroke-width=\"var(--sym-lw-heavy)\"/>\n  </g>\n</svg>\n"
     },
     {
-      "id": "flow-switch",
-      "name": "Waterflow switch",
-      "category": "riser",
-      "aliases": [
-        "flow switch",
-        "waterflow switch",
-        "water flow switch",
-        "flow detector",
-        "paddle switch",
-        "wfs",
-        "vane switch"
-      ],
-      "tags": [
-        "riser",
-        "device",
-        "alarm"
-      ],
-      "notes": "Inline device body knocks out the pipe behind it via --sym-bg; paddle shown inside.",
-      "solid_ok": true,
-      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <path d=\"M6 50 L94 50\" stroke-width=\"var(--sym-lw-light)\"/>\n    <rect x=\"34\" y=\"32\" width=\"32\" height=\"36\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-bg)\"/>\n    <path d=\"M50 36 L50 58\"/>\n    <path d=\"M41 58 A9 9 0 0 0 59 58\"/>\n  </g>\n</svg>\n"
-    },
-    {
       "id": "system-type-tag-wet",
       "name": "System type tag - WET",
       "category": "riser",
@@ -293,9 +248,9 @@
         "coverage",
         "sprinkler"
       ],
-      "notes": "Cross-in-circle. Smallest symbol in the set - the small-size legibility benchmark.",
+      "notes": "Body circle with the deflector ring inside.",
       "solid_ok": true,
-      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <circle cx=\"50\" cy=\"50\" r=\"16\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M50 26 L50 74\"/>\n    <path d=\"M26 50 L74 50\"/>\n  </g>\n</svg>\n"
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- Pendent head: body circle with the deflector ring inside. -->\n\n    <circle cx=\"50\" cy=\"50\" r=\"26\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <circle cx=\"50\" cy=\"50\" r=\"11\"/>\n  </g>\n</svg>\n"
     },
     {
       "id": "post-indicator-valve",
@@ -315,9 +270,9 @@
         "underground",
         "valve"
       ],
-      "notes": "Post on the main with the indicator plate across it. WPIV variant planned.",
+      "notes": "Indicator post drawn over the solid valve body.",
       "solid_ok": true,
-      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <path d=\"M12 86 H88\" stroke-width=\"var(--sym-lw-light)\"/>\n    <path d=\"M50 86 V56\"/>\n    <circle cx=\"50\" cy=\"40\" r=\"16\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M38 40 H62\"/>\n  </g>\n</svg>\n"
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- PIV: the indicator post runs the full width and crosses the valve body, -->\n    <!-- which reads through above and below it. Post drawn last so its outline -->\n    <!-- stays legible against the fill. -->\n\n    <circle cx=\"68\" cy=\"50\" r=\"16\" fill=\"var(--sym-ink)\" stroke=\"none\"/>\n    <rect x=\"10\" y=\"42\" width=\"80\" height=\"16\" stroke-width=\"var(--sym-lw-heavy)\"/>\n  </g>\n</svg>\n"
     },
     {
       "id": "butterfly-valve-tamper",
@@ -358,9 +313,9 @@
         "riser",
         "valve"
       ],
-      "notes": "Flow arrow into the seat. Deliberately distinct from the backflow assemblies.",
+      "notes": "Office standard draws a bare solid arrow: no seat bar, no pipe stub.",
       "solid_ok": true,
-      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <path d=\"M8 50 H92\" stroke-width=\"var(--sym-lw-light)\"/>\n    <path d=\"M36 32 L36 68 L64 50 Z\" fill=\"var(--sym-ink)\" stroke=\"none\"/>\n    <path d=\"M64 30 V70\" stroke-width=\"var(--sym-lw-heavy)\"/>\n  </g>\n</svg>\n"
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- Office standard draws the check valve as a bare solid arrow - no seat -->\n    <!-- bar and no pipe stub. Flow is the direction the point faces. -->\n\n    <path d=\"M30 20 L30 80 L78 50 Z\" fill=\"var(--sym-ink)\" stroke=\"none\"/>\n  </g>\n</svg>\n"
     },
     {
       "id": "backflow-double-check",
@@ -380,9 +335,9 @@
         "underground",
         "backflow"
       ],
-      "notes": "Two checks in series inside the body; the body knocks out the main behind it. RPZ/RPDA variants planned.",
+      "notes": "Shutoff, two checks, shutoff, inside the assembly outline.",
       "solid_ok": true,
-      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <path d=\"M6 50 H94\" stroke-width=\"var(--sym-lw-light)\"/>\n    <rect x=\"24\" y=\"32\" width=\"52\" height=\"36\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-bg)\"/>\n    <path d=\"M32 40 L32 60 L45 50 Z\" fill=\"var(--sym-ink)\" stroke=\"none\"/>\n    <path d=\"M55 40 L55 60 L68 50 Z\" fill=\"var(--sym-ink)\" stroke=\"none\"/>\n  </g>\n</svg>\n"
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- Double check assembly: shutoff, two checks, shutoff, inside the -->\n    <!-- assembly outline. -->\n\n    <rect x=\"9\" y=\"30\" width=\"82\" height=\"40\" stroke-width=\"var(--sym-lw-heavy)\"/>\n    <circle cx=\"24\" cy=\"50\" r=\"13\" fill=\"var(--sym-ink)\" stroke=\"none\"/>\n    <circle cx=\"76\" cy=\"50\" r=\"13\" fill=\"var(--sym-ink)\" stroke=\"none\"/>\n    <path d=\"M40 39 L40 61 L52 50 Z\" fill=\"var(--sym-ink)\" stroke=\"none\"/>\n    <path d=\"M56 39 L56 61 L68 50 Z\" fill=\"var(--sym-ink)\" stroke=\"none\"/>\n  </g>\n</svg>\n"
     },
     {
       "id": "tamper-switch",
@@ -440,9 +395,9 @@
         "riser",
         "test"
       ],
-      "notes": "Test run, valve and orifice/sight glass.",
+      "notes": "Test valve with its stem stack, discharging through the smooth-bore outlet.",
       "solid_ok": true,
-      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <path d=\"M8 30 H26\"/>\n    <path d=\"M26 18 L26 42 L48 30 Z\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M70 18 L70 42 L48 30 Z\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M70 30 H80 V60\"/>\n    <circle cx=\"80\" cy=\"72\" r=\"9\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M72 72 H88\"/>\n  </g>\n</svg>\n"
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- Inspector's test: test valve with its stem stack, discharging through -->\n    <!-- the smooth-bore outlet at the end of the run. -->\n\n    <path d=\"M9 50 H32\" stroke-width=\"var(--sym-lw-light)\"/>\n    <circle cx=\"46\" cy=\"50\" r=\"14\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M39 50 H53\"/>\n    <path d=\"M46 43 V57\"/>\n    <path d=\"M46 36 V24\"/>\n    <path d=\"M38 24 H54\" stroke-width=\"var(--sym-lw-heavy)\"/>\n    <path d=\"M40 17 H52\" stroke-width=\"var(--sym-lw-heavy)\"/>\n    <path d=\"M60 50 H70\" stroke-width=\"var(--sym-lw-light)\"/>\n    <path d=\"M70 32 A18 18 0 0 1 70 68 Z\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n  </g>\n</svg>\n"
     },
     {
       "id": "system-type-tag-dry",
@@ -485,26 +440,379 @@
       "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <path d=\"M6 50 H38 L46 34 L54 66 L62 50 H94\"/>\n  </g>\n</svg>\n"
     },
     {
-      "id": "revision-delta-1",
-      "name": "Revision delta 1",
+      "id": "revision-delta",
+      "name": "Revision delta",
       "category": "sheet",
       "aliases": [
+        "bulletin",
+        "delta",
+        "rev",
+        "rev 1",
+        "rev tag",
         "revision",
         "revision delta",
-        "delta",
-        "rev 1",
         "revision tag",
-        "revision triangle",
-        "bulletin"
+        "revision triangle"
       ],
       "tags": [
         "sheet furniture",
         "annotation",
         "revision"
       ],
-      "notes": "Deltas 2-9 follow the same triangle with different single-stroke digits.",
+      "notes": "Bare delta; the revision number is lettered in by hand.",
       "solid_ok": false,
-      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <path d=\"M50 14 L84 74 L16 74 Z\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M44 44 L50 38 V64\"/>\n    <path d=\"M42 64 H58\"/>\n  </g>\n</svg>\n"
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- Bare delta. The revision number is lettered in by hand, so the\n         symbol ships empty rather than locked to a 1. -->\n    <path d=\"M50 18 L86 80 L14 80 Z\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "valve-gate",
+      "name": "Gate valve",
+      "category": "site",
+      "aliases": [
+        "gate valve",
+        "gv",
+        "bowtie valve",
+        "shutoff",
+        "indicating valve"
+      ],
+      "tags": [
+        "valve",
+        "site",
+        "underground"
+      ],
+      "notes": "Plain bowtie as the office legend draws GV. The OS&Y variant with the rising stem is a separate symbol.",
+      "solid_ok": true,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- Plain gate valve bowtie as the legend draws it. The OS&Y variant with -->\n    <!-- the rising stem stays a separate symbol. -->\n\n    <path d=\"M12 28 L12 72 L50 50 Z\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M88 28 L88 72 L50 50 Z\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "fdc-two-way",
+      "name": "Fire department connection, two-way",
+      "category": "site",
+      "aliases": [
+        "fdc",
+        "fire department connection",
+        "two way fdc",
+        "2 way fdc",
+        "siamese"
+      ],
+      "tags": [
+        "valve",
+        "site",
+        "fire service"
+      ],
+      "notes": "Body with a pair of short angled inlets, each capped by a flange across the leg.",
+      "solid_ok": true,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- Two-way FDC: body with a pair of short angled inlets, each capped by a -->\n    <!-- flange across the leg. Kept stubby so it reads as a fitting rather than -->\n    <!-- a figure at plan scale. -->\n\n    <circle cx=\"50\" cy=\"36\" r=\"21\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M36 52 L28 64\" stroke-width=\"var(--sym-lw-heavy)\"/>\n    <path d=\"M21 59.5 L33 67.5\" stroke-width=\"var(--sym-lw-heavy)\"/>\n    <path d=\"M64 52 L72 64\" stroke-width=\"var(--sym-lw-heavy)\"/>\n    <path d=\"M79 59.5 L67 67.5\" stroke-width=\"var(--sym-lw-heavy)\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "thrust-block",
+      "name": "Thrust block",
+      "category": "site",
+      "aliases": [
+        "thrust block",
+        "tb",
+        "concrete thrust block",
+        "kicker"
+      ],
+      "tags": [
+        "site",
+        "underground",
+        "restraint"
+      ],
+      "notes": "Concrete speckle reduced to four chips so it still reads at plan scale.",
+      "solid_ok": true,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- Thrust block: the legend's concrete speckle reduced to four chips - -->\n    <!-- enough texture to read at plan scale without turning to mud. -->\n\n    <path d=\"M50 13 L88 84 L12 84 Z\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M44 62 L52 62 L48 55 Z\" fill=\"var(--sym-ink)\" stroke=\"none\"/>\n    <path d=\"M31 76 L38 76 L34 70 Z\" fill=\"var(--sym-ink)\" stroke=\"none\"/>\n    <path d=\"M60 74 L67 74 L63 68 Z\" fill=\"var(--sym-ink)\" stroke=\"none\"/>\n    <path d=\"M47 76 L53 76 L50 71 Z\" fill=\"var(--sym-ink)\" stroke=\"none\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "coupling-grooved",
+      "name": "Grooved coupling",
+      "category": "riser",
+      "aliases": [
+        "grooved coupling",
+        "coupling",
+        "fc",
+        "flex coupling",
+        "flexible coupling",
+        "rigid coupling",
+        "victaulic"
+      ],
+      "tags": [
+        "fitting",
+        "riser",
+        "pipe"
+      ],
+      "notes": "The legend draws flex and rigid identically; flex is called out with an FC tag on the plan, not a different glyph.",
+      "solid_ok": true,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- Grooved coupling housing with its two bolt pads. The legend draws the -->\n    <!-- flex and rigid couplings identically - flex is called out with an FC -->\n    <!-- tag on the plan, not a different glyph. -->\n\n    <path d=\"M9 50 H91\" stroke-width=\"var(--sym-lw-light)\"/>\n    <rect x=\"38\" y=\"24\" width=\"24\" height=\"52\" rx=\"12\"\n          stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-bg)\"/>\n    <circle cx=\"50\" cy=\"35\" r=\"5\"/>\n    <circle cx=\"50\" cy=\"65\" r=\"5\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "aux-drain",
+      "name": "Auxiliary drain",
+      "category": "riser",
+      "aliases": [
+        "aux drain",
+        "auxiliary drain",
+        "drum drip",
+        "low point drain",
+        "drain valve"
+      ],
+      "tags": [
+        "riser",
+        "drain",
+        "valve"
+      ],
+      "notes": "Flanged drain valve discharging into the outlet cone.",
+      "solid_ok": true,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- Auxiliary drain: flanged drain valve with its handle stem, discharging -->\n    <!-- into the hatched outlet cone. -->\n\n    <path d=\"M9 50 H28\" stroke-width=\"var(--sym-lw-light)\"/>\n    <rect x=\"28\" y=\"38\" width=\"32\" height=\"24\" stroke-width=\"var(--sym-lw-heavy)\"/>\n    <path d=\"M28 33 V67\" stroke-width=\"var(--sym-lw-heavy)\"/>\n    <path d=\"M60 33 V67\" stroke-width=\"var(--sym-lw-heavy)\"/>\n    <path d=\"M44 38 V26\"/>\n    <path d=\"M36 26 H52\" stroke-width=\"var(--sym-lw-heavy)\"/>\n    <path d=\"M64 50 L88 34 L88 66 Z\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M72 39 L72 61\" stroke-width=\"var(--sym-lw-light)\"/>\n    <path d=\"M80 36 L80 64\" stroke-width=\"var(--sym-lw-light)\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "local-alarm-bell",
+      "name": "Local alarm bell",
+      "category": "riser",
+      "aliases": [
+        "alarm bell",
+        "local alarm bell",
+        "water motor gong",
+        "bell",
+        "gong"
+      ],
+      "tags": [
+        "riser",
+        "alarm",
+        "device"
+      ],
+      "notes": "Gong dome on the wall line.",
+      "solid_ok": true,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- Local alarm bell: gong dome on the wall line. -->\n\n    <path d=\"M26 62 A24 24 0 0 1 74 62\" stroke-width=\"var(--sym-lw-heavy)\"/>\n    <path d=\"M9 62 H91\"/>\n    <path d=\"M9 72 H91\" stroke-width=\"var(--sym-lw-light)\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "threaded-plug",
+      "name": "Threaded plug",
+      "category": "riser",
+      "aliases": [
+        "threaded plug",
+        "plug",
+        "pipe plug"
+      ],
+      "tags": [
+        "fitting",
+        "riser",
+        "pipe"
+      ],
+      "notes": "Hatched wedge pointing into the pipe.",
+      "solid_ok": true,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- Threaded plug: hatched wedge pointing into the pipe. -->\n\n    <path d=\"M16 50 L80 18 L80 82 Z\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M50 34 L50 66\" stroke-width=\"var(--sym-lw-light)\"/>\n    <path d=\"M62 27 L62 73\" stroke-width=\"var(--sym-lw-light)\"/>\n    <path d=\"M72 22 L72 78\" stroke-width=\"var(--sym-lw-light)\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "cap-threaded-grooved",
+      "name": "Threaded or grooved cap",
+      "category": "riser",
+      "aliases": [
+        "cap",
+        "threaded cap",
+        "grooved cap",
+        "pipe cap",
+        "end cap"
+      ],
+      "tags": [
+        "fitting",
+        "riser",
+        "pipe"
+      ],
+      "notes": "Closes the end of a run.",
+      "solid_ok": true,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- Threaded or grooved cap closing the end of a run. -->\n\n    <path d=\"M52 24 A26 26 0 0 0 52 76 Z\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M52 50 H91\" stroke-width=\"var(--sym-lw-light)\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "head-upright",
+      "name": "Sprinkler head, upright",
+      "category": "heads",
+      "aliases": [
+        "upright",
+        "upright head",
+        "upright sprinkler",
+        "sup"
+      ],
+      "tags": [
+        "head",
+        "coverage"
+      ],
+      "notes": "Body circle crossed corner to corner.",
+      "solid_ok": true,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- Upright head: body circle crossed corner to corner. -->\n\n    <circle cx=\"50\" cy=\"50\" r=\"26\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M32 32 L68 68\"/>\n    <path d=\"M68 32 L32 68\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "head-sidewall",
+      "name": "Sprinkler head, sidewall",
+      "category": "heads",
+      "aliases": [
+        "sidewall",
+        "sidewall head",
+        "horizontal sidewall",
+        "hsw",
+        "ssw"
+      ],
+      "tags": [
+        "head",
+        "coverage"
+      ],
+      "notes": "Solid wedge pointing the way it throws.",
+      "solid_ok": true,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- Sidewall head: solid wedge pointing the way it throws. -->\n\n    <path d=\"M22 50 L74 20 L74 80 Z\" fill=\"var(--sym-ink)\" stroke=\"none\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "head-existing",
+      "name": "Sprinkler head, existing",
+      "category": "heads",
+      "aliases": [
+        "existing head",
+        "existing sprinkler",
+        "head to remain",
+        "slashed head"
+      ],
+      "tags": [
+        "head",
+        "coverage",
+        "existing"
+      ],
+      "notes": "Slashed head from the legend. CONFIRM the office reading of the slash before relying on it.",
+      "solid_ok": true,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- Head slashed through - the legend's marker for an existing head. -->\n    <!-- Confirm the office reading before relying on it. -->\n\n    <circle cx=\"50\" cy=\"50\" r=\"26\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M22 78 L78 22\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "head-concealed",
+      "name": "Sprinkler head, radial spoke",
+      "category": "heads",
+      "aliases": [
+        "concealed head",
+        "recessed head",
+        "spoke head",
+        "radial head"
+      ],
+      "tags": [
+        "head",
+        "coverage"
+      ],
+      "notes": "Radial-spoke glyph from the legend's pendent row; exact meaning to be confirmed.",
+      "solid_ok": true,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- Radial-spoke head from the legend's pendent row. -->\n\n    <circle cx=\"50\" cy=\"50\" r=\"26\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <path d=\"M50 24 V76\"/>\n    <path d=\"M24 50 H76\"/>\n    <path d=\"M31 31 L69 69\"/>\n    <path d=\"M69 31 L31 69\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "head-guard",
+      "name": "Sprinkler with head guard",
+      "category": "heads",
+      "aliases": [
+        "head guard",
+        "sprinkler guard",
+        "guard",
+        "cage",
+        "protected head"
+      ],
+      "tags": [
+        "head",
+        "coverage",
+        "protection"
+      ],
+      "notes": "Guard cage boxed around the head.",
+      "solid_ok": true,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- Sprinkler with head guard: the guard cage boxed around the head. -->\n\n    <rect x=\"14\" y=\"14\" width=\"72\" height=\"72\" stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n    <circle cx=\"50\" cy=\"50\" r=\"28\"/>\n    <path d=\"M14 14 L86 86\" stroke-width=\"var(--sym-lw-light)\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "pipe-hanger",
+      "name": "Pipe hanger",
+      "category": "hangers",
+      "aliases": [
+        "hanger",
+        "pipe hanger",
+        "support",
+        "rod hanger"
+      ],
+      "tags": [
+        "hanger",
+        "support"
+      ],
+      "notes": "Single stroke across the run, as the legend draws it.",
+      "solid_ok": true,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- Pipe hanger: single stroke across the run, as the legend draws it. -->\n\n    <path d=\"M9 50 H91\" stroke-width=\"var(--sym-lw-light)\"/>\n    <path d=\"M34 74 L66 26\" stroke-width=\"var(--sym-lw-heavy)\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "seismic-brace-2way",
+      "name": "Seismic brace, two-way",
+      "category": "hangers",
+      "aliases": [
+        "2 way brace",
+        "two way brace",
+        "lateral brace",
+        "seismic brace",
+        "sway brace"
+      ],
+      "tags": [
+        "hanger",
+        "bracing",
+        "seismic"
+      ],
+      "notes": "Braced run with a single diagonal leg.",
+      "solid_ok": true,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- One axis of the four-way brace: the braced run with a 45 degree\n         tick at BOTH ends, pinwheeled the same way the four-way is. -->\n    <path d=\"M50 12 V88\" stroke-width=\"var(--sym-lw-heavy)\"/>\n    <path d=\"M50 12 L66 28\"/>\n    <path d=\"M50 88 L34 72\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "seismic-brace-4way",
+      "name": "Seismic brace, four-way",
+      "category": "hangers",
+      "aliases": [
+        "4 way brace",
+        "four way brace",
+        "seismic brace",
+        "sway brace",
+        "longitudinal and lateral"
+      ],
+      "tags": [
+        "hanger",
+        "bracing",
+        "seismic"
+      ],
+      "notes": "Legs on both axes, barbs pinwheeled as the legend draws them.",
+      "solid_ok": true,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- Four-way seismic brace: legs on both axes, barbs pinwheeled the way -->\n    <!-- the legend draws them. -->\n\n    <path d=\"M50 12 V88\" stroke-width=\"var(--sym-lw-heavy)\"/>\n    <path d=\"M12 50 H88\" stroke-width=\"var(--sym-lw-heavy)\"/>\n    <path d=\"M50 12 L66 28\"/>\n    <path d=\"M88 50 L72 66\"/>\n    <path d=\"M50 88 L34 72\"/>\n    <path d=\"M12 50 L28 34\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "hydraulic-reference-point",
+      "name": "Hydraulic reference point",
+      "category": "sheet",
+      "aliases": [
+        "hydraulic reference point",
+        "reference point",
+        "node",
+        "hydraulic node",
+        "calc node"
+      ],
+      "tags": [
+        "sheet furniture",
+        "annotation",
+        "hydraulics"
+      ],
+      "notes": "Stretched hexagon left empty so the node number can be lettered inside.",
+      "solid_ok": true,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- Hydraulic reference point: the legend's stretched hexagon, left empty -->\n    <!-- so the node number can be lettered inside. -->\n\n    <path d=\"M28 24 H72 L90 50 L72 76 H28 L10 50 Z\"\n          stroke-width=\"var(--sym-lw-heavy)\" fill=\"var(--sym-fill)\"/>\n  </g>\n</svg>\n"
+    },
+    {
+      "id": "pipe-elevation-change",
+      "name": "Change in pipe elevation",
+      "category": "sheet",
+      "aliases": [
+        "change in elevation",
+        "elevation change",
+        "pipe rises",
+        "pipe drops",
+        "riser nipple"
+      ],
+      "tags": [
+        "sheet furniture",
+        "annotation",
+        "piping"
+      ],
+      "notes": "The run turns and rises, drawn as the open hook the legend uses.",
+      "solid_ok": true,
+      "svg": "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\">\n  <g fill=\"none\" stroke=\"var(--sym-stroke)\" stroke-width=\"var(--sym-lw)\"\n     stroke-linecap=\"var(--sym-cap)\" stroke-linejoin=\"var(--sym-join)\">\n    <!-- Change in pipe elevation: the run turns and rises, drawn as the open -->\n    <!-- hook the legend uses. -->\n\n    <path d=\"M9 50 H52\" stroke-width=\"var(--sym-lw-light)\"/>\n    <path d=\"M56 34 A20 20 0 1 0 56 66\" stroke-width=\"var(--sym-lw-heavy)\"/>\n  </g>\n</svg>\n"
     }
   ]
 }
