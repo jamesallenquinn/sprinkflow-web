@@ -7887,6 +7887,29 @@ body[data-theme="plain-light"] .beta-invite-results[data-tone="error"] > p {
   text-transform: none;
 }
 
+/* Plan-scan contractor match: a one-line verdict plus (when matched) the same
+   chip pair used by the "Did you mean" project-name/address suggestions. */
+.scan-contractor {
+  background: rgba(55, 183, 228, 0.05);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.scan-contractor-line {
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.scan-contractor-matched .scan-contractor-line {
+  color: var(--ink);
+  font-weight: 800;
+}
+
 .plans-review-panel {
   background: rgba(55, 183, 228, 0.05);
   border: 1px solid var(--line);

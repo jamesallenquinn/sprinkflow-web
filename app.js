@@ -488,11 +488,15 @@ const dom = {
   plansReviewProjectAddressSource: document.querySelector("#plansReviewProjectAddressSource"),
   plansReviewProjectAddressSuggestions: document.querySelector("#plansReviewProjectAddressSuggestions"),
   plansReviewContractorPanel: document.querySelector("#plansReviewContractorPanel"),
-  plansReviewContractorNameInput: document.querySelector("#plansReviewContractorNameInput"),
-  plansReviewContractorAddressInput: document.querySelector("#plansReviewContractorAddressInput"),
-  plansReviewContractorLicenseInput: document.querySelector("#plansReviewContractorLicenseInput"),
-  plansReviewContractorPhoneInput: document.querySelector("#plansReviewContractorPhoneInput"),
-  plansReviewApplyContractorInput: document.querySelector("#plansReviewApplyContractorInput"),
+  plansReviewContractorMessage: document.querySelector("#plansReviewContractorMessage"),
+  plansReviewContractorActions: document.querySelector("#plansReviewContractorActions"),
+  plansReviewContractorUseButton: document.querySelector("#plansReviewContractorUseButton"),
+  plansReviewContractorSkipButton: document.querySelector("#plansReviewContractorSkipButton"),
+  reviewContractorPanel: document.querySelector("#reviewContractorPanel"),
+  reviewContractorMessage: document.querySelector("#reviewContractorMessage"),
+  reviewContractorActions: document.querySelector("#reviewContractorActions"),
+  reviewContractorUseButton: document.querySelector("#reviewContractorUseButton"),
+  reviewContractorSkipButton: document.querySelector("#reviewContractorSkipButton"),
   plansReviewSuggestions: document.querySelector("#plansReviewSuggestions"),
   plansReviewCancelButton: document.querySelector("#plansReviewCancelButton"),
   plansReviewSelectAllButton: document.querySelector("#plansReviewSelectAllButton"),
@@ -4852,7 +4856,6 @@ async function reviewPlansAnalysis(projectInfo) {
 }
 
 function buildPlansReview(projectInfo) {
-  const contractorMatch = matchSavedContractor(projectInfo.contractor || {});
   return {
     project: {
       name: detectedProjectCaps(projectInfo.name || state.project.name || ""),
@@ -4869,8 +4872,7 @@ function buildPlansReview(projectInfo) {
       addressSource: planScanSourceText(projectInfo.addressSource),
       addressFromScan: Boolean(String(projectInfo.address || "").trim()),
     },
-    contractor: contractorMatch || projectInfo.contractor || {},
-    contractorMatchedSaved: Boolean(contractorMatch),
+    contractorChoice: buildScanContractorChoice(projectInfo.contractor || {}),
     suggestions: buildPlanCatalogSuggestions(projectInfo),
   };
 }
@@ -4887,28 +4889,148 @@ function planScanAddressCandidatePayload(projectInfo) {
   return [];
 }
 
+// Business-entity suffixes and connectives carry no identity — "ACME Fire, Inc."
+// and "Acme Fire LLC" are the same contractor.
+const CONTRACTOR_NAME_STOPWORDS = new Set([
+  "inc", "incorporated", "llc", "l", "llp", "lp", "ltd", "limited", "co", "corp", "corporation",
+  "company", "pllc", "pc", "dba", "the", "and", "of", "a",
+]);
+// Shared industry words alone must never make a match ("Fire Protection" is not an identity).
+const CONTRACTOR_GENERIC_WORDS = new Set([
+  "fire", "protection", "sprinkler", "sprinklers", "suppression", "systems", "system",
+  "services", "service", "contractors", "contracting", "construction", "mechanical",
+  "plumbing", "engineering", "solutions", "industries", "group", "holdings",
+  "national", "international", "american",
+]);
+
+function contractorNameTokens(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]+/g, " ")
+    .split(/\s+/)
+    .filter((token) => token && !CONTRACTOR_NAME_STOPWORDS.has(token));
+}
+
+function contractorLicenseKey(value) {
+  return String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+function contractorPhoneKey(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  return digits.length >= 10 ? digits.slice(-10) : "";
+}
+
+// Strong signal: the two names share most of their distinctive tokens.
+function contractorNameSignal(candidateName, savedName) {
+  const candidateTokens = new Set(contractorNameTokens(candidateName));
+  const savedTokens = new Set(contractorNameTokens(savedName));
+  if (!candidateTokens.size || !savedTokens.size) return 0;
+  const shared = [...candidateTokens].filter((token) => savedTokens.has(token));
+  if (!shared.length) return 0;
+  // At least one shared token must be distinctive, not boilerplate industry vocabulary.
+  if (!shared.some((token) => token.length > 2 && !CONTRACTOR_GENERIC_WORDS.has(token))) return 0;
+  const coverage = shared.length / Math.min(candidateTokens.size, savedTokens.size);
+  if (coverage < 0.6) return 0;
+  return 6 + shared.length;
+}
+
+// Any ONE strong signal (name-token overlap, exact license, exact phone) is a match.
 function matchSavedContractor(candidate) {
-  const candidateName = normalize(candidate?.name || "");
-  const candidateAddress = normalize(candidate?.address || "");
-  const candidateLicense = normalize(candidate?.license || "");
-  const candidatePhone = digitsOnly(candidate?.phone || "");
-  if (!candidateName && !candidateAddress && !candidateLicense && !candidatePhone) return null;
-  const scored = state.contractors
-    .map((contractor) => {
-    const savedName = normalize(contractor.name || "");
-      const savedAddress = normalize(contractor.address || "");
-      const savedLicense = normalize(contractor.license || "");
-      const savedPhone = digitsOnly(contractor.phone || "");
-      let score = 0;
-      if (candidateName && savedName && (savedName === candidateName || savedName.includes(candidateName) || candidateName.includes(savedName))) score += 6;
-      if (candidateLicense && savedLicense && candidateLicense === savedLicense) score += 6;
-      if (candidateAddress && savedAddress && (savedAddress.includes(candidateAddress) || candidateAddress.includes(savedAddress))) score += 5;
-      if (candidatePhone && savedPhone && (savedPhone === candidatePhone || savedPhone.endsWith(candidatePhone.slice(-7)) || candidatePhone.endsWith(savedPhone.slice(-7)))) score += 4;
-      return { contractor, score };
-    })
-    .filter((entry) => entry.score >= 5)
-    .sort((a, b) => b.score - a.score);
-  return scored[0]?.contractor || null;
+  const saved = Array.isArray(state.contractors) ? state.contractors : [];
+  if (!saved.length) return null;
+  const name = String(candidate?.name || "").trim();
+  const license = contractorLicenseKey(candidate?.license);
+  const phone = contractorPhoneKey(candidate?.phone);
+  if (!name && !license && !phone) return null;
+  let best = null;
+  for (const contractor of saved) {
+    if (!contractor?.id) continue;
+    let score = 0;
+    if (license.length >= 3 && contractorLicenseKey(contractor.license) === license) score += 10;
+    if (phone && contractorPhoneKey(contractor.phone) === phone) score += 8;
+    score += contractorNameSignal(name, contractor.name);
+    if (score <= 0) continue;
+    if (!best || score > best.score) best = { contractor, score };
+  }
+  return best?.contractor || null;
+}
+
+const NO_CONTRACTOR_MATCH_MESSAGE =
+  "No existing contractor was detected — you'll pick or enter one on the next step.";
+
+// A scan's contractor decision: which saved contractor it matched, and whether to use it.
+// Legacy payloads with no contractor keys simply produce { match: null } and read as "no match".
+function buildScanContractorChoice(detected) {
+  const match = matchSavedContractor(detected || {});
+  return { detected: detected || {}, match, use: Boolean(match) };
+}
+
+function plansContractorRefs() {
+  return {
+    panel: dom.plansReviewContractorPanel,
+    message: dom.plansReviewContractorMessage,
+    actions: dom.plansReviewContractorActions,
+    useButton: dom.plansReviewContractorUseButton,
+    skipButton: dom.plansReviewContractorSkipButton,
+  };
+}
+
+function projectInfoContractorRefs() {
+  return {
+    panel: dom.reviewContractorPanel,
+    message: dom.reviewContractorMessage,
+    actions: dom.reviewContractorActions,
+    useButton: dom.reviewContractorUseButton,
+    skipButton: dom.reviewContractorSkipButton,
+  };
+}
+
+function renderScanContractorChoice(refs, choice) {
+  if (!refs?.panel) return;
+  const match = choice?.match || null;
+  refs.panel.hidden = false;
+  refs.panel.classList.toggle("scan-contractor-matched", Boolean(match));
+  if (refs.message) {
+    refs.message.textContent = match
+      ? `Contractor detected: ${match.name || "Unnamed Contractor"}`
+      : NO_CONTRACTOR_MATCH_MESSAGE;
+  }
+  if (refs.actions) refs.actions.hidden = !match;
+  const using = Boolean(match) && choice.use !== false;
+  refs.useButton?.setAttribute("aria-pressed", String(using));
+  refs.skipButton?.setAttribute("aria-pressed", String(Boolean(match) && !using));
+}
+
+function wireScanContractorChoice(refs, choice) {
+  const setUse = (use) => {
+    if (!choice?.match) return;
+    choice.use = use;
+    renderScanContractorChoice(refs, choice);
+  };
+  const onUse = () => setUse(true);
+  const onSkip = () => setUse(false);
+  refs.useButton?.addEventListener("click", onUse);
+  refs.skipButton?.addEventListener("click", onSkip);
+  return () => {
+    refs.useButton?.removeEventListener("click", onUse);
+    refs.skipButton?.removeEventListener("click", onSkip);
+  };
+}
+
+// Selects a saved contractor exactly as the Contractor tab's Saved Contractor
+// dropdown does: set activeContractorId, then resync inputs and re-render.
+function selectSavedContractor(contractorId) {
+  if (!contractorId) return false;
+  if (!state.contractors.some((entry) => entry.id === contractorId)) return false;
+  state.activeContractorId = contractorId;
+  syncInputsFromState();
+  renderAll();
+  return true;
+}
+
+function applyScanContractorChoice(choice) {
+  if (!choice?.match || choice.use === false) return false;
+  return selectSavedContractor(choice.match.id);
 }
 
 function buildPlanCatalogSuggestions(projectInfo) {
@@ -5542,7 +5664,7 @@ function normalizeResponse(value) {
 function populatePlansReviewDialog(review) {
   dom.plansReviewProjectNameInput.value = review.project.name;
   dom.plansReviewProjectAddressInput.value = review.project.address;
-  dom.plansReviewSummary.textContent = `Detected from ${review.project.source}. Confidence: ${review.project.confidence}. Confirm project/contractor information and approve catalog matches before applying.`;
+  dom.plansReviewSummary.textContent = `Detected from ${review.project.source}. Confidence: ${review.project.confidence}. Confirm the project information and approve catalog matches before applying.`;
   applyScanFieldGuidance({
     input: dom.plansReviewProjectNameInput,
     sourceEl: dom.plansReviewProjectNameSource,
@@ -5568,14 +5690,7 @@ function populatePlansReviewDialog(review) {
     noun: "project address",
   });
 
-  const contractor = review.contractor || {};
-  const hasContractor = Boolean(contractor.name || contractor.address || contractor.license || contractor.phone);
-  dom.plansReviewContractorPanel.hidden = !hasContractor;
-  dom.plansReviewApplyContractorInput.checked = hasContractor;
-  dom.plansReviewContractorNameInput.value = contractor.name || "";
-  dom.plansReviewContractorAddressInput.value = contractor.address || "";
-  dom.plansReviewContractorLicenseInput.value = contractor.license || "";
-  dom.plansReviewContractorPhoneInput.value = contractor.phone || "";
+  renderScanContractorChoice(plansContractorRefs(), review.contractorChoice);
 
   refreshPlansReviewSuggestionList(review);
 }
@@ -5911,7 +6026,9 @@ function showPlansReviewDialog(review) {
       closeDialogSafely(dom.plansReviewDialog);
       resolve(false);
     };
+    const unwireContractor = wireScanContractorChoice(plansContractorRefs(), review.contractorChoice);
     const cleanup = () => {
+      unwireContractor();
       dom.plansReviewCancelButton.removeEventListener("click", onCancel);
       dom.plansReviewSelectAllButton?.removeEventListener("click", onSelectAll);
       dom.plansReviewImportApplyButton?.removeEventListener("click", onImportAllMissing);
@@ -6025,9 +6142,7 @@ async function importMissingPlanSuggestions(review, { selectImported = false, on
 
 function applyPlansReviewSelections(review) {
   applyReviewedProjectInfo(dom.plansReviewProjectNameInput.value.trim(), dom.plansReviewProjectAddressInput.value.trim());
-  if (dom.plansReviewApplyContractorInput.checked) {
-    applyPlansContractor();
-  }
+  applyScanContractorChoice(review.contractorChoice);
   const selected = new Set(state.selectedIds);
   let added = 0;
   dom.plansReviewSuggestions.querySelectorAll("[data-plan-suggestion]:checked").forEach((input) => {
@@ -6047,31 +6162,6 @@ function applyPlansReviewSelections(review) {
       if (state.viewMode === "simple" && state.simpleStep === "intake") setSimpleStep("contractor");
     }, 600);
   }
-}
-
-function applyPlansContractor() {
-  const contractor = {
-    id: "",
-    name: dom.plansReviewContractorNameInput.value.trim(),
-    address: dom.plansReviewContractorAddressInput.value.trim(),
-    license: dom.plansReviewContractorLicenseInput.value.trim(),
-    phone: dom.plansReviewContractorPhoneInput.value.trim(),
-    logo: "",
-    disclaimer: dom.disclaimerInput.value.trim() || DEFAULT_DISCLAIMER,
-  };
-  if (!contractor.name && !contractor.address && !contractor.license && !contractor.phone) return;
-  const matched = matchSavedContractor(contractor);
-  if (matched) {
-    state.activeContractorId = matched.id;
-    const merged = { ...matched, ...Object.fromEntries(Object.entries(contractor).filter(([, value]) => value)) };
-    const index = state.contractors.findIndex((entry) => entry.id === matched.id);
-    if (index >= 0) state.contractors[index] = merged;
-  } else {
-    contractor.id = crypto.randomUUID();
-    state.contractors.push(contractor);
-    state.activeContractorId = contractor.id;
-  }
-  syncInputsFromState();
 }
 
 function applyPlanSuggestionFilters(detected) {
@@ -6282,8 +6372,9 @@ function reviewProjectInfo(projectInfo) {
   const notes = Array.isArray(projectInfo.notes) ? projectInfo.notes.filter(Boolean) : [];
   const nameCandidates = planScanNameCandidatePayload(projectInfo);
   const addressCandidates = planScanAddressCandidatePayload(projectInfo);
+  const contractorChoice = buildScanContractorChoice(projectInfo.contractor || {});
 
-  if (!name && !address && !planScanCandidates(nameCandidates).length && !planScanCandidates(addressCandidates).length) {
+  if (!name && !address && !planScanCandidates(nameCandidates).length && !planScanCandidates(addressCandidates).length && !contractorChoice.match) {
     setOcrStatus("I could not find a project name or address. A tighter title block crop may help.");
     return Promise.resolve(false);
   }
@@ -6291,6 +6382,7 @@ function reviewProjectInfo(projectInfo) {
   if (!dom.projectInfoReviewDialog?.showModal) {
     if (window.confirm(`Use detected project information?\n\nProject: ${name || "(blank)"}\nAddress: ${address || "(blank)"}`)) {
       applyReviewedProjectInfo(name, address);
+      applyScanContractorChoice(contractorChoice);
       return Promise.resolve(true);
     }
     return Promise.resolve(false);
@@ -6324,9 +6416,13 @@ function reviewProjectInfo(projectInfo) {
     noun: "project address",
   });
   updateProjectAddressWarning(notes);
+  const contractorRefs = projectInfoContractorRefs();
+  renderScanContractorChoice(contractorRefs, contractorChoice);
 
   return new Promise((resolve) => {
+    const unwireContractor = wireScanContractorChoice(contractorRefs, contractorChoice);
     const cleanup = () => {
+      unwireContractor();
       dom.projectInfoApplyButton.removeEventListener("click", onApply);
       dom.projectInfoCancelButton.removeEventListener("click", onCancel);
       dom.projectInfoReviewDialog.removeEventListener("cancel", onCancel);
@@ -6337,6 +6433,7 @@ function reviewProjectInfo(projectInfo) {
       const reviewedName = dom.reviewProjectNameInput.value.trim();
       const reviewedAddress = dom.reviewProjectAddressInput.value.trim();
       applyReviewedProjectInfo(reviewedName, reviewedAddress);
+      applyScanContractorChoice(contractorChoice);
       cleanup();
       closeDialogSafely(dom.projectInfoReviewDialog);
       resolve(true);

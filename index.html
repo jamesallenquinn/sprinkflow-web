@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0813-0437-3e50ef5" />
+    <link rel="stylesheet" href="./styles.css?v=b0813-1550-d4e1484" />
   </head>
   <body>
     <div class="app-shell">
@@ -3292,6 +3292,13 @@
           <div class="scan-suggestions" id="reviewProjectAddressSuggestions" hidden></div>
         </div>
         <div class="duplicate-warning" id="projectAddressWarning"></div>
+        <section class="scan-contractor" id="reviewContractorPanel" hidden>
+          <p class="scan-contractor-line" id="reviewContractorMessage"></p>
+          <div class="scan-suggestions" id="reviewContractorActions" hidden>
+            <button class="scan-suggestion-chip" id="reviewContractorUseButton" type="button" aria-pressed="true">Use this contractor</button>
+            <button class="scan-suggestion-chip" id="reviewContractorSkipButton" type="button" aria-pressed="false">Don't use</button>
+          </div>
+        </section>
         <div class="dialog-actions">
           <button class="ghost-button" id="projectInfoCancelButton" type="button">Cancel</button>
           <button class="primary-button" id="projectInfoApplyButton" type="button">Use These Details</button>
@@ -3336,28 +3343,11 @@
             <div class="scan-suggestions" id="plansReviewProjectAddressSuggestions" hidden></div>
           </div>
         </div>
-        <section class="plans-review-panel" id="plansReviewContractorPanel">
-          <label class="checkbox-row dialog-checkbox-row">
-            <input id="plansReviewApplyContractorInput" type="checkbox" />
-            <span>Use detected contractor information</span>
-          </label>
-          <div class="plans-review-grid">
-            <label>
-              Contractor Name
-              <input id="plansReviewContractorNameInput" type="text" />
-            </label>
-            <label>
-              Phone Number
-              <input id="plansReviewContractorPhoneInput" type="tel" />
-            </label>
-            <label>
-              License Number
-              <input id="plansReviewContractorLicenseInput" type="text" />
-            </label>
-            <label>
-              Contractor Address
-              <textarea id="plansReviewContractorAddressInput" rows="2"></textarea>
-            </label>
+        <section class="plans-review-panel scan-contractor" id="plansReviewContractorPanel">
+          <p class="scan-contractor-line" id="plansReviewContractorMessage"></p>
+          <div class="scan-suggestions" id="plansReviewContractorActions" hidden>
+            <button class="scan-suggestion-chip" id="plansReviewContractorUseButton" type="button" aria-pressed="true">Use this contractor</button>
+            <button class="scan-suggestion-chip" id="plansReviewContractorSkipButton" type="button" aria-pressed="false">Don't use</button>
           </div>
         </section>
         <section class="plans-review-panel">
@@ -3732,11 +3722,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0813-0437-3e50ef5"></script>
-    <script src="./app.js?v=b0813-0437-3e50ef5"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0813-0437-3e50ef5"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0813-0437-3e50ef5"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0813-0437-3e50ef5"></script>
-    <script src="./prelim-calc-desktop.js?v=b0813-0437-3e50ef5"></script>
+    <script src="./web-backend.js?v=b0813-1550-d4e1484"></script>
+    <script src="./app.js?v=b0813-1550-d4e1484"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0813-1550-d4e1484"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0813-1550-d4e1484"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0813-1550-d4e1484"></script>
+    <script src="./prelim-calc-desktop.js?v=b0813-1550-d4e1484"></script>
   </body>
 </html>
