@@ -7810,6 +7810,83 @@ body[data-theme="plain-light"] .beta-invite-results[data-tone="error"] > p {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+/* Plan-scan provenance + candidate correction (project name / address) */
+.scan-field {
+  align-content: start;
+  display: grid;
+  gap: 8px;
+}
+
+.scan-candidate-picker {
+  max-width: 220px;
+}
+
+.scan-candidate-picker select {
+  max-width: 220px;
+}
+
+.scan-provenance {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+  gap: 8px;
+  line-height: 1.4;
+}
+
+.scan-suggestions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.scan-suggestions-label {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.scan-suggestion-chip {
+  align-items: baseline;
+  background: var(--surface-soft);
+  /* --water (not --line-strong): the chip is an action, and its outline must clear
+     3:1 against both the dialog surface and its own fill in every theme. */
+  border: 1px solid var(--water);
+  border-radius: 999px;
+  color: var(--ink);
+  display: inline-flex;
+  font-size: 0.8rem;
+  font-weight: 800;
+  gap: 6px;
+  max-width: 100%;
+  min-height: 30px;
+  overflow: hidden;
+  padding: 5px 12px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scan-suggestion-chip:hover:not(:disabled) {
+  background: var(--surface-lift);
+}
+
+.scan-suggestion-chip[aria-pressed="true"] {
+  background: var(--surface-lift);
+  box-shadow: inset 3px 0 0 var(--brand);
+}
+
+.scan-suggestion-chip small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: none;
+}
+
 .plans-review-panel {
   background: rgba(55, 183, 228, 0.05);
   border: 1px solid var(--line);

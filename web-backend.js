@@ -25,7 +25,7 @@
   if (!WEB) return;                                 // desktop: do nothing
   window.__SPRINKFLOW_WEB__ = true;
   // stamped by packaging/build_web_edition.py at deploy time; "dev" locally
-  var WEB_BUILD = "b0812-1922-08ef63a";
+  var WEB_BUILD = "b0813-0437-3e50ef5";
   window.__SPRINKFLOW_WEB_BUILD__ = WEB_BUILD;
   console.log("[web-backend] SprinkFlow Web Edition active — build " + WEB_BUILD);
   // mobile layer: web-only stylesheet (media-query gated), never active on desktop
@@ -628,7 +628,10 @@
     if (_pypdfReady) return _pypdfReady;
     setBadge("Loading plan scanner (first use)…");
     _pypdfReady = py.loadPackage("micropip")
-      .then(function () { return py.runPythonAsync("import micropip\nawait micropip.install('pypdf')"); })
+      // pdfminer.six (pure Python) is what the title-block extractor positions
+      // glyphs with; without it the lazy import fails silently and the scan
+      // falls back to the old low-accuracy pypdf path.
+      .then(function () { return py.runPythonAsync("import micropip\nawait micropip.install(['pypdf', 'pdfminer.six'])"); })
       .then(function () { setBadge(null); }, function (e) { setBadge(null); _pypdfReady = null; throw e; });
     return _pypdfReady;
   }
@@ -775,7 +778,7 @@
   function dispatch(route, url, body) {
     switch (route) {
       // ---- boot ----
-      case "/api/app-info":   return Promise.resolve(jsonResp({ ok: true, app: { name: "SprinkFlow", version: "1.1.12" + (webIsAdmin() ? " · " + WEB_BUILD : ""), channel: "web", publisher: "SprinkFlow" }, license: webLicense() }));
+      case "/api/app-info":   return Promise.resolve(jsonResp({ ok: true, app: { name: "SprinkFlow", version: "1.1.13" + (webIsAdmin() ? " · " + WEB_BUILD : ""), channel: "web", publisher: "SprinkFlow" }, license: webLicense() }));
       case "/api/app-data":   return Promise.all([kvGet("state"), kvGet("projects")]).then(function (r) { return jsonResp({ ok: true, state: r[0] || {}, projects: r[1] || [] }); });
       case "/api/app-state":  return kvSet("state", body.state || {}).then(function () { return jsonResp({ ok: true }); });
       case "/api/projects":   return kvSet("projects", body.projects || []).then(function () { return jsonResp({ ok: true }); });

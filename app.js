@@ -164,7 +164,11 @@ const COVER_ADDITIONAL_INFO_FIELDS = [
   ["generalContractor", "General Contractor"],
   ["engineer", "Engineer"],
   ["owner", "Owner"],
+  ["specSection", "Specification Section"],
 ];
+// A spec section is a number and a title, not a party: it reuses the `name`
+// slot but shows a single input and prints without a "Name:" prefix.
+const COVER_ADDITIONAL_INFO_VALUE_ONLY = new Set(["specSection"]);
 const COVER_ADDITIONAL_INFO_DETAIL_FIELDS = [
   ["name", "Name"],
   ["address", "Address"],
@@ -459,7 +463,15 @@ const dom = {
   debugStatus: document.querySelector("#debugStatus"),
   projectInfoReviewSummary: document.querySelector("#projectInfoReviewSummary"),
   reviewProjectNameInput: document.querySelector("#reviewProjectNameInput"),
+  reviewProjectNameSource: document.querySelector("#reviewProjectNameSource"),
+  reviewProjectNameSuggestions: document.querySelector("#reviewProjectNameSuggestions"),
+  reviewProjectNameCandidatesLabel: document.querySelector("#reviewProjectNameCandidatesLabel"),
+  reviewProjectNameCandidates: document.querySelector("#reviewProjectNameCandidates"),
   reviewProjectAddressInput: document.querySelector("#reviewProjectAddressInput"),
+  reviewProjectAddressSource: document.querySelector("#reviewProjectAddressSource"),
+  reviewProjectAddressSuggestions: document.querySelector("#reviewProjectAddressSuggestions"),
+  reviewProjectAddressCandidatesLabel: document.querySelector("#reviewProjectAddressCandidatesLabel"),
+  reviewProjectAddressCandidates: document.querySelector("#reviewProjectAddressCandidates"),
   projectAddressWarning: document.querySelector("#projectAddressWarning"),
   projectInfoCancelButton: document.querySelector("#projectInfoCancelButton"),
   projectInfoApplyButton: document.querySelector("#projectInfoApplyButton"),
@@ -468,7 +480,13 @@ const dom = {
   plansReviewProjectNameInput: document.querySelector("#plansReviewProjectNameInput"),
   plansReviewProjectNameCandidatesLabel: document.querySelector("#plansReviewProjectNameCandidatesLabel"),
   plansReviewProjectNameCandidates: document.querySelector("#plansReviewProjectNameCandidates"),
+  plansReviewProjectNameSource: document.querySelector("#plansReviewProjectNameSource"),
+  plansReviewProjectNameSuggestions: document.querySelector("#plansReviewProjectNameSuggestions"),
   plansReviewProjectAddressInput: document.querySelector("#plansReviewProjectAddressInput"),
+  plansReviewProjectAddressCandidatesLabel: document.querySelector("#plansReviewProjectAddressCandidatesLabel"),
+  plansReviewProjectAddressCandidates: document.querySelector("#plansReviewProjectAddressCandidates"),
+  plansReviewProjectAddressSource: document.querySelector("#plansReviewProjectAddressSource"),
+  plansReviewProjectAddressSuggestions: document.querySelector("#plansReviewProjectAddressSuggestions"),
   plansReviewContractorPanel: document.querySelector("#plansReviewContractorPanel"),
   plansReviewContractorNameInput: document.querySelector("#plansReviewContractorNameInput"),
   plansReviewContractorAddressInput: document.querySelector("#plansReviewContractorAddressInput"),
@@ -844,9 +862,11 @@ function coverAdditionalInfoEntries(project = state.project) {
   return COVER_ADDITIONAL_INFO_FIELDS
     .map(([key, label]) => {
       const detail = normalizeCoverAdditionalInfoDetail(info[key]);
-      const fields = COVER_ADDITIONAL_INFO_DETAIL_FIELDS
-        .map(([fieldKey, fieldLabel]) => ({ key: fieldKey, label: fieldLabel, value: detail[fieldKey] }))
-        .filter((field) => field.value);
+      const fields = COVER_ADDITIONAL_INFO_VALUE_ONLY.has(key)
+        ? (detail.name ? [{ key: "name", label: "", value: detail.name }] : [])
+        : COVER_ADDITIONAL_INFO_DETAIL_FIELDS
+          .map(([fieldKey, fieldLabel]) => ({ key: fieldKey, label: fieldLabel, value: detail[fieldKey] }))
+          .filter((field) => field.value);
       return { key, label, detail, fields };
     })
     .filter((entry) => entry.fields.length);
@@ -2262,6 +2282,15 @@ function renderCoverAdditionalInfoControls() {
   if (dom.coverAdditionalInfoAddressInput) dom.coverAdditionalInfoAddressInput.value = detail.address || "";
   if (dom.coverAdditionalInfoPhoneInput) dom.coverAdditionalInfoPhoneInput.value = detail.phone || "";
   if (dom.coverAdditionalInfoLicenseInput) dom.coverAdditionalInfoLicenseInput.value = detail.license || "";
+  // A spec section has no phone, license or address - show one relabelled box.
+  const valueOnly = COVER_ADDITIONAL_INFO_VALUE_ONLY.has(selected);
+  const nameLabel = dom.coverAdditionalInfoNameInput?.closest("label");
+  if (nameLabel) {
+    nameLabel.childNodes[0].nodeValue = valueOnly ? "\n                    Section \n                    " : "\n                    Name\n                    ";
+    nameLabel.classList.toggle("wide-field", valueOnly);
+  }
+  ["coverAdditionalInfoPhoneInput", "coverAdditionalInfoLicenseInput", "coverAdditionalInfoAddressInput"]
+    .forEach((id) => { const l = dom[id]?.closest("label"); if (l) l.hidden = valueOnly; });
   renderCoverAdditionalInfoSummary();
 }
 
@@ -4831,12 +4860,31 @@ function buildPlansReview(projectInfo) {
       confidence: projectInfo.confidence || "low",
       source: projectInfo.source || "plans",
       notes: Array.isArray(projectInfo.notes) ? projectInfo.notes : [],
-      nameCandidates: Array.isArray(projectInfo.projectNameCandidates) ? projectInfo.projectNameCandidates : [],
+      nameCandidates: planScanNameCandidatePayload(projectInfo),
+      nameConfidence: planScanConfidence(projectInfo.nameConfidence),
+      nameSource: planScanSourceText(projectInfo.nameSource),
+      nameFromScan: Boolean(String(projectInfo.name || "").trim()),
+      addressCandidates: planScanAddressCandidatePayload(projectInfo),
+      addressConfidence: planScanConfidence(projectInfo.addressConfidence),
+      addressSource: planScanSourceText(projectInfo.addressSource),
+      addressFromScan: Boolean(String(projectInfo.address || "").trim()),
     },
     contractor: contractorMatch || projectInfo.contractor || {},
     contractorMatchedSaved: Boolean(contractorMatch),
     suggestions: buildPlanCatalogSuggestions(projectInfo),
   };
+}
+
+function planScanNameCandidatePayload(projectInfo) {
+  if (Array.isArray(projectInfo?.projectNameCandidates)) return projectInfo.projectNameCandidates;
+  if (Array.isArray(projectInfo?.nameCandidates)) return projectInfo.nameCandidates;
+  return [];
+}
+
+function planScanAddressCandidatePayload(projectInfo) {
+  if (Array.isArray(projectInfo?.projectAddressCandidates)) return projectInfo.projectAddressCandidates;
+  if (Array.isArray(projectInfo?.addressCandidates)) return projectInfo.addressCandidates;
+  return [];
 }
 
 function matchSavedContractor(candidate) {
@@ -5495,7 +5543,30 @@ function populatePlansReviewDialog(review) {
   dom.plansReviewProjectNameInput.value = review.project.name;
   dom.plansReviewProjectAddressInput.value = review.project.address;
   dom.plansReviewSummary.textContent = `Detected from ${review.project.source}. Confidence: ${review.project.confidence}. Confirm project/contractor information and approve catalog matches before applying.`;
-  populateProjectNameCandidates(review.project.nameCandidates || [], review.project.name);
+  applyScanFieldGuidance({
+    input: dom.plansReviewProjectNameInput,
+    sourceEl: dom.plansReviewProjectNameSource,
+    suggestionsEl: dom.plansReviewProjectNameSuggestions,
+    pickerLabel: dom.plansReviewProjectNameCandidatesLabel,
+    pickerSelect: dom.plansReviewProjectNameCandidates,
+    confidence: review.project.nameConfidence,
+    source: review.project.nameSource,
+    candidates: review.project.nameCandidates,
+    valueFromScan: review.project.nameFromScan !== false,
+    noun: "project name",
+  });
+  applyScanFieldGuidance({
+    input: dom.plansReviewProjectAddressInput,
+    sourceEl: dom.plansReviewProjectAddressSource,
+    suggestionsEl: dom.plansReviewProjectAddressSuggestions,
+    pickerLabel: dom.plansReviewProjectAddressCandidatesLabel,
+    pickerSelect: dom.plansReviewProjectAddressCandidates,
+    confidence: review.project.addressConfidence,
+    source: review.project.addressSource,
+    candidates: review.project.addressCandidates,
+    valueFromScan: review.project.addressFromScan !== false,
+    noun: "project address",
+  });
 
   const contractor = review.contractor || {};
   const hasContractor = Boolean(contractor.name || contractor.address || contractor.license || contractor.phone);
@@ -5509,26 +5580,137 @@ function populatePlansReviewDialog(review) {
   refreshPlansReviewSuggestionList(review);
 }
 
-function populateProjectNameCandidates(candidates, selectedName) {
-  if (!dom.plansReviewProjectNameCandidates || !dom.plansReviewProjectNameCandidatesLabel) return;
-  const unique = [];
+const PLAN_SCAN_CONFIDENCE_WORDS = new Set(["high", "medium", "low"]);
+
+function planScanConfidence(value) {
+  const raw = String(value == null ? "" : value).trim().toLowerCase();
+  return PLAN_SCAN_CONFIDENCE_WORDS.has(raw) ? raw : "";
+}
+
+function planScanSourceText(value) {
+  return String(value == null ? "" : value).replace(/\s+/g, " ").trim();
+}
+
+function planScanCandidates(raw) {
+  if (!Array.isArray(raw)) return [];
   const seen = new Set();
-  for (const candidate of candidates) {
-    const name = detectedProjectCaps(candidate?.name || "");
+  const list = [];
+  for (const entry of raw) {
+    const candidate = typeof entry === "string" ? { name: entry } : (entry || {});
+    const name = detectedProjectCaps(candidate.name || candidate.value || candidate.text || "");
     if (!name || seen.has(name)) continue;
     seen.add(name);
-    unique.push({ ...candidate, name });
+    const reasons = Array.isArray(candidate.reasons)
+      ? candidate.reasons.map((reason) => String(reason || "").replace(/\s+/g, " ").trim()).filter(Boolean)
+      : [];
+    list.push({ name, reasons });
   }
-  dom.plansReviewProjectNameCandidatesLabel.hidden = unique.length < 2;
-  dom.plansReviewProjectNameCandidates.innerHTML = unique.map((candidate, index) => {
-    const reasons = Array.isArray(candidate.reasons) ? candidate.reasons.join(", ") : "";
+  return list;
+}
+
+function planScanProvenanceMarkup(confidence, source, hasValue, hasCandidates, noun) {
+  const conf = planScanConfidence(confidence);
+  const src = planScanSourceText(source);
+  if (!conf && !src) return "";
+  const chip = conf ? `<span class="ai-conf ai-conf-${conf}">${escapeHtml(conf)} confidence</span>` : "";
+  let text;
+  if (!hasValue) {
+    text = hasCandidates
+      ? `No confident ${noun} found. Pick a suggestion below or type it in.`
+      : `No ${noun} could be read from the plans. Type it in.`;
+  } else {
+    const guessed = conf === "low" || /file ?name/i.test(src);
+    text = `${guessed ? "Guessed from" : "Detected from"} ${src || "the plans"}${guessed ? " - verify before applying." : "."}`;
+  }
+  return `${chip}<span class="scan-provenance-text">${escapeHtml(text)}</span>`;
+}
+
+function renderScanProvenance(element, markup) {
+  if (!element) return;
+  element.innerHTML = markup || "";
+  element.hidden = !markup;
+}
+
+function renderScanSuggestions(container, candidates, onPick) {
+  if (!container) return;
+  container.onclick = null;
+  if (!candidates.length) {
+    container.innerHTML = "";
+    container.hidden = true;
+    return;
+  }
+  const chips = candidates.slice(0, 4).map((candidate) => {
+    const reason = candidate.reasons.slice(0, 2).join(", ");
+    return `<button class="scan-suggestion-chip" type="button" aria-pressed="false" data-scan-suggestion="${escapeHtml(candidate.name)}" title="${escapeHtml(reason || candidate.name)}">${escapeHtml(candidate.name)}${reason ? `<small>${escapeHtml(reason)}</small>` : ""}</button>`;
+  }).join("");
+  container.innerHTML = `<span class="scan-suggestions-label">Did you mean:</span>${chips}`;
+  container.hidden = false;
+  container.onclick = (event) => {
+    const button = event.target?.closest?.("[data-scan-suggestion]");
+    if (!button || !container.contains(button)) return;
+    event.preventDefault();
+    container.querySelectorAll("[data-scan-suggestion]").forEach((chip) => {
+      chip.setAttribute("aria-pressed", chip === button ? "true" : "false");
+    });
+    onPick(button.getAttribute("data-scan-suggestion") || "");
+  };
+}
+
+function renderScanCandidatePicker(labelElement, selectElement, candidates, selectedValue, onPick) {
+  if (!labelElement || !selectElement) return;
+  selectElement.onchange = null;
+  if (candidates.length < 2) {
+    selectElement.innerHTML = "";
+    labelElement.hidden = true;
+    return;
+  }
+  selectElement.innerHTML = candidates.map((candidate, index) => {
+    const reasons = candidate.reasons.join(", ");
     const label = `${candidate.name}${index === 0 ? " (recommended)" : ""}${reasons ? ` - ${reasons}` : ""}`;
     return `<option value="${escapeHtml(candidate.name)}">${escapeHtml(label)}</option>`;
   }).join("");
-  dom.plansReviewProjectNameCandidates.value = detectedProjectCaps(selectedName || unique[0]?.name || "");
-  dom.plansReviewProjectNameCandidates.onchange = () => {
-    dom.plansReviewProjectNameInput.value = dom.plansReviewProjectNameCandidates.value;
+  selectElement.value = detectedProjectCaps(selectedValue || candidates[0].name);
+  labelElement.hidden = false;
+  selectElement.onchange = () => onPick(selectElement.value);
+}
+
+// Shows where a scanned value came from and makes a wrong/missing one one click from right.
+// Payloads without the confidence/source keys (legacy scans, web edition) render exactly as before.
+function applyScanFieldGuidance(config) {
+  const input = config.input;
+  if (!input) return;
+  const noun = config.noun || "value";
+  const conf = planScanConfidence(config.confidence);
+  const src = planScanSourceText(config.source);
+  const candidates = planScanCandidates(config.candidates);
+  const hasMeta = Boolean(conf || src);
+  const hasValue = config.valueFromScan !== false && Boolean(input.value.trim());
+  const needsCorrection = hasMeta && (conf === "low" || !hasValue);
+  const onPick = (value) => {
+    input.value = detectedProjectCaps(value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    renderScanProvenance(
+      config.sourceEl,
+      `<span class="scan-provenance-text">${escapeHtml(`Filled from a suggested ${noun} - edit it if it is not right.`)}</span>`,
+    );
+    try {
+      input.focus();
+    } catch (error) {
+      /* focusing the field is best effort */
+    }
   };
+  renderScanProvenance(
+    config.sourceEl,
+    hasMeta ? planScanProvenanceMarkup(conf, src, hasValue, candidates.length > 0, noun) : "",
+  );
+  renderScanSuggestions(config.suggestionsEl, needsCorrection ? candidates : [], onPick);
+  renderScanCandidatePicker(
+    config.pickerLabel,
+    config.pickerSelect,
+    needsCorrection ? [] : candidates,
+    input.value,
+    onPick,
+  );
 }
 
 function refreshPlansReviewSuggestionList(review) {
@@ -6098,8 +6280,10 @@ function reviewProjectInfo(projectInfo) {
   const source = projectInfo.source || "plans";
   const confidence = projectInfo.confidence || "low";
   const notes = Array.isArray(projectInfo.notes) ? projectInfo.notes.filter(Boolean) : [];
+  const nameCandidates = planScanNameCandidatePayload(projectInfo);
+  const addressCandidates = planScanAddressCandidatePayload(projectInfo);
 
-  if (!name && !address) {
+  if (!name && !address && !planScanCandidates(nameCandidates).length && !planScanCandidates(addressCandidates).length) {
     setOcrStatus("I could not find a project name or address. A tighter title block crop may help.");
     return Promise.resolve(false);
   }
@@ -6115,6 +6299,30 @@ function reviewProjectInfo(projectInfo) {
   dom.reviewProjectNameInput.value = name;
   dom.reviewProjectAddressInput.value = address;
   dom.projectInfoReviewSummary.textContent = `Detected from ${source}. Confidence: ${confidence}. Confirm or edit before filling the project fields.`;
+  applyScanFieldGuidance({
+    input: dom.reviewProjectNameInput,
+    sourceEl: dom.reviewProjectNameSource,
+    suggestionsEl: dom.reviewProjectNameSuggestions,
+    pickerLabel: dom.reviewProjectNameCandidatesLabel,
+    pickerSelect: dom.reviewProjectNameCandidates,
+    confidence: projectInfo.nameConfidence,
+    source: projectInfo.nameSource,
+    candidates: nameCandidates,
+    valueFromScan: Boolean(String(projectInfo.name || "").trim()),
+    noun: "project name",
+  });
+  applyScanFieldGuidance({
+    input: dom.reviewProjectAddressInput,
+    sourceEl: dom.reviewProjectAddressSource,
+    suggestionsEl: dom.reviewProjectAddressSuggestions,
+    pickerLabel: dom.reviewProjectAddressCandidatesLabel,
+    pickerSelect: dom.reviewProjectAddressCandidates,
+    confidence: projectInfo.addressConfidence,
+    source: projectInfo.addressSource,
+    candidates: addressCandidates,
+    valueFromScan: Boolean(String(projectInfo.address || "").trim()),
+    noun: "project address",
+  });
   updateProjectAddressWarning(notes);
 
   return new Promise((resolve) => {

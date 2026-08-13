@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0812-1922-08ef63a" />
+    <link rel="stylesheet" href="./styles.css?v=b0813-0437-3e50ef5" />
   </head>
   <body>
     <div class="app-shell">
@@ -159,6 +159,7 @@
                     <option value="generalContractor">General Contractor</option>
                     <option value="engineer">Engineer</option>
                     <option value="owner">Owner</option>
+                    <option value="specSection">Specification Section</option>
                   </select>
                 </label>
                 <div class="field-grid two cover-additional-editor" id="coverAdditionalInfoEditor">
@@ -3262,14 +3263,34 @@
           <h2>Confirm Project Details</h2>
         </div>
         <p class="dialog-copy" id="projectInfoReviewSummary"></p>
-        <label>
-          Project Name
-          <input id="reviewProjectNameInput" type="text" />
-        </label>
-        <label>
-          Project Address
-          <input id="reviewProjectAddressInput" type="text" />
-        </label>
+        <div class="scan-field">
+          <div class="dialog-field-action">
+            <label>
+              Project Name
+              <input id="reviewProjectNameInput" type="text" />
+            </label>
+            <label class="scan-candidate-picker" id="reviewProjectNameCandidatesLabel" hidden>
+              Options
+              <select id="reviewProjectNameCandidates"></select>
+            </label>
+          </div>
+          <p class="scan-provenance" id="reviewProjectNameSource" hidden></p>
+          <div class="scan-suggestions" id="reviewProjectNameSuggestions" hidden></div>
+        </div>
+        <div class="scan-field">
+          <div class="dialog-field-action">
+            <label>
+              Project Address
+              <input id="reviewProjectAddressInput" type="text" />
+            </label>
+            <label class="scan-candidate-picker" id="reviewProjectAddressCandidatesLabel" hidden>
+              Options
+              <select id="reviewProjectAddressCandidates"></select>
+            </label>
+          </div>
+          <p class="scan-provenance" id="reviewProjectAddressSource" hidden></p>
+          <div class="scan-suggestions" id="reviewProjectAddressSuggestions" hidden></div>
+        </div>
         <div class="duplicate-warning" id="projectAddressWarning"></div>
         <div class="dialog-actions">
           <button class="ghost-button" id="projectInfoCancelButton" type="button">Cancel</button>
@@ -3286,18 +3307,34 @@
         </div>
         <p class="dialog-copy" id="plansReviewSummary"></p>
         <div class="plans-review-grid">
-          <label>
-            Project Name
-            <input id="plansReviewProjectNameInput" type="text" />
-          </label>
-          <label id="plansReviewProjectNameCandidatesLabel">
-            Name Options
-            <select id="plansReviewProjectNameCandidates"></select>
-          </label>
-          <label>
-            Project Address
-            <input id="plansReviewProjectAddressInput" type="text" />
-          </label>
+          <div class="scan-field">
+            <div class="dialog-field-action">
+              <label>
+                Project Name
+                <input id="plansReviewProjectNameInput" type="text" />
+              </label>
+              <label class="scan-candidate-picker" id="plansReviewProjectNameCandidatesLabel" hidden>
+                Options
+                <select id="plansReviewProjectNameCandidates"></select>
+              </label>
+            </div>
+            <p class="scan-provenance" id="plansReviewProjectNameSource" hidden></p>
+            <div class="scan-suggestions" id="plansReviewProjectNameSuggestions" hidden></div>
+          </div>
+          <div class="scan-field">
+            <div class="dialog-field-action">
+              <label>
+                Project Address
+                <input id="plansReviewProjectAddressInput" type="text" />
+              </label>
+              <label class="scan-candidate-picker" id="plansReviewProjectAddressCandidatesLabel" hidden>
+                Options
+                <select id="plansReviewProjectAddressCandidates"></select>
+              </label>
+            </div>
+            <p class="scan-provenance" id="plansReviewProjectAddressSource" hidden></p>
+            <div class="scan-suggestions" id="plansReviewProjectAddressSuggestions" hidden></div>
+          </div>
         </div>
         <section class="plans-review-panel" id="plansReviewContractorPanel">
           <label class="checkbox-row dialog-checkbox-row">
@@ -3695,11 +3732,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0812-1922-08ef63a"></script>
-    <script src="./app.js?v=b0812-1922-08ef63a"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0812-1922-08ef63a"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0812-1922-08ef63a"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0812-1922-08ef63a"></script>
-    <script src="./prelim-calc-desktop.js?v=b0812-1922-08ef63a"></script>
+    <script src="./web-backend.js?v=b0813-0437-3e50ef5"></script>
+    <script src="./app.js?v=b0813-0437-3e50ef5"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0813-0437-3e50ef5"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0813-0437-3e50ef5"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0813-0437-3e50ef5"></script>
+    <script src="./prelim-calc-desktop.js?v=b0813-0437-3e50ef5"></script>
   </body>
 </html>
