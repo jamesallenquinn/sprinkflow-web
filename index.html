@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0814-1745-7435d0c" />
+    <link rel="stylesheet" href="./styles.css?v=b0817-2127-09612b7" />
   </head>
   <body>
     <div class="app-shell">
@@ -406,6 +406,7 @@
                   <button class="ghost-button compact-button danger-ghost-button" id="deleteLoadoutButton" type="button" disabled>Delete</button>
                 </div>
                 <input id="loadoutImportInput" class="hidden-input" type="file" accept=".json,application/json" />
+                <div class="loadout-list" id="loadoutList"></div>
               </div>
             </details>
             <div class="catalog-list" id="catalogList"></div>
@@ -3366,6 +3367,37 @@
       </form>
     </dialog>
 
+    <dialog class="review-dialog loadout-editor-dialog" id="loadoutEditorDialog">
+      <form method="dialog">
+        <div class="dialog-heading">
+          <p class="eyebrow">Material loadout</p>
+          <h2 id="loadoutEditorTitle">Save Material Loadout</h2>
+        </div>
+        <p class="dialog-copy" id="loadoutEditorSummary"></p>
+        <label class="loadout-editor-name">
+          Loadout name
+          <input id="loadoutEditorNameInput" type="text" maxlength="80" placeholder="CPVC Hangers" />
+        </label>
+        <label class="loadout-editor-replace" id="loadoutEditorReplaceRow" hidden>
+          <input id="loadoutEditorReplaceInput" type="checkbox" />
+          <span id="loadoutEditorReplaceLabel">Replace this loadout's datasheets with my current selection</span>
+        </label>
+        <section class="loadout-trigger-section">
+          <div class="dialog-heading compact-dialog-heading">
+            <p class="eyebrow">Automatic triggers</p>
+            <h2>Add these automatically when the scan finds&hellip;</h2>
+          </div>
+          <p class="loadout-trigger-help">Tick anything a plan scan can detect. When a scan finds it, this loadout's datasheets arrive in the scan review already checked and labelled &mdash; you can still uncheck any of them. Leave everything unticked to keep this loadout manual.</p>
+          <div class="loadout-trigger-groups" id="loadoutEditorTriggers"></div>
+        </section>
+        <div class="dialog-actions">
+          <button class="ghost-button" id="loadoutEditorCancelButton" type="button">Cancel</button>
+          <button class="secondary-button" id="loadoutEditorClearTriggersButton" type="button">Clear Triggers</button>
+          <button class="primary-button" id="loadoutEditorSaveButton" type="button">Save Loadout</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog class="review-dialog" id="newProjectDialog">
       <form method="dialog">
         <div class="dialog-heading">
@@ -3722,11 +3754,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0814-1745-7435d0c"></script>
-    <script src="./app.js?v=b0814-1745-7435d0c"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0814-1745-7435d0c"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0814-1745-7435d0c"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0814-1745-7435d0c"></script>
-    <script src="./prelim-calc-desktop.js?v=b0814-1745-7435d0c"></script>
+    <script src="./web-backend.js?v=b0817-2127-09612b7"></script>
+    <script src="./app.js?v=b0817-2127-09612b7"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0817-2127-09612b7"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0817-2127-09612b7"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0817-2127-09612b7"></script>
+    <script src="./prelim-calc-desktop.js?v=b0817-2127-09612b7"></script>
   </body>
 </html>

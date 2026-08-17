@@ -222,6 +222,10 @@ const runtime = {
 
 const uploadedFiles = new Map();
 let savedProjects = [];
+// Which contractor id the on-screen contractor form currently represents.
+// syncStateFromInputs refuses to write back unless the form was hydrated for the
+// profile it is about to overwrite - see the note there.
+let contractorFormHydratedFor = null;
 let appStateReady = false;
 let stateSaveTimer = null;
 let previewScaleFrame = null;
@@ -413,6 +417,18 @@ const dom = {
   importLoadoutButton: document.querySelector("#importLoadoutButton"),
   deleteLoadoutButton: document.querySelector("#deleteLoadoutButton"),
   loadoutImportInput: document.querySelector("#loadoutImportInput"),
+  loadoutList: document.querySelector("#loadoutList"),
+  loadoutEditorDialog: document.querySelector("#loadoutEditorDialog"),
+  loadoutEditorTitle: document.querySelector("#loadoutEditorTitle"),
+  loadoutEditorSummary: document.querySelector("#loadoutEditorSummary"),
+  loadoutEditorNameInput: document.querySelector("#loadoutEditorNameInput"),
+  loadoutEditorReplaceRow: document.querySelector("#loadoutEditorReplaceRow"),
+  loadoutEditorReplaceInput: document.querySelector("#loadoutEditorReplaceInput"),
+  loadoutEditorReplaceLabel: document.querySelector("#loadoutEditorReplaceLabel"),
+  loadoutEditorTriggers: document.querySelector("#loadoutEditorTriggers"),
+  loadoutEditorCancelButton: document.querySelector("#loadoutEditorCancelButton"),
+  loadoutEditorClearTriggersButton: document.querySelector("#loadoutEditorClearTriggersButton"),
+  loadoutEditorSaveButton: document.querySelector("#loadoutEditorSaveButton"),
   refreshCatalogButton: document.querySelector("#refreshCatalogButton"),
   clearSelectionsButton: document.querySelector("#clearSelectionsButton"),
   deleteSelectedDatasheetsButton: document.querySelector("#deleteSelectedDatasheetsButton"),
@@ -792,6 +808,10 @@ async function loadState() {
   applySavedState(loadedState || {});
   clearMigratedBrowserStorage();
   appStateReady = true;
+  const healed = healContractorsFromSavedProjects();
+  if (healed) {
+    console.info(`SprinkFlow: restored details on ${healed} contractor profile(s) from saved projects.`);
+  }
   saveState();
   saveProjects(savedProjects);
 }
@@ -959,11 +979,25 @@ function normalizeLoadouts(loadouts) {
       name,
       itemIds,
       items,
+      triggers: normalizeLoadoutTriggers(raw?.triggers),
       createdAt: raw?.createdAt || new Date().toISOString(),
       updatedAt: raw?.updatedAt || raw?.createdAt || new Date().toISOString(),
     });
   }
   return normalized.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// A trigger is a plan-scan concept ("valves:riser-assembly", "material:cpvc")
+// that makes this loadout contribute its datasheets to the scan review. Keys
+// that are not in this build's vocabulary are KEPT, not dropped, so exporting a
+// loadout from a newer build and importing it here does not silently erase its
+// triggers.
+function normalizeLoadoutTriggers(triggers) {
+  return [...new Set(
+    (Array.isArray(triggers) ? triggers : [])
+      .map((value) => String(value || "").trim().toLowerCase())
+      .filter((value) => /^[a-z0-9]+:[a-z0-9.-]{1,48}$/.test(value)),
+  )].sort().slice(0, 80);
 }
 
 function normalizeLoadoutItems(items) {
@@ -992,7 +1026,7 @@ function ensureCustomCategory(value) {
   if (existing) return existing;
   state.customCategories = normalizeCustomCategories([...state.customCategories, category]);
   rebuildCategories();
-  if (!state.catalogFilters[category]) state.catalogFilters[category] = { manufacturer: "", kFactor: "", orientation: "", type: "", response: "" };
+  if (!state.catalogFilters[category]) state.catalogFilters[category] = { manufacturer: "", kFactor: "", orientation: "", type: "", response: "", saved: "" };
   return category;
 }
 
@@ -2177,6 +2211,10 @@ function persistentStateSnapshot() {
     catalogFilters: defaultCatalogFilters(),
     customCategories: state.customCategories,
     customCommonReferences: state.customCommonReferences,
+    // applySavedState() has always READ parsed.loadouts, but this snapshot never
+    // wrote them - so every saved loadout was silently lost on reload. Triggers
+    // are worthless if the loadout carrying them cannot survive a restart.
+    loadouts: state.loadouts,
     coverTemplate: state.coverTemplate,
     theme: state.theme,
     viewMode: state.viewMode,
@@ -2195,6 +2233,35 @@ function isNoContractorSelected() {
 
 function currentContractor() {
   return state.contractors.find((contractor) => contractor.id === state.activeContractorId) || blankContractor();
+}
+
+// Saved projects each carry a full `activeContractor` snapshot. That makes them a
+// second copy of every profile ever used on a job, so a profile that lost its
+// text fields can be rebuilt from the jobs it was used on - no re-typing. Runs
+// once on load; only ever fills BLANK fields, never overwrites what is there.
+function healContractorsFromSavedProjects() {
+  if (!Array.isArray(state.contractors) || !Array.isArray(savedProjects)) return 0;
+  const snapshots = new Map();
+  for (const project of savedProjects) {
+    const snap = project && project.activeContractor;
+    if (snap && snap.id && (snap.name || snap.license || snap.phone)) {
+      const best = snapshots.get(snap.id);
+      // prefer the richest snapshot if a profile was edited over time
+      const score = (s) => [s.name, s.address, s.license, s.phone].filter(Boolean).length;
+      if (!best || score(snap) > score(best)) snapshots.set(snap.id, snap);
+    }
+  }
+  let healed = 0;
+  for (const contractor of state.contractors) {
+    const snap = snapshots.get(contractor.id);
+    if (!snap) continue;
+    let touched = false;
+    for (const field of ["name", "address", "license", "phone"]) {
+      if (!contractor[field] && snap[field]) { contractor[field] = snap[field]; touched = true; }
+    }
+    if (touched) healed += 1;
+  }
+  return healed;
 }
 
 function formContractor() {
@@ -2235,6 +2302,9 @@ function syncInputsFromState() {
   dom.contractorLicenseInput.value = contractor.license || "";
   dom.contractorPhoneInput.value = contractor.phone || "";
   dom.disclaimerInput.value = contractor.disclaimer || DEFAULT_DISCLAIMER;
+  // The form now genuinely represents this profile, so writes back to it are
+  // real user edits rather than a half-built form clobbering saved data.
+  contractorFormHydratedFor = contractor.id || "";
   if (dom.catalogSelectedOnlyInput) dom.catalogSelectedOnlyInput.checked = Boolean(state.catalogSelectedOnly);
 }
 
@@ -2247,13 +2317,39 @@ function syncStateFromInputs() {
   syncCoverAdditionalInfoEditorToState(activeCoverAdditionalInfoType);
   if (dom.coverAdditionalInfoFields) dom.coverAdditionalInfoFields.hidden = !state.project.coverAdditionalInfoEnabled;
 
+  // A contractor the user is typing into MUST end up in state. This used to be
+  // guarded on `contractor.id`, so with no profile selected (the "New contractor
+  // profile" option, id "") every keystroke of name/address/license/phone was
+  // written onto a throwaway blankContractor() and thrown away on the next
+  // render. Dropping a logo was the only path that created a record, which is
+  // why damaged profiles came back holding a logo and nothing else.
   const contractor = currentContractor();
+  const typed = {
+    name: dom.contractorNameInput.value.trim(),
+    address: dom.contractorAddressInput.value.trim(),
+    license: dom.contractorLicenseInput.value.trim(),
+    phone: dom.contractorPhoneInput.value.trim(),
+    disclaimer: dom.disclaimerInput.value.trim() || DEFAULT_DISCLAIMER,
+  };
+  const hasIdentity = Boolean(typed.name || typed.address || typed.license || typed.phone);
   if (contractor.id) {
-    contractor.name = dom.contractorNameInput.value.trim();
-    contractor.address = dom.contractorAddressInput.value.trim();
-    contractor.license = dom.contractorLicenseInput.value.trim();
-    contractor.phone = dom.contractorPhoneInput.value.trim();
-    contractor.disclaimer = dom.disclaimerInput.value.trim() || DEFAULT_DISCLAIMER;
+    // THE OTHER HALF OF THE DATA LOSS: this function also runs on paths where the
+    // contractor form has not been filled in from state yet (load, project switch,
+    // renders triggered from elsewhere). Writing then copies four empty strings
+    // over a good profile. Only write back a form that was hydrated for THIS
+    // profile - otherwise leave the stored record alone.
+    if (contractorFormHydratedFor === contractor.id) {
+      Object.assign(contractor, typed);
+    }
+  } else if (hasIdentity && !isNoContractorSelected()) {
+    // Nothing selected but real text on screen: give it a home rather than lose it.
+    const created = { ...blankContractor(), ...typed, id: crypto.randomUUID() };
+    state.contractors.push(created);
+    state.activeContractorId = created.id;
+    // The form is now this record's form. Without this the hydration guard above
+    // would reject every following keystroke, and the profile would keep only
+    // whichever field happened to be filled when it was created.
+    contractorFormHydratedFor = created.id;
   }
 }
 
@@ -3124,7 +3220,7 @@ function renderLoadouts() {
   dom.loadoutSelect.innerHTML = [
     '<option value="">Saved loadouts</option>',
     ...state.loadouts.map((loadout) => {
-      const count = loadoutLoadableItems(loadout).length || loadout.itemIds.length || loadout.items.length;
+      const count = loadoutItemCount(loadout);
       return `<option value="${escapeHtml(loadout.id)}">${escapeHtml(loadout.name)} (${count})</option>`;
     }),
   ].join("");
@@ -3136,18 +3232,49 @@ function renderLoadouts() {
   if (dom.exportLoadoutButton) dom.exportLoadoutButton.disabled = !hasSelectedLoadout;
   if (dom.deleteLoadoutButton) dom.deleteLoadoutButton.disabled = !hasSelectedLoadout;
   if (dom.saveLoadoutButton) dom.saveLoadoutButton.disabled = !hasCurrentSelection;
+  renderLoadoutList();
+}
+
+function loadoutItemCount(loadout) {
+  return loadoutLoadableItems(loadout).length || loadout.itemIds?.length || loadout.items?.length || 0;
+}
+
+function renderLoadoutList() {
+  if (!dom.loadoutList) return;
+  if (!state.loadouts.length) {
+    dom.loadoutList.innerHTML = '<p class="loadout-empty">No saved loadouts yet. Select the datasheets you use together, then choose Save Current.</p>';
+    return;
+  }
+  const activeId = dom.loadoutSelect?.value || "";
+  dom.loadoutList.innerHTML = state.loadouts.map((loadout) => {
+    const count = loadoutItemCount(loadout);
+    const triggers = Array.isArray(loadout.triggers) ? loadout.triggers : [];
+    const chips = triggers.length
+      ? triggers.map((key) => `<span class="loadout-trigger-chip">${escapeHtml(loadoutTriggerLabel(key))}</span>`).join("")
+      : '<span class="loadout-trigger-chip is-manual">Manual only</span>';
+    return `
+      <button type="button" class="loadout-row${loadout.id === activeId ? " is-active" : ""}" data-loadout-row="${escapeHtml(loadout.id)}" aria-pressed="${loadout.id === activeId}">
+        <span class="loadout-row-head">
+          <span class="loadout-row-name">${escapeHtml(loadout.name)}</span>
+          <span class="loadout-row-count">${count} datasheet${count === 1 ? "" : "s"}</span>
+        </span>
+        <span class="loadout-row-triggers">${chips}</span>
+      </button>
+    `;
+  }).join("");
 }
 
 function currentLoadout() {
   return state.loadouts.find((loadout) => loadout.id === dom.loadoutSelect?.value) || null;
 }
 
-function createLoadoutFromCurrentSelection(name, existing = null) {
+function createLoadoutFromCurrentSelection(name, existing = null, triggers = null) {
   const selectedItems = selectedCatalogItems();
   const now = new Date().toISOString();
   return {
     id: existing?.id || localId("loadout"),
     name: String(name || "").replace(/\s+/g, " ").trim().slice(0, 80),
+    triggers: normalizeLoadoutTriggers(triggers ?? existing?.triggers),
     itemIds: selectedItems.map((item) => item.id),
     items: selectedItems.map((item) => ({
       id: item.id,
@@ -3207,22 +3334,131 @@ function normalizePath(value) {
   return String(value || "").replace(/[\\/]+/g, "/").toLowerCase();
 }
 
+let loadoutEditorContext = null;
+
 function saveCurrentSelectionAsLoadout(existing = null) {
-  if (!state.selectedIds.length) {
+  if (!existing && !state.selectedIds.length) {
     setGenerateStatus("Select at least one datasheet before saving a loadout.", "error");
     return;
   }
-  const defaultName = existing?.name || `${state.project.name || "Project"} Loadout`.replace(/\s+/g, " ").trim();
-  const name = window.prompt(existing ? "Rename this loadout and replace its saved materials with the current selections:" : "Name this new material loadout:", defaultName);
-  if (name === null) return;
-  const loadout = createLoadoutFromCurrentSelection(name, existing);
-  if (!loadout.name) {
-    setGenerateStatus("Loadout name is required.", "error");
+  if (!dom.loadoutEditorDialog) {
+    saveLoadoutWithoutEditor(existing);
     return;
   }
-  if (!loadout.items.length) {
-    setGenerateStatus("No catalog items could be saved to the loadout.", "error");
+  const selectionCount = state.selectedIds.length;
+  loadoutEditorContext = { existing, selectionCount };
+
+  dom.loadoutEditorTitle.textContent = existing ? "Edit Material Loadout" : "Save Material Loadout";
+  dom.loadoutEditorNameInput.value = existing?.name
+    || `${state.project.name || "Project"} Loadout`.replace(/\s+/g, " ").trim();
+
+  const savedCount = existing ? loadoutItemCount(existing) : 0;
+  if (existing) {
+    dom.loadoutEditorSummary.textContent = selectionCount
+      ? `This loadout holds ${savedCount} datasheet${savedCount === 1 ? "" : "s"}. You have ${selectionCount} selected right now — tick the box below to replace its materials with that selection.`
+      : `This loadout holds ${savedCount} datasheet${savedCount === 1 ? "" : "s"}. Nothing is selected right now, so its materials stay as they are.`;
+  } else {
+    dom.loadoutEditorSummary.textContent = `Saves the ${selectionCount} datasheet${selectionCount === 1 ? "" : "s"} you have selected as a reusable set.`;
+  }
+  if (dom.loadoutEditorReplaceRow) {
+    dom.loadoutEditorReplaceRow.hidden = !(existing && selectionCount > 0);
+    if (dom.loadoutEditorReplaceInput) {
+      dom.loadoutEditorReplaceInput.checked = false;
+      dom.loadoutEditorReplaceLabel.textContent = `Replace this loadout's ${savedCount} datasheet${savedCount === 1 ? "" : "s"} with my current selection (${selectionCount})`;
+    }
+  }
+
+  renderLoadoutTriggerEditor(existing?.triggers || []);
+  if (!openDialogSafely(dom.loadoutEditorDialog)) {
+    loadoutEditorContext = null;
+    saveLoadoutWithoutEditor(existing);
     return;
+  }
+  window.setTimeout(() => {
+    try {
+      dom.loadoutEditorNameInput.focus();
+      dom.loadoutEditorNameInput.select();
+    } catch (error) {
+      /* focusing the name is best effort */
+    }
+  }, 0);
+}
+
+// Fallback for the (unexpected) case where the editor dialog is unavailable:
+// keep the old prompt behaviour rather than losing the ability to save at all.
+function saveLoadoutWithoutEditor(existing) {
+  const defaultName = existing?.name || `${state.project.name || "Project"} Loadout`.replace(/\s+/g, " ").trim();
+  const name = window.prompt(existing ? "Rename this loadout:" : "Name this new material loadout:", defaultName);
+  if (name === null) return;
+  commitLoadout({ existing, name, triggers: existing?.triggers || [], replaceItems: state.selectedIds.length > 0 });
+}
+
+function renderLoadoutTriggerEditor(selectedKeys) {
+  if (!dom.loadoutEditorTriggers) return;
+  const selected = new Set(normalizeLoadoutTriggers(selectedKeys));
+  dom.loadoutEditorTriggers.innerHTML = loadoutTriggerCatalog().map((group) => {
+    const options = group.triggers.map((trigger) => `
+      <label class="loadout-trigger-option${selected.has(trigger.key) ? " is-on" : ""}">
+        <input type="checkbox" data-loadout-trigger="${escapeHtml(trigger.key)}" ${selected.has(trigger.key) ? "checked" : ""} />
+        <span class="loadout-trigger-option-text">
+          <span class="loadout-trigger-option-label">${escapeHtml(trigger.label)}</span>
+          ${trigger.detail ? `<span class="loadout-trigger-option-detail">${escapeHtml(trigger.detail)}</span>` : ""}
+        </span>
+      </label>
+    `).join("");
+    return `
+      <section class="loadout-trigger-group">
+        <p class="loadout-trigger-group-title">${escapeHtml(group.title)}<span class="loadout-trigger-group-hint">${escapeHtml(group.hint || "")}</span></p>
+        <div class="loadout-trigger-options">${options}</div>
+      </section>
+    `;
+  }).join("");
+}
+
+function readLoadoutTriggerEditor() {
+  if (!dom.loadoutEditorTriggers) return [];
+  return [...dom.loadoutEditorTriggers.querySelectorAll("[data-loadout-trigger]:checked")]
+    .map((input) => input.dataset.loadoutTrigger);
+}
+
+function commitLoadoutEditor() {
+  if (!loadoutEditorContext) return;
+  const { existing, selectionCount } = loadoutEditorContext;
+  const replaceItems = existing
+    ? Boolean(selectionCount && dom.loadoutEditorReplaceInput?.checked)
+    : true;
+  const ok = commitLoadout({
+    existing,
+    name: dom.loadoutEditorNameInput.value,
+    triggers: readLoadoutTriggerEditor(),
+    replaceItems,
+  });
+  if (!ok) return;
+  loadoutEditorContext = null;
+  closeDialogSafely(dom.loadoutEditorDialog);
+}
+
+function commitLoadout({ existing, name, triggers, replaceItems }) {
+  // Trigger keys this build does not know about (from a newer export) are
+  // carried through untouched instead of being wiped by an editor that could
+  // not draw a checkbox for them.
+  const known = new Set([...loadoutTriggerLabelMap().keys()]);
+  const carried = (Array.isArray(existing?.triggers) ? existing.triggers : []).filter((key) => !known.has(key));
+  const loadout = replaceItems
+    ? createLoadoutFromCurrentSelection(name, existing, [...triggers, ...carried])
+    : {
+      ...existing,
+      name: String(name || "").replace(/\s+/g, " ").trim().slice(0, 80),
+      triggers: normalizeLoadoutTriggers([...triggers, ...carried]),
+      updatedAt: new Date().toISOString(),
+    };
+  if (!loadout.name) {
+    setGenerateStatus("Loadout name is required.", "error");
+    return false;
+  }
+  if (!loadout.items?.length && !loadout.itemIds?.length) {
+    setGenerateStatus("No catalog items could be saved to the loadout.", "error");
+    return false;
   }
   state.loadouts = state.loadouts.filter((entry) => entry.id !== loadout.id);
   state.loadouts.push(loadout);
@@ -3231,7 +3467,14 @@ function saveCurrentSelectionAsLoadout(existing = null) {
   if (dom.loadoutSelect) dom.loadoutSelect.value = loadout.id;
   renderLoadouts();
   saveState();
-  setGenerateStatus(`Saved loadout "${loadout.name}" with ${loadout.items.length} item${loadout.items.length === 1 ? "" : "s"}.`, "success");
+  const saved = state.loadouts.find((entry) => entry.id === loadout.id) || loadout;
+  const triggerCount = saved.triggers?.length || 0;
+  const itemCount = loadoutItemCount(saved);
+  setGenerateStatus(
+    `Saved loadout "${saved.name}" with ${itemCount} item${itemCount === 1 ? "" : "s"}${triggerCount ? ` and ${triggerCount} automatic trigger${triggerCount === 1 ? "" : "s"}` : ""}.`,
+    "success",
+  );
+  return true;
 }
 
 function applySelectedLoadout() {
@@ -3411,9 +3654,15 @@ function renderCategoryFilters(category, items) {
   normalizeCategoryFilters(category, items);
   const manufacturers = uniqueSorted(filterItemsForOptionList(category, items, "manufacturer").map((item) => item.manufacturer || "Unknown Manufacturer").filter(Boolean));
   const manufacturerSelect = renderFilterSelect("manufacturer", "Manufacturer", filters.manufacturer || "", manufacturers.map((manufacturer) => ({ value: manufacturer, label: manufacturer })));
+  // "In my database" = a datasheet PDF is already saved locally, so the row can
+  // go straight into a package without fetching anything.
+  const savedSelect = renderFilterSelect("saved", "Datasheet", filters.saved || "", [
+    { value: "local", label: "In my database" },
+    { value: "remote", label: "Not imported yet" },
+  ]);
 
   if (category !== "Sprinklers") {
-    return `<div class="catalog-filters">${manufacturerSelect}</div>`;
+    return `<div class="catalog-filters">${manufacturerSelect}${savedSelect}</div>`;
   }
 
   const kFactors = uniqueSorted(filterItemsForOptionList(category, items, "kFactor").flatMap(itemKFactors), numericStringCompare);
@@ -3431,6 +3680,7 @@ function renderCategoryFilters(category, items) {
       ${renderFilterSelect("orientation", "Orientation", filters.orientation || "", availableOrientations)}
       ${renderFilterSelect("type", "Type", filters.type || "", availableTypes)}
       ${renderFilterSelect("response", "Response", filters.response || "", availableResponses)}
+      ${savedSelect}
     </div>
   `;
 }
@@ -3438,26 +3688,21 @@ function renderCategoryFilters(category, items) {
 function activeFilterCount(category) {
   const f = state.catalogFilters[category];
   if (!f) return 0;
-  return ["manufacturer", "kFactor", "orientation", "type", "response"].filter((key) => f[key]).length;
+  return ["manufacturer", "kFactor", "orientation", "type", "response", "saved"].filter((key) => f[key]).length;
 }
 
 function renderCatalogFilterControls(category, items, isSearching) {
   if (isSearching) return '<p class="search-scope-note">Searching all categories</p>';
   if (category === "All") return '<p class="search-scope-note">Showing all categories</p>';
   const selectedOnly = Boolean(state.catalogSelectedOnly);
-  const activeCount = activeFilterCount(category) + (selectedOnly ? 1 : 0);
   const hasFilters = categoryHasActiveFilters(category) || selectedOnly;
+  // Always on screen. These used to hide inside a <details> that had to be
+  // opened every visit, which buried the one control most likely to be wanted.
   return `
-    <details class="catalog-filters-disclosure" ${hasFilters || state.catalogFiltersOpen ? "open" : ""}>
-      <summary title="Narrow the ${escapeHtml(category.toLowerCase())} list">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18l-7 8.5V19l-4 2.5v-8L3 5z"/></svg>
-        Filters${activeCount ? ` <span class="filter-badge">${activeCount}</span>` : ""}
-      </summary>
-      <div class="catalog-filter-controls">
-        ${renderCategoryFilters(category, items)}
-        <button class="ghost-button compact-button clear-filters-button" type="button" data-clear-catalog-filters ${hasFilters ? "" : "disabled"}>Clear Filters</button>
-      </div>
-    </details>
+    <div class="catalog-filter-controls">
+      ${renderCategoryFilters(category, items)}
+      <button class="ghost-button compact-button clear-filters-button" type="button" data-clear-catalog-filters ${hasFilters ? "" : "disabled"}>Clear Filters</button>
+    </div>
   `;
 }
 
@@ -3490,7 +3735,7 @@ function renderFilterSelect(key, label, currentValue, options) {
 
 function categoryFilterState(category) {
   if (!state.catalogFilters[category]) {
-    state.catalogFilters[category] = { manufacturer: "", kFactor: "", orientation: "", type: "", response: "" };
+    state.catalogFilters[category] = { manufacturer: "", kFactor: "", orientation: "", type: "", response: "", saved: "" };
   }
   if (!Object.prototype.hasOwnProperty.call(state.catalogFilters[category], "orientation")) state.catalogFilters[category].orientation = "";
   return state.catalogFilters[category];
@@ -3500,7 +3745,7 @@ function defaultCatalogFilters() {
   return Object.fromEntries(
     CATEGORIES.map((category) => [
       category,
-      { manufacturer: "", kFactor: "", orientation: "", type: "", response: "" },
+      { manufacturer: "", kFactor: "", orientation: "", type: "", response: "", saved: "" },
     ]),
   );
 }
@@ -3514,7 +3759,7 @@ function resetActiveCatalogFilters() {
   if (dom.catalogSearchInput) dom.catalogSearchInput.value = "";
   state.catalogSelectedOnly = false;
   if (dom.catalogSelectedOnlyInput) dom.catalogSelectedOnlyInput.checked = false;
-  state.catalogFilters[state.activeCategory] = { manufacturer: "", kFactor: "", orientation: "", type: "", response: "" };
+  state.catalogFilters[state.activeCategory] = { manufacturer: "", kFactor: "", orientation: "", type: "", response: "", saved: "" };
   renderCatalog();
   saveState();
 }
@@ -3532,6 +3777,11 @@ function applyCategoryFiltersExcept(category, items, exceptKey = "") {
   const filters = categoryFilterState(category);
   return items.filter((item) => {
     if (exceptKey !== "manufacturer" && filters.manufacturer && (item.manufacturer || "Unknown Manufacturer") !== filters.manufacturer) return false;
+    if (exceptKey !== "saved" && filters.saved) {
+      const mine = isLocalCatalogItem(item);
+      if (filters.saved === "local" && !mine) return false;
+      if (filters.saved === "remote" && mine) return false;
+    }
     if (category === "Sprinklers" && exceptKey !== "kFactor" && filters.kFactor && !itemKFactors(item).includes(filters.kFactor)) return false;
     if (category === "Sprinklers" && exceptKey !== "orientation" && filters.orientation && !itemMatchesSprinklerOrientation(item, filters.orientation)) return false;
     if (category === "Sprinklers" && exceptKey !== "type" && filters.type && !itemMatchesSprinklerType(item, filters.type)) return false;
@@ -5050,7 +5300,7 @@ function buildPlanCatalogSuggestions(projectInfo) {
     });
   };
   const addChoiceSuggestion = (kind, detected, category, terms, label = "", config = {}) => {
-    const choiceOptions = findCatalogChoiceOptions(category, terms, new Set(), config.excludeTerms || []);
+    const choiceOptions = findCatalogChoiceOptions(category, terms, new Set(), config.excludeTerms || [], config.preferred || []);
     if (!choiceOptions.length) return;
     suggestions.push({
       kind,
@@ -5075,7 +5325,7 @@ function buildPlanCatalogSuggestions(projectInfo) {
     for (const fitting of suggestedFittingsForPipe(pipe)) {
       const choice = planChoiceConfig(fitting, "Fittings");
       if (choice) {
-        addChoiceSuggestion("fitting-choice", fitting, "Fittings", choice.terms, choice.label, { excludeTerms: choice.excludeTerms });
+        addChoiceSuggestion("fitting-choice", fitting, "Fittings", choice.terms, choice.label, { excludeTerms: choice.excludeTerms, preferred: choice.preferred });
       } else {
         addSuggestion("fitting", fitting, matchCatalogTermFromPlan(fitting, "Fittings"));
       }
@@ -5083,7 +5333,7 @@ function buildPlanCatalogSuggestions(projectInfo) {
   }
   for (const fitting of Array.isArray(projectInfo.fittings) ? projectInfo.fittings : []) {
     const choice = planChoiceConfig(fitting, "Fittings");
-    if (choice) addChoiceSuggestion("fitting-choice", fitting, "Fittings", choice.terms, choice.label, { excludeTerms: choice.excludeTerms });
+    if (choice) addChoiceSuggestion("fitting-choice", fitting, "Fittings", choice.terms, choice.label, { excludeTerms: choice.excludeTerms, preferred: choice.preferred });
     else addSuggestion("fitting", fitting, matchCatalogTermFromPlan(fitting, "Fittings"));
   }
   for (const hanger of Array.isArray(projectInfo.hangers) ? projectInfo.hangers : []) {
@@ -5091,13 +5341,13 @@ function buildPlanCatalogSuggestions(projectInfo) {
       addSuggestion("hanger", hanger, matchCatalogTermFromPlan(hanger, "Hangers"));
     } else {
       const choice = planChoiceConfig(hanger, "Hangers");
-      if (choice) addChoiceSuggestion("hanger-choice", hanger, "Hangers", choice.terms, choice.label, { excludeTerms: choice.excludeTerms });
+      if (choice) addChoiceSuggestion("hanger-choice", hanger, "Hangers", choice.terms, choice.label, { excludeTerms: choice.excludeTerms, preferred: choice.preferred });
       else addSuggestion("hanger", hanger, matchCatalogTermFromPlan(hanger, "Hangers"));
     }
   }
   for (const bracing of Array.isArray(projectInfo.bracing) ? projectInfo.bracing : []) {
     const choice = planChoiceConfig(bracing, "Bracing");
-    if (choice) addChoiceSuggestion("bracing-choice", bracing, "Bracing", choice.terms, choice.label, { excludeTerms: choice.excludeTerms });
+    if (choice) addChoiceSuggestion("bracing-choice", bracing, "Bracing", choice.terms, choice.label, { excludeTerms: choice.excludeTerms, preferred: choice.preferred });
     else addSuggestion("bracing", bracing, matchCatalogTermFromPlan(bracing, "Bracing"));
   }
   for (const valve of Array.isArray(projectInfo.valves) ? projectInfo.valves : []) {
@@ -5107,16 +5357,19 @@ function buildPlanCatalogSuggestions(projectInfo) {
       addSuggestion("valve", valve, matchCatalogTermFromPlan(valve, "Valves"));
     } else {
       const choice = planChoiceConfig(valve, "Valves");
-      if (choice) addChoiceSuggestion("valve-choice", valve, "Valves", choice.terms, choice.label, { excludeTerms: choice.excludeTerms });
+      if (choice) addChoiceSuggestion("valve-choice", valve, "Valves", choice.terms, choice.label, { excludeTerms: choice.excludeTerms, preferred: choice.preferred });
       else addSuggestion("valve", valve, matchCatalogTermFromPlan(valve, "Valves"));
     }
   }
   for (const misc of Array.isArray(projectInfo.miscellaneous) ? projectInfo.miscellaneous : []) {
     const choice = planChoiceConfig(misc, "Miscellaneous");
-    if (choice) addChoiceSuggestion("misc-choice", misc, "Miscellaneous", choice.terms, choice.label, { excludeTerms: choice.excludeTerms });
+    if (choice) addChoiceSuggestion("misc-choice", misc, "Miscellaneous", choice.terms, choice.label, { excludeTerms: choice.excludeTerms, preferred: choice.preferred });
     else addSuggestion("misc", misc, matchCatalogTermFromPlan(misc, "Miscellaneous"));
   }
-  return consolidatePlanChoiceSuggestions(suggestions);
+  // Loadout rows are appended AFTER consolidation so the choice-grouping pass
+  // cannot absorb them into a "Choose one" dropdown - they are the owner's
+  // standing answer, not another candidate.
+  return appendLoadoutSuggestions(consolidatePlanChoiceSuggestions(suggestions), projectInfo);
 }
 
 function consolidatePlanChoiceSuggestions(suggestions) {
@@ -5196,6 +5449,9 @@ function dedupePlanChoiceRows(suggestions) {
 
   return output.filter((suggestion) => {
     if (suggestion.options?.length) return true;
+    // A loadout row is an explicit standing choice - never swallow it just
+    // because the same sheet also happens to sit inside a Choose dropdown.
+    if (suggestion.fromLoadouts?.length) return true;
     if (!suggestion.item?.id) return true;
     return ![...choiceByKey.values()].some((choice) => choice.options.some((item) => item.id === suggestion.item.id));
   });
@@ -5263,64 +5519,297 @@ function uniqueCatalogItems(items) {
   return unique;
 }
 
+// The scan's own choice vocabulary. Hoisted to module scope so the loadout
+// trigger list is GENERATED from these labels instead of being a second,
+// hand-maintained copy that drifts out of sync.
+const PLAN_CHOICE_RULES = {
+  Fittings: [
+    { label: "Grooved Flexible Couplings", terms: ["grooved flexible coupling", "flexible coupling", "flex coupling"], excludeTerms: ["rigid", "push-on", "push on"], pattern: /\b(?:grooved\s+)?flex(?:ible)?\s+couplings?\b|\bflex\s+couplings?\b/ },
+    { label: "Grooved Rigid Couplings - Push-On", terms: ["grooved rigid coupling push-on", "push-on coupling", "push on coupling", "push on"], excludeTerms: ["flexible", "standard"], pattern: /\bpush[-\s]?on\b.{0,30}\bcouplings?\b|\bcouplings?\b.{0,30}\bpush[-\s]?on\b/ },
+    { label: "Grooved Rigid Couplings", terms: ["grooved rigid coupling", "rigid coupling"], excludeTerms: ["flexible"], pattern: /\b(?:grooved\s+)?rigid\s+couplings?\b|\bcouplings?\b.{0,30}\brigid\b/ },
+    // Bare "grooved coupling(s)" - no rigid/flexible qualifier - is common plan
+    // language and used to fall through EVERY rule: the coupling rules demand a
+    // qualifier and Grooved Fittings' lookahead rejects grooved-then-coupling.
+    // Ambiguous spec defaults to rigid, the trade's default joining method.
+    { label: "Grooved Couplings", terms: ["grooved coupling", "rigid coupling", "grooved rigid coupling"],
+      pattern: /\bgrooved\s+couplings?\b/ },
+    { label: "Grooved Fittings", terms: ["grooved fittings", "victaulic grooved fittings"], excludeTerms: ["coupling"], pattern: /\bgrooved fittings?\b|\bgrooved\b(?!\s+(?:flexible|rigid)?\s*couplings?)/ },
+    { label: "Mechanical Tee", terms: ["mechanical tee"], pattern: /\bmechanical tees?\b/ },
+    { label: "Threaded Fittings", terms: ["threaded fittings", "ductile iron threaded", "cast iron threaded", "malleable iron threaded", "black malleable"], pattern: /\bthreaded fittings?\b|\b(?:ductile|cast|malleable)\s+iron\b.{0,50}\bthreaded\b|\bthreaded\b.{0,50}\b(?:ductile|cast|malleable)\s+iron\b/ },
+  ],
+  // ORDER MATTERS: resolved with .find(), first match wins. Specific hanger
+  // types come before the generic ones, or "C-Type Beam Clamp" lands on Beam
+  // Clamp and "Hanger for CPVC" lands on nothing useful. Measured against the
+  // owner's 34-plan corpus: CPVC hangers, side beam brackets, wrap-arounds,
+  // retaining straps, bar joist and anchors all appeared in real plans with
+  // no rule to catch them, while the catalog already stocked all of them.
+  Hangers: [
+    { label: "CPVC Hanger", terms: ["hanger for cpvc", "cpvc hanger", "cpvc restrainer", "stand-off hanger cpvc", "offset hanger cpvc", "blazemaster hanger"],
+      pattern: /\bcpvc\b.{0,40}\b(?:hangers?|restrainers?|straps?)\b|\b(?:hangers?|restrainers?)\b.{0,40}\bcpvc\b|\bblazemaster\b.{0,40}\bhangers?\b/ },
+    { label: "Riser Clamp", terms: ["riser clamp"], pattern: /\briser clamps?\b/, preferred: ["b3373"] },
+    { label: "Side Beam Bracket", terms: ["side beam bracket", "side beam connector", "side beam"], pattern: /\bside beam\b/ },
+    { label: "C-Clamp / Purlin Clamp", terms: ["c-clamp", "c type beam clamp", "purlin clamp", "z-purlin"],
+      pattern: /\bc[-\s]?clamps?\b|\bc[-\s]?type beam clamp\b|\bpurlin\b/ },
+    { label: "Beam Clamp", terms: ["beam clamp"], pattern: /\bbeam clamps?\b/ },
+    { label: "Retaining Strap", terms: ["retaining strap", "beam clamp retaining strap", "surge restrainer"],
+      pattern: /\bretain(?:er|ing) straps?\b|\brestrain(?:er|ing) straps?\b|\bsurge restrainer\b/ },
+    { label: "Wrap-Around / U-Hanger", terms: ["wrap around u hanger", "u hanger", "u-bolt", "u bolt"],
+      pattern: /\bwrap[-\s]?around\b|\bu[-\s]?hangers?\b|\bu[-\s]?bolts?\b|\bu[-\s]?hooks?\b/ },
+    { label: "Bar Joist Hanger", terms: ["bar joist hanger", "bar joist"], pattern: /\bbar joist\b/ },
+    { label: "Clevis Hanger", terms: ["clevis hanger"], pattern: /\bclevis\b/ },
+    { label: "Ring Hanger", terms: ["tolco fig 200", "fig 200", "adjustable band hanger", "ring hanger"], pattern: /\bring hanger\b|\bband hanger\b|\bfig\.?\s*200\b/, preferred: ["fig. 200"] },
+    { label: "Trapeze Hanger", terms: ["trapeze hanger", "heavy duty band hanger trapeze", "trapeze"], pattern: /\btrapeze\b/ },
+    { label: "Pipe Clamp / Strap", terms: ["standard pipe clamp", "pipe strap", "pipe clamp"],
+      excludeTerms: ["sway", "brace", "seismic"], pattern: /\bpipe (?:clamps?|straps?)\b/ },
+    { label: "Eye Rod / Eye Nut", terms: ["eye rod", "eye nut", "weldless eye nut"], pattern: /\beye rods?\b|\beye nuts?\b/ },
+    { label: "Rod Coupling", terms: ["rod coupling", "reducing rod coupling"], pattern: /\brod couplings?\b/ },
+    { label: "Coach Screw / Lag Bolt", terms: ["coach screw rod", "coach screw", "lag bolt", "hex head lag bolt"], pattern: /\bcoach screws?\b|\blag (?:bolts?|screws?)\b/ },
+    { label: "Concrete Anchor", terms: ["wedge anchor", "concrete screw bolt", "concrete insert", "drop-in anchor", "bang-it"],
+      pattern: /\b(?:wedge|drop[-\s]?in|concrete)\s+anchors?\b|\bconcrete (?:screw|insert)s?\b|\bbang[-\s]?it\b/ },
+    // Sammy BEFORE threaded rod, and threaded rod excludes it. A SAMMY is a
+    // threaded-rod hanger, so its literature scores high on "threaded rod" and
+    // was stealing the slot: a plan reading "SAMMY threaded rod hanger" hit the
+    // Threaded Rod rule first and offered Sammys where all-thread was wanted.
+    // Now "sammy" claims its own rule, and Threaded Rod can only ever offer
+    // actual rod, defaulting to all-thread.
+    { label: "Sammy / Sidewinder", terms: ["sammy", "sidewinder", "super screw"], pattern: /\bsammy'?s?\b|\bsidewinder\b|\bsuper screw\b/ },
+    { label: "Threaded Rod / Hanger Rod", terms: ["all threaded rod", "threaded rod", "all thread", "hanger rod"],
+      excludeTerms: ["sammy", "sidewinder", "super screw"],
+      pattern: /\ball thread\b|\bthreaded rod\b|\bhanger rod\b/,
+      preferred: ["all threaded rod", "atr"] },
+  ],
+  Bracing: [
+    { label: "Lateral Brace", terms: ["lateral brace", "lateral sway brace", "lateral seismic clamp", "sway brace attachment", "seismic brace attachment"], pattern: /\blateral\b/,
+      preferred: ["fig 1001", "fig. 1001", "1001"] },
+    { label: "Longitudinal Brace", terms: ["longitudinal brace", "longitudinal lateral seismic clamp", "longitudinal seismic clamp", "sway brace attachment", "seismic brace attachment"], pattern: /\blongitudinal\b/ },
+    { label: "4-Way Brace", terms: ["4-way brace", "four way brace", "sway brace attachment", "seismic brace attachment"], pattern: /\b4[-\s]?way\b|\bfour[-\s]?way\b/ },
+    { label: "Branch Line Restraint", terms: ["branch line restraint", "restraint"], pattern: /\bbranch line restraint\b|\brestraint\b/ },
+    { label: "Sway Brace", terms: ["sway brace", "sway brace attachment", "seismic brace attachment", "seismic clamp"], pattern: /\bsway\b|\bseismic\b/ },
+  ],
+  Valves: [
+    // Backflow MUST be tested before Check Valve: rules are resolved with
+    // .find() (first match wins) and a "Double Check Valve Assembly" or
+    // "Double Check Detector Assembly" contains the literal words "check
+    // valve", so it used to be filed as a plain check valve.
+    { label: "Backflow", terms: ["backflow", "double check", "rpz", "reduced pressure", "dcda", "dcva", "rpda"],
+      pattern: /\bbackflow\b|\bdouble check\b|\brpz\b|\brpda\b|\bdcda\b|\bdcva\b|\breduced pressure\b/,
+      preferred: ["ames 3000ss", "3000ss", "3000 ss"] },
+    // A "detector check valve" IS a real fire-service check valve, so
+    // "detector" alone is NOT excluded - only the backflow assemblies are.
+    { label: "Check Valve", terms: ["check valve", "riser check", "alarm check"],
+      excludeTerms: ["backflow", "double check", "rpz", "rpda", "dcda", "dcva", "reduced pressure"],
+      pattern: /\bcheck valves?\b|\briser check\b|\balarm check\b/ },
+    { label: "Butterfly Valve", terms: ["butterfly valve"], pattern: /\bbutterfly valves?\b/ },
+    { label: "Gate Valve", terms: ["gate valve", "os&y", "os y", "nrs"], pattern: /\bgate valves?\b|\bos\s*y\b|\bnrs\b/ },
+    { label: "Dry Pipe Valve", terms: ["dry pipe valve"], pattern: /\bdry pipe valves?\b/ },
+    { label: "Deluge Valve", terms: ["deluge valve"], pattern: /\bdeluge valves?\b/ },
+    { label: "Test and Drain", terms: ["test and drain"], pattern: /\btest\s*(?:and|n|&)\s*drain\b/ },
+    { label: "Air Vent", terms: ["air vent"], pattern: /\bair vents?\b/ },
+    { label: "Riser Assembly", terms: ["riser assembly", "umc", "easypac", "manifold check"], pattern: /\briser assembl(?:y|ies)\b|\bumc\b|\beasypac\b|\bmanifold check\b/ },
+  ],
+  Miscellaneous: [
+    { label: "Bell / Horn / Strobe", terms: ["bell", "horn", "strobe", "alarm"], pattern: /\bbell\b|\bhorn\b|\bstrobe\b/ },
+    { label: "Sprinkler Cabinet", terms: ["cabinet", "head cabinet", "sprinkler head storage"], pattern: /\bcabinet\b|\bhead storage\b/ },
+    { label: "Sprinkler Guard", terms: ["head guard", "sprinkler guard"], pattern: /\bhead guard\b|\bsprinkler guard\b/ },
+    { label: "Signs", terms: ["identification signs", "sign"], pattern: /\bsigns?\b/ },
+  ],
+};
+
 function planChoiceConfig(record, category) {
   const term = normalizeSearchText(`${record?.term || ""} ${record?.sourceText || ""}`);
-  const rules = {
-    Fittings: [
-      { label: "Grooved Flexible Couplings", terms: ["grooved flexible coupling", "flexible coupling", "flex coupling"], excludeTerms: ["rigid", "push-on", "push on"], pattern: /\b(?:grooved\s+)?flex(?:ible)?\s+couplings?\b|\bflex\s+couplings?\b/ },
-      { label: "Grooved Rigid Couplings - Push-On", terms: ["grooved rigid coupling push-on", "push-on coupling", "push on coupling", "push on"], excludeTerms: ["flexible", "standard"], pattern: /\bpush[-\s]?on\b.{0,30}\bcouplings?\b|\bcouplings?\b.{0,30}\bpush[-\s]?on\b/ },
-      { label: "Grooved Rigid Couplings", terms: ["grooved rigid coupling", "rigid coupling"], excludeTerms: ["flexible"], pattern: /\b(?:grooved\s+)?rigid\s+couplings?\b|\bcouplings?\b.{0,30}\brigid\b/ },
-      { label: "Grooved Fittings", terms: ["grooved fittings", "victaulic grooved fittings"], excludeTerms: ["coupling"], pattern: /\bgrooved fittings?\b|\bgrooved\b(?!\s+(?:flexible|rigid)?\s*couplings?)/ },
-      { label: "Mechanical Tee", terms: ["mechanical tee"], pattern: /\bmechanical tees?\b/ },
-      { label: "Threaded Fittings", terms: ["threaded fittings", "ductile iron threaded", "cast iron threaded", "malleable iron threaded", "black malleable"], pattern: /\bthreaded fittings?\b|\b(?:ductile|cast|malleable)\s+iron\b.{0,50}\bthreaded\b|\bthreaded\b.{0,50}\b(?:ductile|cast|malleable)\s+iron\b/ },
-    ],
-    Hangers: [
-      { label: "Beam Clamp", terms: ["beam clamp"], pattern: /\bbeam clamps?\b/ },
-      { label: "Clevis Hanger", terms: ["clevis hanger"], pattern: /\bclevis\b/ },
-      { label: "Ring Hanger", terms: ["tolco fig 200", "fig 200", "adjustable band hanger", "ring hanger"], pattern: /\bring hanger\b|\bfig\.?\s*200\b/ },
-      { label: "Threaded Rod / Hanger Rod", terms: ["threaded rod", "all thread", "hanger rod"], pattern: /\ball thread\b|\bthreaded rod\b|\bhanger rod\b/ },
-      { label: "Sammy / Sidewinder", terms: ["sammy", "sidewinder"], pattern: /\bsammy\b|\bsidewinder\b/ },
-    ],
-    Bracing: [
-      { label: "Lateral Brace", terms: ["lateral brace", "lateral sway brace", "lateral seismic clamp", "sway brace attachment", "seismic brace attachment"], pattern: /\blateral\b/ },
-      { label: "Longitudinal Brace", terms: ["longitudinal brace", "longitudinal lateral seismic clamp", "longitudinal seismic clamp", "sway brace attachment", "seismic brace attachment"], pattern: /\blongitudinal\b/ },
-      { label: "4-Way Brace", terms: ["4-way brace", "four way brace", "sway brace attachment", "seismic brace attachment"], pattern: /\b4[-\s]?way\b|\bfour[-\s]?way\b/ },
-      { label: "Branch Line Restraint", terms: ["branch line restraint", "restraint"], pattern: /\bbranch line restraint\b|\brestraint\b/ },
-      { label: "Sway Brace", terms: ["sway brace", "sway brace attachment", "seismic brace attachment", "seismic clamp"], pattern: /\bsway\b|\bseismic\b/ },
-    ],
-    Valves: [
-      // Backflow MUST be tested before Check Valve: rules are resolved with
-      // .find() (first match wins) and a "Double Check Valve Assembly" or
-      // "Double Check Detector Assembly" contains the literal words "check
-      // valve", so it used to be filed as a plain check valve.
-      { label: "Backflow", terms: ["backflow", "double check", "rpz", "reduced pressure", "dcda", "dcva", "rpda"],
-        pattern: /\bbackflow\b|\bdouble check\b|\brpz\b|\brpda\b|\bdcda\b|\bdcva\b|\breduced pressure\b/ },
-      // A "detector check valve" IS a real fire-service check valve, so
-      // "detector" alone is NOT excluded - only the backflow assemblies are.
-      { label: "Check Valve", terms: ["check valve", "riser check", "alarm check"],
-        excludeTerms: ["backflow", "double check", "rpz", "rpda", "dcda", "dcva", "reduced pressure"],
-        pattern: /\bcheck valves?\b|\briser check\b|\balarm check\b/ },
-      { label: "Butterfly Valve", terms: ["butterfly valve"], pattern: /\bbutterfly valves?\b/ },
-      { label: "Gate Valve", terms: ["gate valve", "os&y", "os y", "nrs"], pattern: /\bgate valves?\b|\bos\s*y\b|\bnrs\b/ },
-      { label: "Dry Pipe Valve", terms: ["dry pipe valve"], pattern: /\bdry pipe valves?\b/ },
-      { label: "Deluge Valve", terms: ["deluge valve"], pattern: /\bdeluge valves?\b/ },
-      { label: "Test and Drain", terms: ["test and drain"], pattern: /\btest\s*(?:and|n|&)\s*drain\b/ },
-      { label: "Air Vent", terms: ["air vent"], pattern: /\bair vents?\b/ },
-      { label: "Riser Assembly", terms: ["riser assembly", "umc", "easypac", "manifold check"], pattern: /\briser assembl(?:y|ies)\b|\bumc\b|\beasypac\b|\bmanifold check\b/ },
-    ],
-    Miscellaneous: [
-      { label: "Bell / Horn / Strobe", terms: ["bell", "horn", "strobe", "alarm"], pattern: /\bbell\b|\bhorn\b|\bstrobe\b/ },
-      { label: "Sprinkler Cabinet", terms: ["cabinet", "head cabinet", "sprinkler head storage"], pattern: /\bcabinet\b|\bhead storage\b/ },
-      { label: "Sprinkler Guard", terms: ["head guard", "sprinkler guard"], pattern: /\bhead guard\b|\bsprinkler guard\b/ },
-      { label: "Signs", terms: ["identification signs", "sign"], pattern: /\bsigns?\b/ },
-    ],
-  };
-  return (rules[category] || []).find((rule) => rule.pattern.test(term)) || null;
+  return (PLAN_CHOICE_RULES[category] || []).find((rule) => rule.pattern.test(term)) || null;
 }
 
-function findCatalogChoiceOptions(category, terms, seen = new Set(), excludeTerms = []) {
+// Material/system detections the scan makes that never become "choice" rows.
+// These mirror infer_plan_pipe_types() in plan_scan_core.py, which fills
+// projectInfo.pipeTypes. Patterns are written against normalizeSearchText()
+// output, which lowercases and splits letter/digit runs ("C900" -> "c 900").
+//
+// bodyFallback: the piping pass can be switched off in the scan options, which
+// leaves pipeTypes empty. For CPVC - the case this whole feature exists for -
+// we also look at the raw plan text so a CPVC job still fires its loadout.
+const PLAN_MATERIAL_TRIGGERS = [
+  { key: "material:cpvc", label: "CPVC", detail: "CPVC, BlazeMaster, FlameGuard, PVC sprinkler pipe", pattern: /\bcpvc\b|\bblazemaster\b|\bflameguard\b|\bpvc sprinkler pipe\b/, bodyFallback: true },
+  { key: "material:c900", label: "C900", detail: "C900, Blue Brute", pattern: /\bc\s*900\b|\bblue brute\b/ },
+  { key: "material:ductile-iron", label: "Ductile Iron", pattern: /\bductile iron\b/ },
+  { key: "material:sch-10", label: "Sch. 10 Steel", pattern: /\bsch(?:edule)?\.?\s*10\b/ },
+  { key: "material:sch-40", label: "Sch. 40 Steel", pattern: /\bsch(?:edule)?\.?\s*40\b/ },
+  { key: "material:steel", label: "Steel Pipe (any)", detail: "Any steel pipe callout", pattern: /\bsteel\b|\bsch(?:edule)?\.?\s*(?:10|40)\b|\bmega\s*(?:flow|thread)\b|\beddy\s*(?:flow|thread)\b/ },
+  { key: "material:mega-flow", label: "Mega-Flow", pattern: /\bmega\s*flow\b/ },
+  { key: "material:mega-thread", label: "Mega-Thread", pattern: /\bmega\s*thread\b/ },
+  { key: "material:eddy-flow", label: "Eddy-Flow", pattern: /\beddy\s*flow\b/ },
+  { key: "material:eddy-thread", label: "Eddy-Thread", pattern: /\beddy\s*thread\b/ },
+];
+
+// Which projectInfo array each choice-rule category is detected from.
+const PLAN_TRIGGER_DETECTION_FIELDS = {
+  Fittings: "fittings",
+  Hangers: "hangers",
+  Bracing: "bracing",
+  Valves: "valves",
+  Miscellaneous: "miscellaneous",
+};
+
+const LOADOUT_TRIGGER_ANY_SCAN = "scan:any";
+
+function loadoutTriggerSlug(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+}
+
+let loadoutTriggerCatalogCache = null;
+
+// The discoverable trigger list offered in the loadout editor, grouped the way
+// the scan itself groups its detections.
+function loadoutTriggerCatalog() {
+  if (loadoutTriggerCatalogCache) return loadoutTriggerCatalogCache;
+  const groups = [
+    {
+      id: "material",
+      title: "Pipe & material",
+      hint: "What the plan is piped in.",
+      triggers: PLAN_MATERIAL_TRIGGERS.map((trigger) => ({
+        key: trigger.key,
+        label: trigger.label,
+        detail: trigger.detail || "",
+      })),
+    },
+  ];
+  for (const category of Object.keys(PLAN_TRIGGER_DETECTION_FIELDS)) {
+    const rules = PLAN_CHOICE_RULES[category] || [];
+    if (!rules.length) continue;
+    groups.push({
+      id: loadoutTriggerSlug(category),
+      title: category,
+      hint: `Detected ${category.toLowerCase()} callouts.`,
+      triggers: rules.map((rule) => ({
+        key: `${loadoutTriggerSlug(category)}:${loadoutTriggerSlug(rule.label)}`,
+        label: rule.label,
+        detail: "",
+      })),
+    });
+  }
+  groups.push({
+    id: "scan",
+    title: "Every scan",
+    hint: "No detection required.",
+    triggers: [{ key: LOADOUT_TRIGGER_ANY_SCAN, label: "Any plan scan", detail: "Always contribute, whatever the scan finds" }],
+  });
+  loadoutTriggerCatalogCache = groups;
+  return groups;
+}
+
+function loadoutTriggerLabelMap() {
+  const map = new Map();
+  for (const group of loadoutTriggerCatalog()) {
+    for (const trigger of group.triggers) map.set(trigger.key, trigger.label);
+  }
+  return map;
+}
+
+function loadoutTriggerLabel(key) {
+  return loadoutTriggerLabelMap().get(key) || String(key || "").split(":").pop().replace(/-/g, " ");
+}
+
+// Every trigger key this scan satisfies.
+function firedPlanTriggerKeys(projectInfo) {
+  const fired = new Set();
+  if (!projectInfo || typeof projectInfo !== "object") return fired;
+  fired.add(LOADOUT_TRIGGER_ANY_SCAN);
+
+  const pipeRecords = Array.isArray(projectInfo.pipeTypes) ? projectInfo.pipeTypes : [];
+  const pipeText = normalizeSearchText(pipeRecords.map((record) => `${record?.pipeType || ""} ${record?.sourceText || ""}`).join(" "));
+  const bodyText = normalizeSearchText(projectInfo.scanTextSample || "");
+  for (const trigger of PLAN_MATERIAL_TRIGGERS) {
+    if (trigger.pattern.test(pipeText)) fired.add(trigger.key);
+    else if (trigger.bodyFallback && bodyText && trigger.pattern.test(bodyText)) fired.add(trigger.key);
+  }
+
+  for (const [category, field] of Object.entries(PLAN_TRIGGER_DETECTION_FIELDS)) {
+    const prefix = loadoutTriggerSlug(category);
+    for (const record of Array.isArray(projectInfo[field]) ? projectInfo[field] : []) {
+      const rule = planChoiceConfig(record, category);
+      if (rule) fired.add(`${prefix}:${loadoutTriggerSlug(rule.label)}`);
+    }
+  }
+  return fired;
+}
+
+function loadoutAttributionText(names) {
+  const list = (Array.isArray(names) ? names : []).filter(Boolean);
+  if (!list.length) return "";
+  const joined = list.length === 1 ? list[0] : `${list.slice(0, -1).join(", ")} + ${list[list.length - 1]}`;
+  return `from ${joined} loadout${list.length === 1 ? "" : "s"}`;
+}
+
+function mergeLoadoutNames(existing, name) {
+  const list = Array.isArray(existing) ? [...existing] : [];
+  if (name && !list.includes(name)) list.push(name);
+  return list;
+}
+
+// Loadouts whose triggers this scan fired ADD their datasheets to the review.
+// They never replace or re-point anything the scan chose on its own: an item
+// the scan already surfaced is attributed and pre-checked in place rather than
+// listed twice, and two loadouts naming the same item collapse to one row.
+function appendLoadoutSuggestions(suggestions, projectInfo) {
+  const output = Array.isArray(suggestions) ? [...suggestions] : [];
+  const armed = (state.loadouts || []).filter((loadout) => Array.isArray(loadout.triggers) && loadout.triggers.length);
+  if (!armed.length) return output;
+
+  const fired = firedPlanTriggerKeys(projectInfo);
+  const rowsByItemId = new Map();
+  for (const suggestion of output) {
+    const item = planSuggestionSelectedItem(suggestion);
+    if (item?.id && !rowsByItemId.has(item.id)) rowsByItemId.set(item.id, suggestion);
+  }
+
+  for (const loadout of armed) {
+    const matched = loadout.triggers.filter((key) => fired.has(key));
+    if (!matched.length) continue;
+    const triggerLabels = matched.map(loadoutTriggerLabel);
+    for (const item of loadoutLoadableItems(loadout)) {
+      if (!item?.id) continue;
+      const existing = rowsByItemId.get(item.id);
+      if (existing) {
+        existing.fromLoadouts = mergeLoadoutNames(existing.fromLoadouts, loadout.name);
+        existing.triggerLabels = [...new Set([...(existing.triggerLabels || []), ...triggerLabels])];
+        existing.checked = true;
+        continue;
+      }
+      const row = {
+        kind: "loadout",
+        detected: { term: `Scan found ${triggerLabels.join(", ")}`, sourceText: `Added by the "${loadout.name}" loadout` },
+        item,
+        status: isRemoteCatalogItem(item) ? "import" : "loadout",
+        selectable: true,
+        checked: true,
+        fromLoadouts: [loadout.name],
+        triggerLabels,
+      };
+      rowsByItemId.set(item.id, row);
+      output.push(row);
+    }
+  }
+  return output;
+
+}
+
+function findCatalogChoiceOptions(category, terms, seen = new Set(), excludeTerms = [], preferred = []) {
   const termTokens = [...new Set(terms.flatMap((term) => catalogMatchTerms(term)).filter((token) => token.length > 1))];
   const excludeTokens = excludeTerms.map((term) => normalize(term)).filter(Boolean);
+  // A rule can name the product this shop actually specifies. Scoring alone
+  // can't know that a Ames 3000SS is "the" backflow here, so a preferred match
+  // is hoisted to the front and becomes the pre-selected option.
+  const preferredTokens = preferred.map((term) => normalize(term)).filter(Boolean);
+  const isPreferred = (item) => {
+    if (!preferredTokens.length) return false;
+    const text = normalize([displayName(item), item.product, item.model, item.manufacturer, aliasesText(item)].join(" "));
+    return preferredTokens.some((token) => text.includes(token));
+  };
   return state.catalog
     .filter((item) => {
       if (item.category !== category || seen.has(item.id)) return false;
@@ -5330,7 +5819,11 @@ function findCatalogChoiceOptions(category, terms, seen = new Set(), excludeTerm
     })
     .map((item) => ({ item, score: scoreCatalogTermMatch(item, termTokens) + scoreChoicePhraseMatch(item, terms) + scoreChoiceCategoryMatch(item, category, terms) }))
     .filter((entry) => entry.score >= 5)
-    .sort((a, b) => b.score - a.score || compareCatalogItems(a.item, b.item))
+    .sort((a, b) => {
+      const pa = isPreferred(a.item), pb = isPreferred(b.item);
+      if (pa !== pb) return pa ? -1 : 1;
+      return b.score - a.score || compareCatalogItems(a.item, b.item);
+    })
     .slice(0, 24)
     .map((entry) => entry.item);
 }
@@ -5853,6 +6346,10 @@ function renderPlansReviewSuggestions(suggestions) {
   }
   return suggestions.map((suggestion, index) => {
     const choiceItem = planSuggestionSelectedItem(suggestion);
+    const attribution = loadoutAttributionText(suggestion.fromLoadouts);
+    const attributionHtml = attribution
+      ? `<span class="plan-suggestion-loadout">${escapeHtml(attribution)}</span>`
+      : "";
     if (suggestion.options?.length) {
       const checked = suggestion.checked ? "checked" : "";
       const selectedItem = choiceItem || suggestion.options[0];
@@ -5863,11 +6360,12 @@ function renderPlansReviewSuggestions(suggestions) {
         `<option value="${escapeHtml(item.id)}" ${item.id === selectedItem?.id ? "selected" : ""}>${escapeHtml(displayName(item))}${isRemoteCatalogItem(item) ? " (import needed)" : ""}</option>`
       )).join("");
       return `
-        <article class="plan-suggestion-row choice-row">
+        <article class="plan-suggestion-row choice-row${attribution ? " is-from-loadout" : ""}">
           <input type="checkbox" data-plan-suggestion="${index}" ${checked} />
           <span>
             <span class="plan-suggestion-title">${escapeHtml(suggestion.label || "Choose Datasheet")}</span>
             <span class="plan-suggestion-meta">${escapeHtml(planDetectedSummary(suggestion.detected))}</span>
+            ${attributionHtml}
             <select class="plan-suggestion-select" data-plan-choice="${index}" aria-label="Choose ${escapeHtml(suggestion.label || "datasheet")}">
               ${options}
             </select>
@@ -5879,16 +6377,19 @@ function renderPlansReviewSuggestions(suggestions) {
     if (suggestion.item) {
       const disabled = suggestion.selectable ? "" : "disabled";
       const checked = suggestion.selectable && suggestion.checked === true ? "checked" : "";
-      const badge = suggestion.status === "import" ? "Import needed" : "Matched";
+      const badge = suggestion.status === "import"
+        ? "Import needed"
+        : (suggestion.status === "loadout" ? "From loadout" : "Matched");
       const action = suggestion.status === "import"
         ? `<button class="small-button download-button plan-import-button" type="button" data-plan-import="${index}">Import Datasheet</button>`
         : `<span class="plan-suggestion-badge">${escapeHtml(badge)}</span>`;
       return `
-        <article class="plan-suggestion-row">
+        <article class="plan-suggestion-row${attribution ? " is-from-loadout" : ""}">
           <input type="checkbox" data-plan-suggestion="${index}" ${checked} ${disabled} />
           <span>
             <span class="plan-suggestion-title">${escapeHtml(displayName(suggestion.item))}</span>
             <span class="plan-suggestion-meta">${escapeHtml(planDetectedSummary(suggestion.detected))}</span>
+            ${attributionHtml}
           </span>
           ${action}
         </article>
@@ -7906,6 +8407,10 @@ function deleteContractor() {
 }
 
 function applyContractorLogo(dataUrl) {
+  // Capture whatever is typed FIRST: syncStateFromInputs will adopt or create
+  // the record, so the logo lands on a profile that already has its identity
+  // instead of spawning a logo-only orphan.
+  syncStateFromInputs();
   const contractor = currentContractor();
   if (contractor.id) {
     contractor.logo = dataUrl;
@@ -7914,7 +8419,6 @@ function applyContractorLogo(dataUrl) {
     state.activeContractorId = id;
     state.contractors.push({ ...blankContractor(), id, logo: dataUrl });
   }
-  syncStateFromInputs();
   renderAll();
   setGenerateStatus("Contractor logo updated.", "success");
 }
@@ -14524,7 +15028,6 @@ function initDemoStage() {
       await new Promise((r) => setTimeout(r, 600));
       document.querySelector('[data-category-tab="Sprinklers"]')?.click();
       await new Promise((r) => setTimeout(r, 600));
-      state.catalogFiltersOpen = true;
       renderCatalog();
     })();
     return;
@@ -18948,6 +19451,26 @@ function wireEvents() {
     event.target.value = "";
   });
   dom.deleteLoadoutButton?.addEventListener("click", deleteSelectedLoadout);
+  dom.loadoutList?.addEventListener("click", (event) => {
+    const row = event.target.closest("[data-loadout-row]");
+    if (!row || !dom.loadoutSelect) return;
+    dom.loadoutSelect.value = row.dataset.loadoutRow;
+    renderLoadouts();
+  });
+  dom.loadoutEditorCancelButton?.addEventListener("click", () => {
+    loadoutEditorContext = null;
+    closeDialogSafely(dom.loadoutEditorDialog);
+  });
+  dom.loadoutEditorDialog?.addEventListener("cancel", () => {
+    loadoutEditorContext = null;
+  });
+  dom.loadoutEditorClearTriggersButton?.addEventListener("click", () => renderLoadoutTriggerEditor([]));
+  dom.loadoutEditorSaveButton?.addEventListener("click", commitLoadoutEditor);
+  dom.loadoutEditorTriggers?.addEventListener("change", (event) => {
+    const input = event.target.closest("[data-loadout-trigger]");
+    if (!input) return;
+    input.closest(".loadout-trigger-option")?.classList.toggle("is-on", input.checked);
+  });
   dom.spacingPressureHazardSelect?.addEventListener("change", updateSpacingCalculator);
   const handleCoverTemplateChange = (event) => {
     // star first: it sits inside the card, so it must not also select
@@ -19219,6 +19742,32 @@ function wireEvents() {
     });
   }
 
+  // Belt and braces for contractor identity: `change` only fires on blur, so
+  // typing a profile and then closing the app, switching tabs, or picking a
+  // different profile could still lose it. Commit to state (without a full
+  // re-render, which would fight the caret) shortly after typing stops.
+  let contractorCommitTimer = null;
+  for (const input of [
+    dom.contractorNameInput,
+    dom.contractorAddressInput,
+    dom.contractorLicenseInput,
+    dom.contractorPhoneInput,
+  ].filter(Boolean)) {
+    input.addEventListener("input", () => {
+      window.clearTimeout(contractorCommitTimer);
+      contractorCommitTimer = window.setTimeout(() => {
+        syncStateFromInputs();
+        saveState();
+        renderContractorSelect();
+      }, 600);
+    });
+  }
+  // and one last save on the way out, whatever the exit route
+  window.addEventListener("pagehide", () => { syncStateFromInputs(); saveState(); });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") { syncStateFromInputs(); saveState(); }
+  });
+
   for (const input of [
     dom.coverAdditionalInfoNameInput,
     dom.coverAdditionalInfoAddressInput,
@@ -19363,14 +19912,6 @@ function wireEvents() {
     if (clearFiltersButton) {
       resetActiveCatalogFilters();
       return;
-    }
-
-    const filterSummary = event.target.closest(".catalog-filters-disclosure > summary");
-    if (filterSummary) {
-      // remember the open state so re-renders (filter changes, imports)
-      // don't snap the panel shut under the user
-      const details = filterSummary.parentElement;
-      state.catalogFiltersOpen = !details.open;
     }
 
     const aiFindButton = event.target.closest("[data-ai-find]");
