@@ -5321,7 +5321,22 @@ function buildPlanCatalogSuggestions(projectInfo) {
     addSuggestion("custom-alias", aliasMatch.detected, { item: aliasMatch.item, status: isRemoteCatalogItem(aliasMatch.item) ? "import" : "exact" });
   }
   for (const pipe of Array.isArray(projectInfo.pipeTypes) ? projectInfo.pipeTypes : []) {
-    addSuggestion("pipe", pipe, matchPipeFromPlan(pipe));
+    const pipeOptions = matchPipeOptionsFromPlan(pipe);
+    if (pipeOptions.length > 1) {
+      suggestions.push({
+        kind: "pipe-choice",
+        detected: pipe,
+        category: "Pipe",
+        label: pipe.pipeType || pipe.sourceText || "Pipe",
+        options: pipeOptions,
+        selectedId: pipeOptions[0].id || "",
+        selectable: true,
+        checked: false,
+        status: isRemoteCatalogItem(pipeOptions[0]) ? "import" : "choice",
+      });
+    } else {
+      addSuggestion("pipe", pipe, matchPipeFromPlan(pipe));
+    }
     for (const fitting of suggestedFittingsForPipe(pipe)) {
       const choice = planChoiceConfig(fitting, "Fittings");
       if (choice) {
@@ -6070,6 +6085,21 @@ function matchPipeFromPlan(record) {
     .filter((entry) => entry.score > 0)
     .sort((a, b) => b.score - a.score)[0];
   return scored ? { item: scored.item, status: isRemoteCatalogItem(scored.item) ? "import" : "exact" } : null;
+}
+
+// Every pipe that scores for the detected type, best match first (score, then
+// the catalog's own ordering for ties). More than one means the review should
+// ask, not silently take the top scorer - "Sch. 10" with Bull Moose AND
+// Wheatland in the catalog is a choice, not a default.
+function matchPipeOptionsFromPlan(record) {
+  const label = normalize(record.pipeType || "");
+  if (!label) return [];
+  return state.catalog
+    .filter((item) => item.category === "Pipe")
+    .map((item) => ({ item, score: scorePipeMatch(item, label) }))
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => (b.score - a.score) || compareCatalogItems(a.item, b.item))
+    .map((entry) => entry.item);
 }
 
 function matchCatalogTermFromPlan(record, category) {
