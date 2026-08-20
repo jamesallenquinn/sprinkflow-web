@@ -22,6 +22,45 @@
   --accent-soft: #3b2519;
   --ok: #3ddc97;
   --shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
+
+  /* --- Density tokens (Settings > Appearance > Density) ------------------
+     These values ARE today's spacing: comfortable renders byte-identically to
+     the build before density existed. Compact redefines the same tokens on
+     body[data-density="compact"] below, so a whole-app density change costs
+     one attribute instead of edits to dozens of component rules. Type sizes
+     deliberately do NOT scale - shrinking text fails the contrast/legibility
+     bar in PROJECT_CONFORMANCE.md 4. */
+  --pad-shell: 22px;        /* .app-shell top padding                       */
+  --pad-card: 17px;         /* .panel-section inner padding                 */
+  --pad-hero: 18px;         /* .calculator-hero inner padding               */
+  --pad-option-row: 12px;   /* .option-row inner padding                    */
+  --pad-tabs: 10px 9px;     /* sidebar container padding                    */
+  --pad-tab: 8px 16px 8px 11px;  /* sidebar button; right gutter holds the pin star */
+  --gap-shell: 16px;        /* sidebar <-> content                          */
+  --gap-section: 16px;      /* between major cards                          */
+  --gap-panel: 14px;        /* stacked sections inside a tool panel         */
+  --gap-workspace: 18px;    /* submittal workspace rows                     */
+  --gap-field: 10px;        /* between form fields                          */
+  --gap-heading: 10px;      /* card heading -> card body                    */
+  --gap-stack: 12px;        /* stacked option rows                          */
+  --gap-tabs: 3px;          /* between sidebar buttons                      */
+}
+
+body[data-density="compact"] {
+  --pad-shell: 14px;
+  --pad-card: 11px;
+  --pad-hero: 12px;
+  --pad-option-row: 8px;
+  --pad-tabs: 7px 7px;
+  --pad-tab: 5px 24px 5px 10px;
+  --gap-shell: 11px;
+  --gap-section: 10px;
+  --gap-panel: 9px;
+  --gap-workspace: 11px;
+  --gap-field: 7px;
+  --gap-heading: 7px;
+  --gap-stack: 8px;
+  --gap-tabs: 2px;
 }
 
 * {
@@ -123,7 +162,7 @@ p {
 
 .app-shell {
   margin: 0 auto;
-  padding: 22px 0 96px;
+  padding: var(--pad-shell) 0 96px;
   position: relative;
   width: min(1680px, calc(100% - 28px));
   z-index: 1;
@@ -399,7 +438,7 @@ h1 {
   min-width: 180px;
 }
 
-.tool-shell { display: flex; align-items: flex-start; gap: 16px; }
+.tool-shell { display: flex; align-items: flex-start; gap: var(--gap-shell); }
 .tool-content { flex: 1 1 0; min-width: 0; }
 
 .tool-tabs {
@@ -411,15 +450,15 @@ h1 {
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.24);
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: var(--gap-tabs);
   flex: 0 0 220px;
   width: 220px;
   position: sticky;
   top: 12px;
   max-height: calc(100vh - 24px);
   overflow-y: auto;
-  margin-bottom: 16px;
-  padding: 10px 9px;
+  margin-bottom: var(--gap-section);
+  padding: var(--pad-tabs);
 }
 
 .tool-tab-group {
@@ -446,12 +485,62 @@ h1 {
   justify-content: flex-start;
   line-height: 1.2;
   min-height: 0;
-  padding: 8px 11px;
+  padding: var(--pad-tab);
   text-align: left;
   text-transform: none;
   width: 100%;
 }
 .tool-tab:hover { background: rgba(255, 255, 255, 0.05); color: var(--ink); }
+
+/* --- Favorites: star-to-pin ------------------------------------------------
+   The star sits in a gutter the tab RESERVES (--pad-tab has the room built in),
+   so it never covers a label - PROJECT_CONFORMANCE.md 4 forbids text running
+   under a control, and a hover-only scrim would do exactly that. It is
+   transparent until the tab is hovered or the star itself is focused. */
+.tool-tab { position: relative; }
+
+.tool-pin {
+  align-items: center;
+  border-radius: 4px;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  font-size: 0.82rem;
+  height: 15px;
+  justify-content: center;
+  line-height: 1;
+  opacity: 0;
+  /* Invisible must also mean unclickable: an opacity-0 star still swallows
+     clicks near the tab's right edge, which would toggle a pin when the user
+     meant to switch tools. */
+  pointer-events: none;
+  position: absolute;
+  right: 1px;
+  top: 50%;
+  transform: translateY(-50%);
+  transition: opacity 120ms ease, color 120ms ease;
+  width: 15px;
+}
+
+.tool-tab:hover .tool-pin,
+.tool-tab:focus-within .tool-pin,
+.tool-pin:focus-visible,
+.tool-pin.is-pinned { opacity: 1; pointer-events: auto; }
+
+.tool-pin.is-pinned { color: var(--accent); }
+.tool-pin:hover { color: var(--ink); }
+.tool-pin:focus-visible { outline: 2px solid var(--water); outline-offset: 1px; }
+
+.tool-tab[data-favorite="1"] { cursor: grab; }
+.tool-tab[data-favorite="1"].is-dragging {
+  cursor: grabbing;
+  opacity: 0.72;
+  outline: 1px dashed var(--line-strong);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tool-pin { transition: none; }
+}
 
 .tool-tab.active {
   background: linear-gradient(135deg, rgba(255, 90, 47, 0.22), rgba(55, 183, 228, 0.12));
@@ -644,7 +733,7 @@ body[data-theme="plain-light"] .license-tool-gate {
 
 .sprinkler-calculator-panel {
   display: grid;
-  gap: 14px;
+  gap: var(--gap-panel);
 }
 
 .calculator-hero {
@@ -657,7 +746,7 @@ body[data-theme="plain-light"] .license-tool-gate {
   box-shadow: var(--shadow);
   display: flex;
   justify-content: space-between;
-  padding: 18px;
+  padding: var(--pad-hero);
 }
 
 .calculator-hero h2 {
@@ -3328,7 +3417,7 @@ body[data-theme="plain-light"] .ai-result-status.error { color: var(--brand); }
 
 .section-heading {
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: var(--gap-heading);
 }
 
 .section-heading .eyebrow {
@@ -3383,7 +3472,7 @@ body[data-theme="plain-light"] .ai-result-status.error { color: var(--brand); }
 .workspace {
   align-items: start;
   display: grid;
-  gap: 18px;
+  gap: var(--gap-workspace);
   grid-template-columns: 1fr;
 }
 
@@ -3398,7 +3487,7 @@ body[data-theme="plain-light"] .ai-result-status.error { color: var(--brand); }
 
 .builder-panel {
   display: grid;
-  gap: 16px;
+  gap: var(--gap-section);
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
@@ -3792,7 +3881,7 @@ body[data-view-mode="simple"][data-simple-step="review"] .preview-view-toggle {
 
 .panel-section {
   overflow: hidden;
-  padding: 17px;
+  padding: var(--pad-card);
   position: relative;
 }
 
@@ -4017,8 +4106,8 @@ body[data-theme="plain-light"] textarea:focus {
 
 .field-grid {
   display: grid;
-  gap: 10px;
-  margin-top: 10px;
+  gap: var(--gap-field);
+  margin-top: var(--gap-field);
 }
 
 .field-grid.two {
@@ -4685,9 +4774,221 @@ body[data-theme="plain-light"] .generate-dock {
 
 .settings-grid {
   display: grid;
-  gap: 16px;
+  gap: var(--gap-section);
   grid-template-columns: minmax(340px, 0.9fr) minmax(440px, 1.4fr);
+  align-items: stretch;
 }
+
+/* Each column owns its grid track as ONE flex wrapper, and one card in it is
+   elastic, so both columns end on the same bottom rail without a void
+   (PROJECT_CONFORMANCE.md 6a). */
+.settings-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-section);
+  min-width: 0;
+}
+
+.settings-shortcuts-section,
+.settings-shop-section {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+/* The shortcut list is this column's elastic region. Slack is absorbed by the
+   ROWS (each li grows and centres its content), never by an empty band after
+   the last row - see PROJECT_CONFORMANCE.md 1.1 and 6a. */
+.settings-shortcuts-section .shortcut-list { flex: 1 1 auto; }
+.settings-shortcuts-section .shortcut-list li { align-items: center; flex: 1 1 auto; }
+.settings-shop-section .settings-email-body { display: flex; flex-direction: column; flex: 1 1 auto; }
+.settings-shop-section .settings-email-body textarea { flex: 1 1 auto; min-height: 120px; resize: vertical; }
+/* .settings-helper is declared further down the file, so this needs the extra
+   specificity to win - otherwise its 12px bottom margin leaves a void between
+   the note and the card's padding (PROJECT_CONFORMANCE.md 1.1). */
+.settings-shortcuts-section .settings-shortcuts-note { margin-bottom: 0; }
+
+.shortcut-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+
+.shortcut-list li {
+  align-items: baseline;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  display: flex;
+  font-size: 0.84rem;
+  gap: 12px;
+  justify-content: space-between;
+  padding-bottom: 8px;
+}
+
+.shortcut-list li:last-child { border-bottom: 0; padding-bottom: 0; }
+.shortcut-list .shortcut-what { color: var(--muted); font-weight: 700; min-width: 0; }
+
+.shortcut-list kbd {
+  background: var(--surface-soft);
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  color: var(--ink);
+  flex: 0 0 auto;
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+
+/* ===========================================================================
+   Home panel (Phase 1a). Two cards on one row, so both stretch and each owns
+   an elastic region that absorbs the slack in its ROWS - no void, shared
+   bottom rail (PROJECT_CONFORMANCE.md 1.1, 3, 6a).
+   =========================================================================== */
+.home-grid {
+  align-items: stretch;
+  display: grid;
+  gap: var(--gap-section);
+  grid-template-columns: minmax(320px, 1fr) minmax(360px, 1fr);
+}
+
+.home-resume-section,
+.home-outputs-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.home-resume-body,
+.home-outputs {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.home-facts {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+}
+
+.home-facts > div {
+  align-items: baseline;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex: 1 1 auto;
+  gap: 14px;
+  justify-content: space-between;
+  padding: 9px 0;
+}
+
+.home-facts > div:first-child { padding-top: 0; }
+.home-facts > div:last-child { border-bottom: 0; }
+
+.home-facts dt {
+  color: var(--muted);
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.home-facts dd {
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-resume-actions { margin-top: 0; }
+
+.home-output {
+  align-items: center;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  flex: 1 1 auto;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 10px 12px;
+}
+
+.home-output-text { min-width: 0; }
+
+.home-output-name {
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-output-sub {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.home-output-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.home-empty {
+  align-items: flex-start;
+  border: 1px dashed var(--line-strong);
+  border-radius: 9px;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
+  padding: 18px;
+  text-align: left;
+}
+
+.home-empty-lead {
+  color: var(--ink);
+  font-size: 0.96rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.home-empty-note {
+  color: var(--muted);
+  font-size: 0.83rem;
+  font-weight: 600;
+  line-height: 1.5;
+  margin: 0;
+  max-width: 46ch;
+}
+
+.settings-scan-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* The shared .option-row adds a top margin for stacked rows; inside this grid
+   the `gap` owns the spacing, so the margin would double it. */
+.settings-scan-grid .option-row { margin-top: 0; }
 
 .settings-helper {
   color: var(--muted);
@@ -4706,12 +5007,12 @@ body[data-theme="plain-light"] .generate-dock {
   background: rgba(9, 15, 21, 0.55);
   border: 1px solid rgba(84, 117, 139, 0.36);
   border-radius: 8px;
-  color: var(--text);
+  color: var(--ink);
   display: flex;
   flex-direction: row;
   gap: 10px;
-  margin-top: 12px;
-  padding: 12px;
+  margin-top: var(--gap-stack);
+  padding: var(--pad-option-row);
 }
 
 .option-row input {
@@ -9366,6 +9667,96 @@ body[data-theme="plain-light"] tbody tr[data-candidate-id]:focus {
   }
 }
 
+/* ===========================================================================
+   Toast stack (app-wide). One container, newest at the bottom, each toast
+   dismissible and optionally carrying an Undo. Colors are tokens only so all
+   five themes are correct; motion is opt-out via prefers-reduced-motion.
+   --toast-bottom is set from JS so the stack clears the submittal generate
+   dock when that fixed bar is on screen.
+   =========================================================================== */
+.toast-stack {
+  position: fixed;
+  right: 20px;
+  bottom: var(--toast-bottom, 18px);
+  z-index: 4100;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  max-width: min(420px, calc(100vw - 40px));
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 12px 11px 14px;
+  background: var(--surface-lift);
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-left: 3px solid var(--line-strong);
+  border-radius: 9px;
+  box-shadow: var(--shadow);
+  font-size: 0.88rem;
+  line-height: 1.35;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.toast.is-in { opacity: 1; transform: translateY(0); }
+.toast.is-leaving { opacity: 0; transform: translateY(8px); }
+.toast[data-tone="success"] { border-left-color: var(--ok); }
+.toast[data-tone="error"] { border-left-color: var(--brand); }
+
+.toast-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.toast-action {
+  flex: 0 0 auto;
+  background: var(--surface-soft);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 5px 11px;
+}
+
+.toast-action:hover { background: var(--surface); border-color: var(--ink); }
+.toast-action:focus-visible,
+.toast-close:focus-visible { outline: 2px solid var(--water); outline-offset: 2px; }
+
+.toast-close {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 1.15rem;
+  line-height: 1;
+  padding: 2px 4px;
+}
+
+.toast-close:hover { color: var(--ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .toast.is-leaving { opacity: 1; }
+}
+
 /* App-level toast notifications (client error notices etc.) */
 .app-toast {
   position: fixed;
@@ -10913,3 +11304,265 @@ body[data-theme="vellum"] .seismic-constraint.is-fail { border-left-color: #b02a
 body[data-theme="vellum"] .seismic-constraint.is-unavailable { border-left-color: #8a5f0a; }
 body[data-theme="vellum"] .seismic-cond-badge { border-color: #3c6a37; color: #3c6a37; }
 body[data-theme="vellum"] .seismic-cond.is-acked { border-left-color: #3c6a37; }
+
+/* ===========================================================================
+   Command palette (Ctrl+K / Ctrl+P) + the `?` shortcut overlay — UX Phase 2.
+
+   Both are <dialog>s opened with showModal(), so they live in the top layer and
+   open correctly on top of any other modal the user already has up. Colors are
+   tokens only, so all five themes are right for free; every padding comes from
+   the density tokens, so Compact tightens the palette with the rest of the app.
+   Horizontal placement is set from JS (--palette-left/--palette-width) to the
+   centre of the CONTENT column, clear of the sidebar.
+   =========================================================================== */
+
+.command-palette {
+  position: fixed;
+  top: 11vh;
+  left: var(--palette-left, 50%);
+  width: var(--palette-width, min(760px, calc(100vw - 32px)));
+  max-width: calc(100vw - 24px);
+  max-height: 70vh;
+  margin: 0;
+  padding: 0;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  z-index: 4200;
+}
+
+.command-palette:not([style*="--palette-left"]) { transform: translateX(-50%); }
+.command-palette[open] { display: flex; }
+.command-palette::backdrop { background: rgba(6, 10, 14, 0.42); }
+
+.command-palette-search {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex: 0 0 auto;
+  gap: 10px;
+  padding: var(--pad-card);
+}
+
+.command-palette-glyph {
+  color: var(--muted);
+  flex: 0 0 auto;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.command-palette-search input {
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+  flex: 1 1 auto;
+  font-family: inherit;
+  font-size: 1.02rem;
+  min-width: 0;
+  outline: none;
+  padding: 0;
+}
+
+.command-palette-search input::placeholder { color: var(--muted); }
+
+.command-palette-esc,
+.command-palette-foot kbd,
+.palette-row-key {
+  background: var(--surface-soft);
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  color: var(--muted);
+  flex: 0 0 auto;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
+.command-palette-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 0 8px;
+}
+
+.palette-group {
+  color: var(--muted);
+  font-size: 0.63rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  padding: 10px var(--pad-card) 4px;
+  text-transform: uppercase;
+}
+
+.command-palette-list > .palette-group:first-child { padding-top: 4px; }
+
+.palette-row {
+  align-items: center;
+  border-left: 3px solid transparent;
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  font-size: 0.9rem;
+  padding: var(--pad-option-row) var(--pad-card) var(--pad-option-row) calc(var(--pad-card) - 3px);
+}
+
+.palette-row.is-active {
+  background: var(--surface-lift);
+  border-left-color: var(--water);
+}
+
+.palette-row-tag {
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  flex: 0 0 auto;
+  font-size: 0.63rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  text-transform: uppercase;
+  /* wide enough for the longest source name ("Datasheets") — a clipped tag
+     reads as a rendering bug (PROJECT_CONFORMANCE.md 4). */
+  width: 102px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palette-row-label {
+  flex: 0 1 auto;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Also the flex spacer that pins the trailing column to the right edge. */
+.palette-row-sub {
+  color: var(--muted);
+  flex: 1 1 auto;
+  font-size: 0.79rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palette-row-flag {
+  background: var(--accent-soft);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--ink);
+  flex: 0 0 auto;
+  font-size: 0.66rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.command-palette-empty {
+  color: var(--muted);
+  flex: 0 0 auto;
+  font-size: 0.88rem;
+  margin: 0;
+  padding: 18px var(--pad-card) 20px;
+  text-align: center;
+}
+
+.command-palette-foot {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  font-size: 0.74rem;
+  gap: 6px 14px;
+  padding: 9px var(--pad-card);
+}
+
+.command-palette-foot span { align-items: center; display: inline-flex; gap: 5px; }
+.command-palette-count { margin-left: auto; font-weight: 700; }
+
+/* --- `?` shortcut overlay ------------------------------------------------- */
+
+.shortcuts-overlay {
+  position: fixed;
+  top: 9vh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(640px, calc(100vw - 32px));
+  max-height: 76vh;
+  margin: 0;
+  padding: 0;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  z-index: 4200;
+}
+
+.shortcuts-overlay[open] { display: flex; }
+.shortcuts-overlay::backdrop { background: rgba(6, 10, 14, 0.42); }
+
+.shortcuts-overlay-head {
+  align-items: flex-start;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex: 0 0 auto;
+  gap: 16px;
+  justify-content: space-between;
+  padding: var(--pad-card);
+}
+
+.shortcuts-overlay-head h3 { margin: 4px 0 0; }
+
+.shortcuts-overlay-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--gap-section);
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--pad-card);
+}
+
+.shortcuts-overlay-group .eyebrow { margin: 0 0 var(--gap-heading); }
+.shortcuts-overlay-group .shortcut-list { margin-bottom: 0; }
+
+/* The Settings > Shortcuts card and a palette action both point here; flash the
+   target section briefly so the jump is legible. */
+.settings-section-flash {
+  box-shadow: 0 0 0 2px var(--water);
+  transition: box-shadow 220ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-section-flash { transition: none; }
+}
+
+/* plan-scan offer row: a prompt, not a match - quieter than suggestion rows */
+.plan-suggestion-row.offer-row { border-style: dashed; align-items: center; }
+.plan-offer-glyph { color: var(--accent); font-weight: 900; font-size: 1.2rem; width: 18px; text-align: center; flex: none; }
+.plan-offer-button { white-space: nowrap; }
+
+.plan-suggestion-note { display: block; margin-top: 4px; font-size: 0.78rem; color: var(--muted); font-style: italic; }
+
+.plan-offer-controls { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.plan-offer-back { opacity: 0.75; }

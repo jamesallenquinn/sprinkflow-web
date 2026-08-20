@@ -151,12 +151,25 @@ const DEFAULT_COVER_SUBTITLE = "Fire Sprinkler Installation";
 const DEFAULT_EMAIL_SUBJECT_TEMPLATE = "PROJECT_NAME Fire Sprinkler Plans, Calcs, and Material Data Submittals";
 const DEFAULT_EMAIL_BODY_TEMPLATE =
   "Hi CONTRACTOR_NAME,\n\nPlease see attached fire sprinkler plans, calculations, and material data submittals for PROJECT_NAME.\n\nThank you,";
+const PLAN_SCAN_CATEGORIES = ["sprinklers", "piping", "hangers", "bracing", "valves", "miscellaneous"];
+const DENSITY_MODES = ["comfortable", "compact"];
+// state.settings schema, grouped the way the Settings panel presents it. Keys
+// this build does not know about are preserved verbatim by normalizeSettings,
+// so a newer build's settings survive a round trip through an older one.
 const DEFAULT_SETTINGS = {
+  // --- Shop defaults ---
   outputFolder: "",
   openGeneratedPdf: true,
   tocStyle: "standard",
   emailSubjectTemplate: DEFAULT_EMAIL_SUBJECT_TEMPLATE,
   emailBodyTemplate: DEFAULT_EMAIL_BODY_TEMPLATE,
+  defaultContractorId: "",
+  // --- Scanning ---
+  scanCategories: Object.fromEntries(PLAN_SCAN_CATEGORIES.map((key) => [key, true])),
+  // --- Appearance ---
+  density: "comfortable",
+  // --- General ---
+  homeOnLaunch: true,
 };
 const BETA_INVITE_DEFAULT_DOWNLOAD_URL = "https://www.dropbox.com/t/XvHbWK53rblUgmv1";
 const COVER_ADDITIONAL_INFO_FIELDS = [
@@ -208,6 +221,16 @@ const state = {
   betaInviteResults: [],
   settings: { ...DEFAULT_SETTINGS },
   estimator: defaultEstimator(),
+  // Soft-deleted records awaiting undo (30-day retention). Persisted with the
+  // rest of app-state so an undo survives an app restart.
+  trash: [],
+  // Sidebar Favorites, in the user's drag order. In app-state (not
+  // localStorage) so pins roam with the database the way loadouts do.
+  pinnedTools: [],
+  // Command palette recency: [{ key, at }], most-recent FIRST, capped at
+  // PALETTE_RECENTS_MAX. Persisted with the rest of app-state so the palette
+  // still knows your habits after a restart.
+  paletteRecents: [],
 };
 
 const runtime = {
@@ -266,6 +289,335 @@ const SIMPLE_STEP_LABELS = {
   materials: { eyebrow: "Step 3 of 4", title: "Datasheets & Catalog" },
   review: { eyebrow: "Step 4 of 4", title: "Review & Export" },
 };
+
+// ============================================================================
+//  TOOL_REGISTRY — the single source of truth for the left sidebar.
+//
+//  The 24 tools used to be hand-written <button data-tool-tab> markup in
+//  index.html, which meant every consumer (the palette, pinning, the resume
+//  home, the Job concept) had to scrape the DOM to learn what tools exist.
+//  They now live here and the sidebar is RENDERED from this array.
+//
+//  Fields:
+//    id           - matches the panel's data-tool-panel and activateTool(id)
+//    label        - exact sidebar text (must stay byte-identical to the old markup)
+//    group        - sidebar group header text, in declaration order
+//    keywords     - trade vocabulary the Phase 2 command palette searches on.
+//                   Say what a designer would type, not what the tab is called:
+//                   "friction loss" must find Hazen-Williams, "esfr" must find
+//                   Storage Analysis. The label itself is always searched too,
+//                   so keywords carry the SYNONYMS, not repeats of the label.
+//    experimental - carries the EXPERIMENTAL pill (was the EXPERIMENTAL_TOOLS list)
+//
+//  Groups render in the order they first appear below. Keep new tools next to
+//  their group-mates.
+// ============================================================================
+const TOOL_REGISTRY = [
+  // --- Start -------------------------------------------------------------
+  {
+    id: "home", label: "Home", group: "Start",
+    keywords: ["start", "resume", "recent", "dashboard", "last project", "pick up where i left off", "outputs"],
+  },
+
+  // --- Generators --------------------------------------------------------
+  {
+    id: "submittal", label: "Material Data Submittal", group: "Generators",
+    keywords: ["submittal", "material data", "cut sheets", "product data", "package", "cover sheet", "table of contents", "toc", "datasheet package", "generate"],
+  },
+  {
+    id: "hydraulic", label: "Hydraulic Calculation Package", group: "Generators",
+    keywords: ["hydraulic", "calcs", "calculation package", "remote area", "design area", "calc package", "autosprink calcs"],
+  },
+  {
+    id: "storage", label: "Storage Analysis", group: "Generators",
+    keywords: ["storage", "esfr", "cmda", "cmsa", "rack", "in-rack", "palletized", "solid pile", "commodity", "class i", "class iv", "group a plastics", "hazard", "ceiling only"],
+  },
+  {
+    id: "water", label: "Water Supply Analysis", group: "Generators",
+    keywords: ["water supply", "flow test", "hydrant", "static", "residual", "pitot", "supply curve", "n1.85", "available pressure", "city water"],
+  },
+  {
+    id: "layout", label: "Head Layout Generator", group: "Generators",
+    keywords: ["head layout", "sprinkler layout", "grid", "array", "coverage", "place heads", "branch line spacing", "ceiling grid"],
+  },
+  {
+    id: "vicinity", label: "Vicinity Map", group: "Generators",
+    keywords: ["vicinity", "map", "site plan", "location", "aerial", "north arrow", "cover map", "address"],
+  },
+  {
+    id: "hanger", label: "Hanger Detail", group: "Generators", experimental: true,
+    keywords: ["hanger", "support detail", "rod", "tolco", "sammy", "beam clamp", "attachment", "trapeze", "detail sheet"],
+  },
+  {
+    id: "symbols", label: "Plan Symbols", group: "Generators", experimental: true,
+    keywords: ["symbols", "legend", "plan legend", "cad symbol", "glyph", "sprinkler symbol", "block", "svg", "drafting symbols"],
+  },
+  {
+    id: "estimator", label: "Bid Estimator", group: "Generators", experimental: true,
+    keywords: ["bid", "estimate", "pricing", "labor", "material cost", "markup", "proposal", "quote", "per head price", "takeoff price"],
+  },
+
+  // --- Design Tools ------------------------------------------------------
+  {
+    id: "catalog", label: "Material Catalog", group: "Design Tools",
+    keywords: ["catalog", "datasheets", "library", "products", "manufacturer", "import datasheet", "browse sheets", "tyco", "viking", "reliable", "victaulic"],
+  },
+  {
+    id: "prelim", label: "Preliminary Calculation", group: "Design Tools",
+    keywords: ["preliminary", "prelim", "feasibility", "demand", "quick calc", "will it work", "budget calc", "early calc", "pump needed"],
+  },
+  {
+    id: "hydreport", label: "Hydraulic Analysis Report", group: "Design Tools",
+    keywords: ["hydraulic analysis", "report", "graph sheet", "summary sheet", "calc report", "analysis"],
+  },
+  {
+    id: "seismic", label: "Seismic Bracing", group: "Design Tools", experimental: true,
+    keywords: ["seismic", "brace", "sway brace", "lateral", "longitudinal", "four way", "earthquake", "tolbrace", "zone of influence", "zoi", "cbc", "restraint"],
+  },
+  {
+    id: "spacing", label: "Sprinkler Spacing Calculator", group: "Design Tools",
+    keywords: ["spacing", "protection area", "coverage area", "density", "gpm", "k-factor", "flow", "light hazard", "ordinary hazard", "extra hazard", "max spacing"],
+  },
+  {
+    id: "bracing", label: "Hangers / Bracing Spacing", group: "Design Tools",
+    keywords: ["hanger spacing", "support spacing", "brace spacing", "max hanger", "pipe support", "12 foot rule", "intermediate hanger"],
+  },
+  {
+    id: "feet", label: "Feet / Inch Calculator", group: "Design Tools",
+    keywords: ["feet", "inch", "convert", "decimal feet", "fraction", "measurement", "unit conversion", "ft-in", "tape measure", "add dimensions"],
+  },
+  {
+    id: "hazen", label: "Hazen-Williams Calculator", group: "Design Tools",
+    keywords: ["hazen", "williams", "friction loss", "pressure loss", "pressure drop", "c factor", "c-value", "psi per foot", "pipe friction", "velocity"],
+  },
+
+  // --- Code --------------------------------------------------------------
+  {
+    id: "code", label: "NFPA Code Assist", group: "Code",
+    keywords: ["nfpa", "code", "standard", "nfpa 13", "lookup", "chapter", "section", "reference", "requirement", "ahj"],
+  },
+  {
+    id: "nfpa1142", label: "NFPA 1142 Calculator", group: "Code",
+    keywords: ["nfpa 1142", "1142", "rural", "water supply tank", "suction", "dry hydrant", "no hydrants", "occupancy hazard number"],
+  },
+
+  // --- Tools -------------------------------------------------------------
+  {
+    id: "pdfcad", label: "Convert PDF to CAD", group: "Tools",
+    keywords: ["pdf to cad", "convert", "dxf", "dwg", "vector", "background drawing", "import pdf", "trace", "underlay"],
+  },
+  {
+    id: "cadexplode", label: "Explode CAD Blocks", group: "Tools",
+    keywords: ["explode", "xplode", "blocks", "flatten", "dwg", "dxf", "burst", "nested blocks"],
+  },
+  {
+    id: "dwgpdf", label: "DWG to PDF", group: "Tools",
+    keywords: ["dwg to pdf", "plot", "print", "publish", "cad to pdf", "sheet set"],
+  },
+  {
+    id: "pdf", label: "Merge / Compress PDFs", group: "Tools",
+    keywords: ["merge", "combine", "compress", "shrink", "split", "slip sheet", "pdf tools", "file size", "stitch"],
+  },
+  {
+    id: "settings", label: "Settings", group: "Tools",
+    keywords: ["settings", "preferences", "options", "output folder", "theme", "appearance", "density", "compact", "shortcuts", "config", "email template"],
+  },
+];
+
+const TOOL_BY_ID = new Map(TOOL_REGISTRY.map((tool) => [tool.id, tool]));
+/** Tool ids carrying the EXPERIMENTAL mark (was a hand-kept list near initEarlyAccess). */
+const EXPERIMENTAL_TOOLS = TOOL_REGISTRY.filter((tool) => tool.experimental).map((tool) => tool.id);
+
+function toolLabel(id) {
+  return TOOL_BY_ID.get(id)?.label || id;
+}
+
+/**
+ * Pinned tool ids, in the user's drag order. Persisted in app-state (NOT
+ * localStorage) so favorites roam with the database the way loadouts do.
+ * Unknown ids (a tool that was removed) are dropped on read.
+ */
+function pinnedToolIds() {
+  const raw = Array.isArray(state.pinnedTools) ? state.pinnedTools : [];
+  const seen = new Set();
+  return raw.filter((id) => TOOL_BY_ID.has(id) && id !== "home" && !seen.has(id) && seen.add(id));
+}
+
+/**
+ * Is the Home panel available? Requires BOTH the setting and the panel markup —
+ * the markup check keeps the web edition (which may ship a trimmed index.html)
+ * from rendering a tab that opens nothing.
+ */
+function homePanelEnabled() {
+  if (!document.querySelector('[data-tool-panel="home"]')) return false;
+  return state.settings?.homeOnLaunch !== false;
+}
+
+/**
+ * Render one sidebar button. The markup must stay byte-for-byte equivalent to
+ * the old hand-written buttons (class list, attribute order is irrelevant but
+ * the rendered box must be pixel-identical) — see the screenshot diff in the
+ * Phase 0a verification.
+ */
+function toolTabMarkup(tool, { active = false, pinned = false, inFavorites = false } = {}) {
+  const classes = ["tool-tab"];
+  if (active) classes.push("active");
+  if (tool.experimental) classes.push("is-early-access");
+  const pill = tool.experimental
+    ? '<span class="ea-pill" title="Experimental &mdash; fully usable, still getting polish">Experimental</span>'
+    : "";
+  // The star is absolutely positioned and transparent at rest, so an unpinned
+  // sidebar is pixel-identical to the build before pinning existed. It is a
+  // focusable role="button" inside the tab (a real <button> cannot nest).
+  const star = `<span class="tool-pin${pinned ? " is-pinned" : ""}" role="button" tabindex="0"`
+    + ` data-tool-pin="${escapeHtml(tool.id)}"`
+    + ` aria-pressed="${pinned ? "true" : "false"}"`
+    + ` aria-label="${pinned ? "Unpin" : "Pin"} ${escapeHtml(tool.label)} ${pinned ? "from" : "to"} Favorites"`
+    + ` title="${pinned ? "Unpin from Favorites" : "Pin to Favorites"}">${pinned ? "★" : "☆"}</span>`;
+  return `<button class="${classes.join(" ")}" type="button" data-tool-tab="${escapeHtml(tool.id)}"`
+    + ` aria-pressed="${active ? "true" : "false"}"`
+    + (inFavorites ? ' data-favorite="1"' : "")
+    + `>${escapeHtml(tool.label)}${pill}${star}</button>`;
+}
+
+/**
+ * Rebuild the sidebar from TOOL_REGISTRY (+ the pinned Favorites group).
+ * Safe to call any time: it preserves the active tool and refreshes the cached
+ * dom.toolTabs list. Clicks are handled by ONE delegated listener on the nav
+ * (wireEvents), so re-rendering never loses handlers.
+ */
+function renderToolSidebar() {
+  const nav = document.querySelector("nav.tool-tabs");
+  if (!nav) return;
+  const active = nav.querySelector(".tool-tab.active")?.dataset.toolTab
+    || document.querySelector("[data-tool-panel].active")?.dataset.toolPanel
+    || "submittal";
+  const pinnedIds = pinnedToolIds();
+  const html = [];
+
+  if (pinnedIds.length) {
+    html.push('<div class="tool-tab-group">Favorites</div>');
+    pinnedIds.forEach((id) => {
+      const tool = TOOL_BY_ID.get(id);
+      if (tool) html.push(toolTabMarkup(tool, { active: tool.id === active, pinned: true, inFavorites: true }));
+    });
+  }
+
+  let lastGroup = "";
+  TOOL_REGISTRY.forEach((tool) => {
+    if (tool.id === "home" && !homePanelEnabled()) return;
+    if (tool.group !== lastGroup) {
+      lastGroup = tool.group;
+      html.push(`<div class="tool-tab-group">${escapeHtml(tool.group)}</div>`);
+    }
+    html.push(toolTabMarkup(tool, { active: tool.id === active, pinned: pinnedIds.includes(tool.id) }));
+  });
+
+  nav.innerHTML = html.join("\n");
+  dom.toolTabs = [...document.querySelectorAll("[data-tool-tab]")];
+  wireFavoriteDrag(nav);
+}
+
+/**
+ * Pin or unpin a tool. Unpinning simply removes it from the list, so it goes
+ * back to its natural group. Persisted through app-state on the next save.
+ */
+function toggleToolPin(toolId) {
+  if (!TOOL_BY_ID.has(toolId) || toolId === "home") return;
+  const pinned = pinnedToolIds();
+  const tool = TOOL_BY_ID.get(toolId);
+  state.pinnedTools = pinned.includes(toolId)
+    ? pinned.filter((id) => id !== toolId)
+    : [...pinned, toolId];
+  const nowPinned = state.pinnedTools.includes(toolId);
+  renderToolSidebar();
+  saveState();
+  showToast(nowPinned ? `Pinned ${tool.label} to Favorites.` : `Unpinned ${tool.label}.`,
+    { tone: "success", timeoutMs: 3500 });
+}
+
+/**
+ * Drag-to-reorder inside the Favorites group. Pointer events only, no library.
+ * A drag starts after the pointer has actually MOVED (a few px), so a plain
+ * click still activates the tool and a click on the star still toggles the pin.
+ */
+function wireFavoriteDrag(nav) {
+  const favorites = [...nav.querySelectorAll('[data-favorite="1"]')];
+  if (favorites.length < 2) return;
+  favorites.forEach((button) => {
+    button.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      if (event.target.closest("[data-tool-pin]")) return;      // the star owns its own clicks
+      startFavoriteDrag(event, button, favorites);
+    });
+  });
+}
+
+function startFavoriteDrag(event, button, favorites) {
+  const startY = event.clientY;
+  let dragging = false;
+  const order = pinnedToolIds();
+  const dragId = button.dataset.toolTab;
+
+  const onMove = (moveEvent) => {
+    if (!dragging) {
+      if (Math.abs(moveEvent.clientY - startY) < 4) return;      // still a click
+      dragging = true;
+      button.classList.add("is-dragging");
+      // Pointer capture is a nicety, not a requirement: it throws if the
+      // pointer is already gone, and that must never abort the reorder.
+      try { button.setPointerCapture?.(moveEvent.pointerId); } catch (_) { /* not capturable */ }
+    }
+    // Which favorite is the pointer over? Swap into that slot live.
+    const over = favorites.find((candidate) => {
+      if (candidate === button) return false;
+      const rect = candidate.getBoundingClientRect();
+      return moveEvent.clientY >= rect.top && moveEvent.clientY <= rect.bottom;
+    });
+    if (!over) return;
+    const from = order.indexOf(dragId);
+    const to = order.indexOf(over.dataset.toolTab);
+    if (from < 0 || to < 0 || from === to) return;
+    order.splice(to, 0, ...order.splice(from, 1));
+    // Reflect the new order in the DOM without a full re-render, so the drag
+    // keeps its grip on this element.
+    const parent = button.parentElement;
+    const anchor = from < to ? over.nextSibling : over;
+    parent.insertBefore(button, anchor);
+    favorites.sort((a, b) => order.indexOf(a.dataset.toolTab) - order.indexOf(b.dataset.toolTab));
+  };
+
+  const onUp = (upEvent) => {
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+    window.removeEventListener("pointercancel", onUp);
+    if (!dragging) return;
+    upEvent.preventDefault();
+    upEvent.stopPropagation();
+    button.classList.remove("is-dragging");
+    // Commit the new order FIRST. Releasing the capture can throw (the pointer
+    // may already be gone) and losing the drop to that would be maddening.
+    state.pinnedTools = order;
+    renderToolSidebar();
+    saveState();
+    try { button.releasePointerCapture?.(upEvent.pointerId); } catch (_) { /* already released */ }
+    // Swallow the click this pointer sequence is about to fire, so finishing a
+    // drag does not also switch tools. Bounded by a timer: if that click never
+    // arrives (the pointer was released off-target), the guard must not sit
+    // around and eat the user's NEXT, unrelated click.
+    const swallowClick = (clickEvent) => {
+      clickEvent.stopPropagation();
+      clickEvent.preventDefault();
+      window.removeEventListener("click", swallowClick, true);
+    };
+    window.addEventListener("click", swallowClick, true);
+    window.setTimeout(() => window.removeEventListener("click", swallowClick, true), 300);
+  };
+
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp);
+  window.addEventListener("pointercancel", onUp);
+}
 
 const dom = {
   appRefreshButton: document.querySelector("#appRefreshButton"),
@@ -545,6 +897,12 @@ const dom = {
   settingsTocStyleSelect: document.querySelector("#settingsTocStyleSelect"),
   settingsEmailSubjectInput: document.querySelector("#settingsEmailSubjectInput"),
   settingsEmailBodyInput: document.querySelector("#settingsEmailBodyInput"),
+  settingsDefaultContractorSelect: document.querySelector("#settingsDefaultContractorSelect"),
+  settingsHomeOnLaunchInput: document.querySelector("#settingsHomeOnLaunchInput"),
+  settingsDensitySelect: document.querySelector("#settingsDensitySelect"),
+  settingsThemeSelect: document.querySelector("#settingsThemeSelect"),
+  settingsScanCategoryInputs: [...document.querySelectorAll("[data-scan-category]")],
+  settingsShortcutList: document.querySelector("#settingsShortcutList"),
   settingsSaveButton: document.querySelector("#settingsSaveButton"),
   settingsResetButton: document.querySelector("#settingsResetButton"),
   settingsLegacyModeInput: document.querySelector("#settingsLegacyModeInput"),
@@ -788,6 +1146,12 @@ const dom = {
   nfpa1142DxfButton: document.querySelector("#nfpa1142DxfButton"),
 };
 
+// Build the sidebar from TOOL_REGISTRY as soon as `dom` exists. index.html ships
+// an EMPTY <nav class="tool-tabs">, so this must run at module scope (app.js is
+// a plain script at the end of <body>, so the DOM is already parsed). It runs
+// again after loadState() to fold in the persisted Favorites.
+renderToolSidebar();
+
 async function loadState() {
   let loadedState = null;
   try {
@@ -847,17 +1211,34 @@ function applySavedState(parsed) {
   state.simpleStep = SIMPLE_STEPS.includes(parsed.simpleStep) ? parsed.simpleStep : "intake";
   state.settings = normalizeSettings(parsed.settings);
   state.estimator = normalizeEstimator(parsed.estimator);
+  state.trash = normalizeTrash(parsed.trash);            // prunes past 30 days
+  state.pinnedTools = Array.isArray(parsed.pinnedTools) ? parsed.pinnedTools.map(String) : [];
+  state.paletteRecents = normalizePaletteRecents(parsed.paletteRecents);
 }
 
 function normalizeSettings(settings) {
   const parsed = settings && typeof settings === "object" ? settings : {};
   const tocStyle = parsed.tocStyle === "web-links" ? "web-links" : "standard";
+  const scanRaw = parsed.scanCategories && typeof parsed.scanCategories === "object" ? parsed.scanCategories : {};
+  // Unknown keys round-trip untouched. A user who opens their database in a
+  // newer build and comes back must not silently lose that build's settings.
+  const passthrough = {};
+  for (const [key, value] of Object.entries(parsed)) {
+    if (!Object.prototype.hasOwnProperty.call(DEFAULT_SETTINGS, key)) passthrough[key] = value;
+  }
   return {
+    ...passthrough,
     outputFolder: String(parsed.outputFolder || "").trim(),
     openGeneratedPdf: parsed.openGeneratedPdf !== false,
     tocStyle,
     emailSubjectTemplate: String(parsed.emailSubjectTemplate || DEFAULT_EMAIL_SUBJECT_TEMPLATE),
     emailBodyTemplate: String(parsed.emailBodyTemplate || DEFAULT_EMAIL_BODY_TEMPLATE),
+    defaultContractorId: String(parsed.defaultContractorId || ""),
+    scanCategories: Object.fromEntries(
+      PLAN_SCAN_CATEGORIES.map((key) => [key, scanRaw[key] !== false]),
+    ),
+    density: DENSITY_MODES.includes(parsed.density) ? parsed.density : "comfortable",
+    homeOnLaunch: parsed.homeOnLaunch !== false,
   };
 }
 
@@ -1931,6 +2312,7 @@ function saveProjects(projects) {
 }
 
 function renderProjectSelect() {
+  invalidatePaletteIndex();
   const projects = loadProjects();
   if (dom.projectSelect) {
     dom.projectSelect.innerHTML = [
@@ -2041,12 +2423,22 @@ function deleteSelectedProject() {
     return;
   }
   const projects = loadProjects();
-  const project = projects.find((entry) => entry.id === id);
+  const index = projects.findIndex((entry) => entry.id === id);
+  const project = index >= 0 ? projects[index] : null;
+  if (!project) {
+    setGenerateStatus("That saved project no longer exists.", "error");
+    return;
+  }
   saveProjects(projects.filter((entry) => entry.id !== id));
   if (state.activeSavedProjectId === id) state.activeSavedProjectId = "";
   renderProjectSelect();
-  setGenerateStatus(`Deleted saved project: ${project?.name || "Project"}`, "success");
   saveState();
+  softDelete("project", project, {
+    label: project.name || "saved project",
+    payload: { index },                     // put it back in the same slot
+    message: `Deleted saved project "${project.name || "Project"}".`,
+    restore: TRASH_RESTORERS.project,
+  });
 }
 
 function projectSaveSnapshotFromCurrent() {
@@ -2222,7 +2614,505 @@ function persistentStateSnapshot() {
     settings: normalizeSettings(state.settings),
     estimator: state.estimator,
     hangerSpacing: state.hangerSpacing,
+    trash: normalizeTrash(state.trash),
+    pinnedTools: pinnedToolIds(),
+    paletteRecents: normalizePaletteRecents(state.paletteRecents),
   };
+}
+
+// ============================================================================
+//  Toasts + soft delete
+//
+//  The app had exactly one toast and it was private to the Plan Symbols tool.
+//  showToast() is the app-wide version: a stacking container, a dismiss button,
+//  an optional Undo action, and reduced-motion support. Colors are tokens only,
+//  so it is correct in all five themes.
+//
+//  softDelete() is the other half. Destructive actions used to be guarded by a
+//  window.confirm() — a modal that interrupts you BEFORE the mistake and then
+//  offers nothing after it. Deleting now just happens, and the toast carries the
+//  way back. Deleted records land in state.trash, which persists through the
+//  normal /api/app-state round trip (no server change) and is pruned at 30 days
+//  on load, so an undo survives an app restart.
+// ============================================================================
+const TOAST_DEFAULT_MS = 10000;
+const TRASH_RETENTION_DAYS = 30;
+// A restorable catalog datasheet has to carry its PDF bytes, because the server
+// hard-deletes the file. Keep that generous enough for real datasheets but
+// bounded so app-state cannot balloon: per-item and whole-store caps.
+const TRASH_PAYLOAD_MAX_BYTES = 4 * 1024 * 1024;
+const TRASH_PAYLOAD_TOTAL_BYTES = 24 * 1024 * 1024;
+
+function toastStackEl() {
+  let stack = document.getElementById("toastStack");
+  if (!stack) {
+    stack = document.createElement("div");
+    stack.id = "toastStack";
+    stack.className = "toast-stack";
+    stack.setAttribute("role", "region");
+    stack.setAttribute("aria-label", "Notifications");
+    stack.setAttribute("aria-live", "polite");
+    document.body.appendChild(stack);
+  }
+  return stack;
+}
+
+function prefersReducedMotion() {
+  return Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+}
+
+/**
+ * Keep the toast stack clear of the submittal generate dock — that bar is
+ * `position: fixed` at the bottom of the window, so a bottom-anchored toast
+ * would land on top of it on the busiest screen in the app.
+ */
+function positionToastStack(stack) {
+  const dock = document.querySelector("[data-submittal-generate-dock]");
+  const docked = dock && !dock.hidden && dock.getClientRects().length > 0;
+  const clearance = docked ? Math.ceil(dock.getBoundingClientRect().height) + 30 : 18;
+  stack.style.setProperty("--toast-bottom", `${clearance}px`);
+}
+
+/**
+ * App-wide toast.
+ * @param {string} message
+ * @param {{undoLabel?: string, onUndo?: Function, timeoutMs?: number, tone?: "info"|"success"|"error"}} options
+ * @returns {{dismiss: Function, element: HTMLElement}}
+ */
+function showToast(message, options = {}) {
+  const { undoLabel = "Undo", onUndo = null, timeoutMs = TOAST_DEFAULT_MS, tone = "info" } = options;
+  const stack = toastStackEl();
+  positionToastStack(stack);
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.dataset.tone = tone;
+  toast.setAttribute("role", tone === "error" ? "alert" : "status");
+
+  const text = document.createElement("span");
+  text.className = "toast-text";
+  text.textContent = message;
+  toast.appendChild(text);
+
+  let timer = null;
+  const dismiss = () => {
+    if (timer) window.clearTimeout(timer);
+    timer = null;
+    if (!toast.isConnected) return;
+    if (prefersReducedMotion()) {
+      toast.remove();
+      return;
+    }
+    toast.classList.add("is-leaving");
+    window.setTimeout(() => toast.remove(), 180);
+  };
+
+  if (typeof onUndo === "function") {
+    const undo = document.createElement("button");
+    undo.type = "button";
+    undo.className = "toast-action";
+    undo.textContent = undoLabel;
+    undo.addEventListener("click", () => {
+      dismiss();
+      try {
+        onUndo();
+      } catch (error) {
+        showToast(`Could not undo: ${error.message || "unknown error."}`, { tone: "error", timeoutMs: 6000 });
+      }
+    });
+    toast.appendChild(undo);
+  }
+
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "toast-close";
+  close.setAttribute("aria-label", "Dismiss notification");
+  close.innerHTML = "&times;";
+  close.addEventListener("click", dismiss);
+  toast.appendChild(close);
+
+  stack.appendChild(toast);
+  if (!prefersReducedMotion()) {
+    // one frame later so the enter transition actually runs
+    window.requestAnimationFrame(() => toast.classList.add("is-in"));
+  } else {
+    toast.classList.add("is-in");
+  }
+  if (timeoutMs > 0) timer = window.setTimeout(dismiss, timeoutMs);
+  return { dismiss, element: toast };
+}
+
+// ---- soft-delete store ------------------------------------------------------
+
+const TRASH_KIND_LABELS = {
+  contractor: "Contractor",
+  loadout: "Loadout",
+  project: "Saved project",
+  catalog: "Datasheet",
+};
+
+function normalizeTrash(entries) {
+  const cutoff = Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  const list = (Array.isArray(entries) ? entries : [])
+    .filter((entry) => entry && typeof entry === "object" && entry.kind && entry.record)
+    .map((entry) => ({
+      id: String(entry.id || localId("trash")),
+      kind: String(entry.kind),
+      label: String(entry.label || ""),
+      record: entry.record,
+      payload: entry.payload && typeof entry.payload === "object" ? entry.payload : null,
+      deletedAt: Number(entry.deletedAt) || Date.now(),
+    }))
+    .filter((entry) => entry.deletedAt >= cutoff)
+    .sort((a, b) => b.deletedAt - a.deletedAt);
+
+  // Bound the persisted payload bytes (see TRASH_PAYLOAD_TOTAL_BYTES). Newest
+  // entries keep their payload; older ones degrade to a metadata-only record.
+  let budget = TRASH_PAYLOAD_TOTAL_BYTES;
+  for (const entry of list) {
+    const size = entry.payload?.dataUrl ? entry.payload.dataUrl.length : 0;
+    if (!size) continue;
+    if (size > budget) entry.payload = null;
+    else budget -= size;
+  }
+  return list;
+}
+
+/** Can this trash entry actually be put back? */
+function trashEntryRestorable(entry) {
+  if (!entry) return false;
+  if (entry.kind === "catalog") return Boolean(entry.payload?.dataUrl);
+  return true;
+}
+
+/**
+ * Move a record to the trash and tell the user, with one click back.
+ * @param {"contractor"|"loadout"|"project"|"catalog"} kind
+ * @param {object} record  the full record, enough to rebuild it
+ * @param {{label?: string, payload?: object, restore: Function, message?: string}} options
+ */
+function softDelete(kind, record, options = {}) {
+  const { label = "", payload = null, restore, message = "" } = options;
+  const entry = {
+    id: localId("trash"),
+    kind,
+    label: label || TRASH_KIND_LABELS[kind] || kind,
+    record: JSON.parse(JSON.stringify(record ?? {})),
+    // Payloads carry whatever the restorer needs (a project's original slot, a
+    // datasheet's PDF bytes). Only the BYTES are size-gated — a small metadata
+    // payload must never be dropped for want of a dataUrl.
+    payload: payload && (!payload.dataUrl || payload.dataUrl.length <= TRASH_PAYLOAD_MAX_BYTES) ? payload : null,
+    deletedAt: Date.now(),
+  };
+  state.trash = normalizeTrash([entry, ...(Array.isArray(state.trash) ? state.trash : [])]);
+  saveState();
+
+  const undoable = typeof restore === "function" && trashEntryRestorable(entry);
+  showToast(message || `Deleted ${label || TRASH_KIND_LABELS[kind] || kind}.`, {
+    undoLabel: "Undo",
+    onUndo: undoable
+      ? () => {
+        Promise.resolve(restore(entry)).then(() => {
+          removeFromTrash(entry.id);
+          showToast(`Restored ${entry.label}.`, { tone: "success", timeoutMs: 4000 });
+        }).catch((error) => {
+          showToast(`Could not restore ${entry.label}: ${error.message || "unknown error."}`,
+            { tone: "error", timeoutMs: 8000 });
+        });
+      }
+      : null,
+  });
+  return entry;
+}
+
+function removeFromTrash(entryId) {
+  state.trash = (Array.isArray(state.trash) ? state.trash : []).filter((entry) => entry.id !== entryId);
+  saveState();
+}
+
+/**
+ * Put a trashed record back. Used by the undo toast and (later) by a trash
+ * viewer; safe to call for an entry restored in a previous session.
+ */
+async function restoreFromTrash(entryId) {
+  const entry = (Array.isArray(state.trash) ? state.trash : []).find((item) => item.id === entryId);
+  if (!entry) throw new Error("That item is no longer in the trash.");
+  const restore = TRASH_RESTORERS[entry.kind];
+  if (!restore) throw new Error(`Nothing knows how to restore a ${entry.kind}.`);
+  await restore(entry);
+  removeFromTrash(entry.id);
+  return entry;
+}
+
+// One restorer per kind, shared by the undo toast and restoreFromTrash so an
+// undo works identically in the session that deleted the record and after a
+// restart.
+const TRASH_RESTORERS = {
+  contractor(entry) {
+    const record = entry.record || {};
+    if (!state.contractors.some((contractor) => contractor.id === record.id)) {
+      state.contractors.push(record);
+    }
+    state.activeContractorId = record.id || "";
+    contractorFormHydratedFor = null;
+    syncInputsFromState();
+    renderAll();
+  },
+  loadout(entry) {
+    const record = entry.record || {};
+    if (!state.loadouts.some((loadout) => loadout.id === record.id)) {
+      state.loadouts.push(record);
+      state.loadouts = normalizeLoadouts(state.loadouts);
+    }
+    renderLoadouts();
+    if (dom.loadoutSelect) dom.loadoutSelect.value = record.id || "";
+    saveState();
+  },
+  project(entry) {
+    const record = entry.record || {};
+    const projects = loadProjects();
+    if (!projects.some((project) => project.id === record.id)) {
+      // Put it back where it was rather than appending, so the dropdown order
+      // the user knows is preserved.
+      const index = Number.isInteger(entry.payload?.index) ? entry.payload.index : projects.length;
+      projects.splice(Math.min(Math.max(index, 0), projects.length), 0, record);
+    }
+    saveProjects(projects);
+    renderProjectSelect();
+    saveState();
+  },
+  async catalog(entry) {
+    const record = entry.record || {};
+    const dataUrl = entry.payload?.dataUrl;
+    if (!dataUrl) throw new Error("the datasheet PDF was not captured before deletion");
+    await readApiJson("./api/import-datasheet", {
+      method: "POST",
+      body: JSON.stringify({
+        file: { name: entry.payload.fileName || `${record.displayTitle || "Datasheet"}.pdf`, dataUrl },
+        category: record.category || "Miscellaneous",
+        displayName: entry.payload.displayName || record.customTitle || record.displayTitle || "Datasheet",
+        subcategory: record.subcategory || "",
+        aliases: Array.isArray(record.aliases) ? record.aliases.join(", ") : (record.aliases || ""),
+        action: "add",
+      }),
+    });
+    await refreshCatalog({ preserveScroll: true });
+  },
+};
+
+/**
+ * Read a catalog PDF back as a data URL so a delete stays undoable. Returns
+ * null (never throws) when the bytes are unavailable or too large — the delete
+ * still goes ahead, it just isn't offered as undoable.
+ */
+async function captureCatalogPdfPayload(item) {
+  try {
+    const params = new URLSearchParams({ id: item.id || "", relativePath: item.relativePath || "" });
+    const response = await fetch(`./api/catalog/pdf?${params.toString()}`);
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    if (!blob.size || blob.size > TRASH_PAYLOAD_MAX_BYTES * 0.72) return null;   // base64 inflates ~4/3
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(reader.error || new Error("read failed"));
+      reader.readAsDataURL(blob);
+    });
+    if (!dataUrl || dataUrl.length > TRASH_PAYLOAD_MAX_BYTES) return null;
+    return {
+      dataUrl,
+      fileName: item.fileName || `${displayName(item) || "Datasheet"}.pdf`,
+      displayName: displayName(item) || "Datasheet",
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
+// ============================================================================
+//  Home panel — the "pick up where you left off" screen.
+//
+//  Everything here reuses existing surfaces: saved projects come from the same
+//  list the Saved Projects dropdown reads, recent outputs from the same
+//  /api/recent-outputs the Merge/Compress tool already calls, and Open PDF /
+//  Open folder from the same endpoints the generated-output buttons use.
+//  Nothing new is asked of the server.
+//
+//  Web-edition safety: if the recent-outputs surface is missing or empty of
+//  openable paths, the card hides rather than erroring.
+// ============================================================================
+let homeRecentOutputs = [];
+let homeRecentOutputsAvailable = true;
+
+function homeLastSavedProject() {
+  const projects = loadProjects();
+  if (!projects.length) return null;
+  // The dropdown is sorted by NAME, so "last saved" has to be read from savedAt.
+  return [...projects].sort((a, b) => {
+    const at = Date.parse(a?.savedAt || "") || 0;
+    const bt = Date.parse(b?.savedAt || "") || 0;
+    return bt - at;
+  })[0];
+}
+
+function homeFormatWhen(value) {
+  const time = Date.parse(value || "") || Number(value) || 0;
+  if (!time) return "";
+  const days = Math.floor((Date.now() - time) / 86400000);
+  if (days <= 0) return `today, ${new Date(time).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days} days ago`;
+  return new Date(time).toLocaleDateString();
+}
+
+function renderHomeResume() {
+  const title = document.getElementById("homeResumeTitle");
+  const body = document.getElementById("homeResumeBody");
+  if (!body) return;
+  const project = homeLastSavedProject();
+  if (!project) {
+    if (title) title.textContent = "No saved projects yet";
+    body.innerHTML = `
+      <div class="home-empty">
+        <p class="home-empty-lead">Drop a plan set into the Material Data Submittal builder to start.</p>
+        <p class="home-empty-note">SprinkFlow reads the title block, fills in the project details, and suggests the datasheets it recognises. Save the job once and it will be waiting here next time.</p>
+        <button class="primary-button" type="button" data-home-action="open-submittal">Open the submittal builder</button>
+      </div>`;
+    return;
+  }
+  const sheets = Array.isArray(project.selectedIds) ? project.selectedIds.length : 0;
+  const contractor = project.activeContractor?.name || "";
+  const when = homeFormatWhen(project.savedAt);
+  if (title) title.textContent = project.name || "Untitled Project";
+  body.innerHTML = `
+    <dl class="home-facts">
+      ${project.project?.address ? `<div><dt>Address</dt><dd>${escapeHtml(project.project.address)}</dd></div>` : ""}
+      ${contractor ? `<div><dt>Contractor</dt><dd>${escapeHtml(contractor)}</dd></div>` : ""}
+      <div><dt>Datasheets</dt><dd>${sheets} selected</dd></div>
+      ${when ? `<div><dt>Saved</dt><dd>${escapeHtml(when)}</dd></div>` : ""}
+    </dl>
+    <div class="inline-actions home-resume-actions">
+      <button class="primary-button" type="button" data-home-action="resume" data-project-id="${escapeHtml(project.id)}">Resume this project</button>
+    </div>`;
+}
+
+function renderHomeOutputs() {
+  const section = document.getElementById("homeOutputsSection");
+  const list = document.getElementById("homeOutputsList");
+  if (!section || !list) return;
+  // Web edition / any build without the recent-outputs surface: hide, never error.
+  if (!homeRecentOutputsAvailable) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+  const items = homeRecentOutputs.slice(0, 3);
+  if (!items.length) {
+    list.innerHTML = `
+      <div class="home-empty">
+        <p class="home-empty-lead">Nothing generated yet.</p>
+        <p class="home-empty-note">The last three PDFs you generate &mdash; submittals, calc packages, bids &mdash; land here with one click to open the file or its folder.</p>
+      </div>`;
+    return;
+  }
+  list.innerHTML = items.map((item, index) => `
+    <article class="home-output">
+      <div class="home-output-text">
+        <div class="home-output-name" title="${escapeHtml(item.path || item.name || "")}">${escapeHtml(item.name || "Generated PDF")}</div>
+        <div class="home-output-sub">${escapeHtml(homeOutputSubtitle(item))}</div>
+      </div>
+      <div class="home-output-actions">
+        <button class="secondary-button compact-button" type="button" data-home-action="open-output" data-output-index="${index}">Open PDF</button>
+        <button class="ghost-button compact-button" type="button" data-home-action="open-folder" data-output-index="${index}">Open folder</button>
+      </div>
+    </article>`).join("");
+}
+
+// /api/recent-outputs answers {name, path, kind, bytes} - no timestamp - so the
+// subtitle says what the file IS and how big it is. The optional date fields are
+// read anyway in case a future build starts recording one.
+function homeOutputSubtitle(item) {
+  const parts = [];
+  const kind = String(item.kind || "").trim();
+  if (kind && kind.toLowerCase() !== "output") parts.push(kind);
+  const when = homeFormatWhen(item.createdAt || item.savedAt || item.timestamp);
+  if (when) parts.push(when);
+  const bytes = Number(item.bytes || item.size || 0);
+  if (bytes > 0) {
+    parts.push(bytes < 1048576
+      ? `${Math.max(1, Math.round(bytes / 1024))} KB`
+      : `${(bytes / 1048576).toFixed(1)} MB`);
+  }
+  return parts.join(" · ") || "Generated by SprinkFlow";
+}
+
+async function loadHomeRecentOutputs() {
+  try {
+    const response = await fetch("./api/recent-outputs", { method: "GET" });
+    const result = await readJsonResponse(response);
+    if (!response.ok || !result.ok) throw new Error("unavailable");
+    const items = Array.isArray(result.items) ? result.items : [];
+    // A shim that answers with an empty list (web edition) is indistinguishable
+    // from "nothing generated yet" on the desktop, so treat a MISSING route as
+    // unavailable and an empty list as the empty state.
+    homeRecentOutputs = items;
+    homeRecentOutputsAvailable = true;
+  } catch (_) {
+    homeRecentOutputs = [];
+    homeRecentOutputsAvailable = false;
+  }
+  renderHomeOutputs();
+}
+
+function renderHome() {
+  renderHomeResume();
+  renderHomeOutputs();
+}
+
+/** Load a saved project by id and drop the user straight into the builder. */
+function homeResumeProject(projectId) {
+  const project = loadProjects().find((entry) => entry.id === projectId);
+  if (!project) {
+    showToast("That project is no longer saved.", { tone: "error", timeoutMs: 6000 });
+    renderHome();
+    return;
+  }
+  if (dom.projectSelect) dom.projectSelect.value = project.id;
+  loadSelectedProject();
+  activateTool("submittal");
+  if (state.viewMode === "simple") setSimpleStep("intake");
+  showToast(`Resumed "${project.name || "Untitled Project"}".`, { tone: "success", timeoutMs: 5000 });
+}
+
+async function homeOpenOutput(index, { folder = false } = {}) {
+  const item = homeRecentOutputs[index];
+  if (!item?.path) return;
+  try {
+    await readApiJson(folder ? "./api/open-output-folder" : "./api/open-recent-output", {
+      method: "POST",
+      body: JSON.stringify({ path: item.path }),
+    });
+  } catch (error) {
+    showToast(`Could not open ${folder ? "the folder" : item.name || "the PDF"}: ${error.message || "unknown error."}`,
+      { tone: "error", timeoutMs: 8000 });
+  }
+}
+
+function wireHomePanel() {
+  const panel = document.querySelector('[data-tool-panel="home"]');
+  if (!panel) return;
+  panel.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-home-action]");
+    if (!button) return;
+    const action = button.dataset.homeAction;
+    if (action === "resume") homeResumeProject(button.dataset.projectId);
+    else if (action === "open-submittal") { activateTool("submittal"); if (state.viewMode === "simple") setSimpleStep("intake"); }
+    else if (action === "open-output") homeOpenOutput(Number(button.dataset.outputIndex));
+    else if (action === "open-folder") homeOpenOutput(Number(button.dataset.outputIndex), { folder: true });
+  });
+  document.getElementById("homeNewProjectButton")?.addEventListener("click", () => {
+    requestNewProject();
+    activateTool("submittal");
+  });
 }
 
 const NO_CONTRACTOR_ID = "__no_contractor__";
@@ -2403,13 +3293,55 @@ function renderCoverAdditionalInfoSummary() {
 }
 
 function syncSettingsFromInputs() {
+  const scanCategories = {};
+  PLAN_SCAN_CATEGORIES.forEach((key) => {
+    const input = document.querySelector(`[data-scan-category="${key}"]`);
+    scanCategories[key] = input ? input.checked : state.settings.scanCategories?.[key] !== false;
+  });
   state.settings = normalizeSettings({
+    // Spread the current settings first so unknown/forward keys and any control
+    // that isn't on screen in this build keep their values.
+    ...state.settings,
     outputFolder: dom.settingsOutputFolderInput?.value || state.settings.outputFolder,
     openGeneratedPdf: dom.settingsOpenGeneratedPdfInput ? dom.settingsOpenGeneratedPdfInput.checked : state.settings.openGeneratedPdf,
     tocStyle: dom.settingsTocStyleSelect?.value || state.settings.tocStyle,
     emailSubjectTemplate: dom.settingsEmailSubjectInput?.value || DEFAULT_EMAIL_SUBJECT_TEMPLATE,
     emailBodyTemplate: dom.settingsEmailBodyInput?.value || DEFAULT_EMAIL_BODY_TEMPLATE,
+    defaultContractorId: dom.settingsDefaultContractorSelect
+      ? dom.settingsDefaultContractorSelect.value
+      : state.settings.defaultContractorId,
+    scanCategories,
+    density: dom.settingsDensitySelect?.value || state.settings.density,
+    homeOnLaunch: dom.settingsHomeOnLaunchInput
+      ? dom.settingsHomeOnLaunchInput.checked
+      : state.settings.homeOnLaunch !== false,
   });
+}
+
+// Settings > Shortcuts renders the SAME generated table the `?` overlay does
+// (shortcutRegistry(), in the command-palette section below) so the two can
+// never drift. Nothing here is hand-maintained.
+function renderShortcutList() {
+  if (!dom.settingsShortcutList) return;
+  dom.settingsShortcutList.innerHTML = shortcutRegistry()
+    .flatMap((group) => group.items)
+    .map((entry) => `<li><span class="shortcut-what">${escapeHtml(entry.what)}</span>`
+      + `<kbd>${escapeHtml(entry.keys)}</kbd></li>`)
+    .join("");
+}
+
+function renderDefaultContractorSelect(settings) {
+  const select = dom.settingsDefaultContractorSelect;
+  if (!select) return;
+  const options = ['<option value="">Ask each time</option>'];
+  for (const contractor of state.contractors) {
+    options.push(`<option value="${escapeHtml(contractor.id)}">${escapeHtml(contractor.name || "Unnamed Contractor")}</option>`);
+  }
+  select.innerHTML = options.join("");
+  // A contractor that has since been deleted must not silently keep the slot.
+  const wanted = settings.defaultContractorId;
+  select.value = state.contractors.some((contractor) => contractor.id === wanted) ? wanted : "";
+  if (select.value !== wanted) state.settings.defaultContractorId = select.value;
 }
 
 function renderSettings() {
@@ -2421,6 +3353,22 @@ function renderSettings() {
   if (dom.settingsTocStyleSelect) dom.settingsTocStyleSelect.value = settings.tocStyle;
   if (dom.settingsEmailSubjectInput) dom.settingsEmailSubjectInput.value = settings.emailSubjectTemplate;
   if (dom.settingsEmailBodyInput) dom.settingsEmailBodyInput.value = settings.emailBodyTemplate;
+  if (dom.settingsHomeOnLaunchInput) dom.settingsHomeOnLaunchInput.checked = settings.homeOnLaunch !== false;
+  if (dom.settingsDensitySelect) dom.settingsDensitySelect.value = settings.density;
+  if (dom.settingsThemeSelect) dom.settingsThemeSelect.value = state.theme;
+  PLAN_SCAN_CATEGORIES.forEach((key) => {
+    const input = document.querySelector(`[data-scan-category="${key}"]`);
+    if (input) input.checked = settings.scanCategories[key] !== false;
+  });
+  renderDefaultContractorSelect(settings);
+  renderShortcutList();
+  applyDensity();
+}
+
+/** Appearance > Density. One body attribute redefines the spacing tokens. */
+function applyDensity() {
+  const density = DENSITY_MODES.includes(state.settings?.density) ? state.settings.density : "comfortable";
+  document.body.dataset.density = density;
 }
 
 function setSettingsStatus(message, type = "info") {
@@ -3028,6 +3976,10 @@ async function generateAndEmailFullSubmittal() {
 }
 
 function renderAll() {
+  // Catalog, loadouts and the project list all change through here, so this is
+  // the one hook the command-palette index needs. It only flips a flag — the
+  // rebuild happens on the next palette open, never during typing.
+  invalidatePaletteIndex();
   renderContractorSelect();
   renderContractorLogoPreview();
   renderCoverTemplateOptions();
@@ -3538,11 +4490,54 @@ async function importLoadoutFile(file) {
 function deleteSelectedLoadout() {
   const loadout = currentLoadout();
   if (!loadout) return;
-  if (!window.confirm(`Delete loadout "${loadout.name}"? This will not delete any catalog datasheets.`)) return;
   state.loadouts = state.loadouts.filter((entry) => entry.id !== loadout.id);
   renderLoadouts();
   saveState();
-  setGenerateStatus(`Deleted loadout "${loadout.name}".`, "success");
+  softDelete("loadout", loadout, {
+    label: loadout.name || "loadout",
+    message: `Deleted loadout "${loadout.name}". No catalog datasheets were removed.`,
+    restore: TRASH_RESTORERS.loadout,
+  });
+}
+
+/**
+ * Add or remove one catalog datasheet from the CURRENT submittal selection.
+ *
+ * This is the body the catalog row checkbox used to inline. It is a named
+ * function now because the command palette toggles datasheets too, and both
+ * must go through one path (a second copy would drift on the TOC-title and
+ * annotation-override bookkeeping). Returns false when the item cannot be
+ * selected (a remote listing whose PDF has not been downloaded yet).
+ */
+function setCatalogItemSelected(id, wanted) {
+  const item = state.catalog.find((entry) => entry.id === id);
+  if (item && isRemoteCatalogItem(item)) {
+    setGenerateStatus("Download or import this datasheet before adding it to the submittal.", "error");
+    return false;
+  }
+  const selected = new Set(state.selectedIds);
+  if (wanted) {
+    selected.add(id);
+    if (item && !state.tocTitles[id]) state.tocTitles[id] = displayName(item);
+  } else {
+    selected.delete(id);
+    annotatedPdfOverrides.delete(id);
+  }
+  state.selectedIds = [...selected];
+  renderAllPreservingCatalogScroll();
+  return true;
+}
+
+/**
+ * Switch the contractor form to a saved profile — or to "" for a blank New
+ * Contractor Profile, which is exactly what the select's first option does.
+ * The change listener and the palette action both call this.
+ */
+function selectContractorProfile(contractorId) {
+  state.activeContractorId = contractorId || "";
+  if (dom.contractorSelect) dom.contractorSelect.value = state.activeContractorId;
+  syncInputsFromState();
+  renderAll();
 }
 
 function renderContractorSelect() {
@@ -4954,15 +5949,11 @@ const PLAN_SCAN_LABELS = {
   miscellaneous: "miscellaneous",
 };
 
+// Driven by Settings > Scanning. Every category defaults ON, so a database
+// saved before this setting existed behaves exactly as it did.
 function readPlanScanOptions() {
-  return {
-    sprinklers: true,
-    piping: true,
-    hangers: true,
-    bracing: true,
-    valves: true,
-    miscellaneous: true,
-  };
+  const chosen = normalizeSettings(state.settings).scanCategories;
+  return Object.fromEntries(PLAN_SCAN_CATEGORIES.map((key) => [key, chosen[key] !== false]));
 }
 
 function hasPlansScanResults(projectInfo) {
@@ -5346,6 +6337,28 @@ function buildPlanCatalogSuggestions(projectInfo) {
       }
     }
   }
+  const cpvcDetected = (Array.isArray(projectInfo.pipeTypes) ? projectInfo.pipeTypes : [])
+    .some((pipe) => /cpvc|blazemaster|flameguard/i.test(`${pipe?.pipeType || ""} ${pipe?.sourceText || ""}`));
+  if (cpvcDetected) {
+    // "CPVC" in the title is not enough: Fig. 3000 is a CPVC-rated SWAY BRACE
+    // attachment, not a hanger - the owner explicitly excluded it. Keep the
+    // offer to actual hangers/restrainers.
+    const cpvcHangers = dedupeCatalogIdentity(state.catalog
+      .filter((item) => item.category === "Hangers"
+        && /cpvc/i.test(displayName(item))
+        && !/sway\s*brace|brace\s*attachment|restraint\s*assembl/i.test(displayName(item))))
+      .sort(compareCatalogItems);
+    if (cpvcHangers.length) {
+      suggestions.push({
+        kind: "offer",
+        offerKey: "cpvc-hangers",
+        label: "CPVC pipe detected — add CPVC hangers?",
+        offerOptions: cpvcHangers,
+        selectable: false,
+        checked: false,
+      });
+    }
+  }
   for (const fitting of Array.isArray(projectInfo.fittings) ? projectInfo.fittings : []) {
     const choice = planChoiceConfig(fitting, "Fittings");
     if (choice) addChoiceSuggestion("fitting-choice", fitting, "Fittings", choice.terms, choice.label, { excludeTerms: choice.excludeTerms, preferred: choice.preferred });
@@ -5521,6 +6534,22 @@ function isFlowSwitchDetection(record) {
     record?.sourceText,
     record?.sourceLine,
   ].filter(Boolean).join(" "));
+}
+
+// Same sheet, different rows: a remote seed entry, a local import of it, and a
+// re-import all carry different ids, so id-level dedupe keeps all three and the
+// pipe dropdown read "CPVC (IPEX)" three times. Identity = manufacturer +
+// display title; the LOCAL copy wins over any "(import needed)" twin.
+function dedupeCatalogIdentity(items) {
+  const byKey = new Map();
+  for (const item of Array.isArray(items) ? items : []) {
+    if (!item) continue;
+    const key = `${normalize(item.manufacturer || "")}|${normalizeSearchText(displayName(item))}`;
+    const existing = byKey.get(key);
+    if (!existing) { byKey.set(key, item); continue; }
+    if (isRemoteCatalogItem(existing) && !isRemoteCatalogItem(item)) byKey.set(key, item);
+  }
+  return [...byKey.values()];
 }
 
 function uniqueCatalogItems(items) {
@@ -6094,12 +7123,14 @@ function matchPipeFromPlan(record) {
 function matchPipeOptionsFromPlan(record) {
   const label = normalize(record.pipeType || "");
   if (!label) return [];
-  return state.catalog
+  return dedupeCatalogIdentity(state.catalog
     .filter((item) => item.category === "Pipe")
     .map((item) => ({ item, score: scorePipeMatch(item, label) }))
     .filter((entry) => entry.score > 0)
-    .sort((a, b) => (b.score - a.score) || compareCatalogItems(a.item, b.item))
-    .map((entry) => entry.item);
+    .sort((a, b) => (b.score - a.score)
+      || (Number(isRemoteCatalogItem(a.item)) - Number(isRemoteCatalogItem(b.item)))
+      || compareCatalogItems(a.item, b.item))
+    .map((entry) => entry.item));
 }
 
 function matchCatalogTermFromPlan(record, category) {
@@ -6380,6 +7411,37 @@ function renderPlansReviewSuggestions(suggestions) {
     const attributionHtml = attribution
       ? `<span class="plan-suggestion-loadout">${escapeHtml(attribution)}</span>`
       : "";
+    if (suggestion.kind === "offer" && suggestion.offerOptions?.length) {
+      // Two-stage picker: 22 hangers at once was too long a list. First pick a
+      // manufacturer, then add all of theirs or hand-pick from just that maker.
+      const makers = [...new Set(suggestion.offerOptions.map((item) => item.manufacturer || "Other"))];
+      let controls = "";
+      if (!suggestion.offerMaker) {
+        controls = makers.map((maker) => {
+          const count = suggestion.offerOptions.filter((item) => (item.manufacturer || "Other") === maker).length;
+          return `<button class="small-button plan-offer-button" type="button" data-plan-offer-maker="${escapeHtml(maker)}" data-plan-offer-index="${index}">${escapeHtml(maker)} (${count})</button>`;
+        }).join("");
+      } else {
+        const count = suggestion.offerOptions.filter((item) => (item.manufacturer || "Other") === suggestion.offerMaker).length;
+        controls = `
+          <button class="small-button plan-offer-button" type="button" data-plan-offer-mode="all" data-plan-offer-index="${index}">Add all ${count}</button>
+          <button class="small-button plan-offer-button" type="button" data-plan-offer-mode="manual" data-plan-offer-index="${index}">Choose manually</button>
+          <button class="small-button plan-offer-button plan-offer-back" type="button" data-plan-offer-mode="back" data-plan-offer-index="${index}">&#8592; Back</button>`;
+      }
+      const meta = suggestion.offerMaker
+        ? `${escapeHtml(suggestion.offerMaker)} — add all of theirs, or pick from just that list`
+        : `${suggestion.offerOptions.length} hangers across ${makers.length} manufacturers — pick one`;
+      return `
+        <article class="plan-suggestion-row offer-row">
+          <span class="plan-offer-glyph" aria-hidden="true">+</span>
+          <span>
+            <span class="plan-suggestion-title">${escapeHtml(suggestion.label)}</span>
+            <span class="plan-suggestion-meta">${meta}</span>
+            <span class="plan-offer-controls">${controls}</span>
+          </span>
+        </article>
+      `;
+    }
     if (suggestion.options?.length) {
       const checked = suggestion.checked ? "checked" : "";
       const selectedItem = choiceItem || suggestion.options[0];
@@ -6399,6 +7461,8 @@ function renderPlansReviewSuggestions(suggestions) {
             <select class="plan-suggestion-select" data-plan-choice="${index}" aria-label="Choose ${escapeHtml(suggestion.label || "datasheet")}">
               ${options}
             </select>
+            ${selectedItem?.includesFittings && !/includes fittings/i.test(displayName(selectedItem))
+              ? '<span class="plan-suggestion-note">This datasheet also covers the matching fittings.</span>' : ""}
           </span>
           ${action}
         </article>
@@ -6480,6 +7544,41 @@ function showPlansReviewDialog(review) {
         const suggestion = review.suggestions[Number(input.dataset.planSuggestion)];
         if (suggestion) suggestion.checked = true;
       });
+    };
+    const onOfferExpand = (event) => {
+      const makerButton = event.target.closest("[data-plan-offer-maker]");
+      const modeButton = event.target.closest("[data-plan-offer-mode]");
+      const button = makerButton || modeButton;
+      if (!button) return;
+      const index = Number(button.dataset.planOfferIndex);
+      const offer = review.suggestions[index];
+      if (!offer?.offerOptions?.length) return;
+      if (makerButton) {
+        offer.offerMaker = makerButton.dataset.planOfferMaker;
+        refreshPlansReviewSuggestionList(review);
+        return;
+      }
+      const mode = modeButton.dataset.planOfferMode;
+      if (mode === "back") {
+        offer.offerMaker = "";
+        refreshPlansReviewSuggestionList(review);
+        return;
+      }
+      // Materialize ordinary item rows for the chosen manufacturer only:
+      // every existing behavior (checkbox, import, apply) works on them with
+      // zero new code paths. "Add all" arrives pre-checked; manual unchecked.
+      const rows = offer.offerOptions
+        .filter((item) => (item.manufacturer || "Other") === offer.offerMaker)
+        .map((item) => ({
+          kind: "hanger",
+          detected: { term: "CPVC hanger", sourceText: "Offered because CPVC pipe was detected" },
+          item,
+          status: isRemoteCatalogItem(item) ? "import" : "exact",
+          selectable: true,
+          checked: mode === "all",
+        }));
+      review.suggestions.splice(index, 1, ...rows);
+      refreshPlansReviewSuggestionList(review);
     };
     const onImport = async (event) => {
       const button = event.target.closest("[data-plan-import]");
@@ -6574,7 +7673,7 @@ function showPlansReviewDialog(review) {
     dom.plansReviewSelectAllButton?.addEventListener("click", onSelectAll);
     dom.plansReviewImportApplyButton?.addEventListener("click", onImportAllMissing);
     dom.plansReviewApplyButton.addEventListener("click", onApply);
-    dom.plansReviewSuggestions.addEventListener("click", onImport);
+    dom.plansReviewSuggestions.addEventListener("click", onImport); dom.plansReviewSuggestions.addEventListener("click", onOfferExpand);
     dom.plansReviewSuggestions.addEventListener("change", onChoiceChange);
     dom.plansReviewDialog.addEventListener("cancel", onCancel);
     dom.plansReviewDialog.addEventListener("pointerdown", onBackdropPress);
@@ -8176,8 +9275,9 @@ async function deleteCatalogItem(id) {
   const item = state.catalog.find((entry) => entry.id === id);
   if (!item) return;
   const name = displayName(item);
-  const confirmed = window.confirm(`Are you sure you want to delete this datasheet from the database?\n\n${name}\n\nThis will remove the PDF from the datasheet folder.`);
-  if (!confirmed) return;
+  // The server hard-deletes the PDF, so capture its bytes FIRST — that is what
+  // makes the undo real rather than a metadata-only tombstone.
+  const payload = await captureCatalogPdfPayload(item);
 
   try {
     await postCatalogAction("./api/catalog/delete", {
@@ -8189,7 +9289,14 @@ async function deleteCatalogItem(id) {
     delete state.tocTitles[id];
     annotatedPdfOverrides.delete(id);
     await refreshCatalog({ preserveScroll: true });
-    setGenerateStatus(`Deleted catalog item: ${name}`, "success");
+    softDelete("catalog", item, {
+      label: name || "datasheet",
+      payload,
+      message: payload
+        ? `Deleted datasheet "${name}".`
+        : `Deleted datasheet "${name}". This one was too large to keep for undo.`,
+      restore: TRASH_RESTORERS.catalog,
+    });
   } catch (error) {
     setGenerateStatus(`Could not delete catalog item: ${error.message || "Delete failed."}`, "error");
   }
@@ -8430,10 +9537,17 @@ function saveContractor() {
 
 function deleteContractor() {
   if (!state.activeContractorId || isNoContractorSelected()) return;
-  state.contractors = state.contractors.filter((contractor) => contractor.id !== state.activeContractorId);
+  const removed = state.contractors.find((contractor) => contractor.id === state.activeContractorId);
+  if (!removed) return;
+  state.contractors = state.contractors.filter((contractor) => contractor.id !== removed.id);
   state.activeContractorId = "";
   syncInputsFromState();
   renderAll();
+  softDelete("contractor", removed, {
+    label: removed.name || "contractor profile",
+    message: `Deleted contractor "${removed.name || "Unnamed Contractor"}".`,
+    restore: TRASH_RESTORERS.contractor,
+  });
 }
 
 function applyContractorLogo(dataUrl) {
@@ -8530,9 +9644,24 @@ function resetProject() {
   if (dom.catalogSelectedOnlyInput) dom.catalogSelectedOnlyInput.checked = false;
   if (dom.catalogSortSelect) dom.catalogSortSelect.value = state.catalogSort || "manufacturer";
   if (dom.projectSelect) dom.projectSelect.value = "";
+  applyDefaultContractor();
   syncInputsFromState();
   renderAll();
   setGenerateStatus("Started a new project.", "info");
+}
+
+/**
+ * Settings > Shop defaults > Default Contractor. A shop that does every job
+ * under one license number should not re-pick it on every project. Only fires
+ * for a blank slate, and never overrides a contractor already selected.
+ */
+function applyDefaultContractor() {
+  const wanted = normalizeSettings(state.settings).defaultContractorId;
+  if (!wanted) return false;
+  if (!state.contractors.some((contractor) => contractor.id === wanted)) return false;
+  state.activeContractorId = wanted;
+  contractorFormHydratedFor = null;
+  return true;
 }
 
 function requestNewProject() {
@@ -8726,6 +9855,7 @@ function activateTool(toolId) {
     dom.generateDock.hidden = activeTool !== "submittal";
   }
   if (activeTool === "pdf") loadRecentOutputs();
+  if (activeTool === "home") { renderHome(); loadHomeRecentOutputs(); }
   if (activeTool === "hanger") updateEmbeddedToolThemes();
   if (activeTool === "catalog") { matcatWire(); renderMaterialCatalog(); }
   updateViewModeUI();
@@ -9140,6 +10270,7 @@ function setTheme(theme) {
 function updateThemeUI() {
   document.body.dataset.theme = state.theme;
   if (dom.themeSelect) dom.themeSelect.value = state.theme;
+  if (dom.settingsThemeSelect) dom.settingsThemeSelect.value = state.theme;   // Appearance mirror
   const themeColor = THEME_META[state.theme]?.color || THEME_META.default.color;
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", themeColor);
   updateEmbeddedToolThemes();
@@ -15099,16 +16230,12 @@ function initDemoStage() {
 // polish we haven't shipped yet. Framed as a perk, not an apology.
 // (The .ea-* class names predate the rename and stay put; only the wording
 // changed, so the existing stylesheet and dismissal keys keep working.)
-const EXPERIMENTAL_TOOLS = ["hanger", "estimator", "seismic", "symbols"];
-
+//
+// The list itself now lives in TOOL_REGISTRY (`experimental: true`) and the
+// sidebar pill is emitted by renderToolSidebar, so this function only owns the
+// dismissible in-panel banner.
 function initEarlyAccess() {
   EXPERIMENTAL_TOOLS.forEach((key) => {
-    const tab = document.querySelector(`[data-tool-tab="${key}"]`);
-    if (tab && !tab.querySelector(".ea-pill")) {
-      tab.classList.add("is-early-access");
-      tab.insertAdjacentHTML("beforeend",
-        '<span class="ea-pill" title="Experimental — fully usable, still getting polish">Experimental</span>');
-    }
     const panel = document.querySelector(`[data-tool-panel="${key}"]`);
     if (!panel || panel.querySelector(".ea-banner")) return;
     if (localStorage.getItem(`sprinkflow.ea.dismissed.${key}`) === "1") return;
@@ -18998,12 +20125,37 @@ function clearNfpa1142Calculator() {
 }
 
 function wireEvents() {
+  wireCommandPalette();
   if (dom.manualCategoryInput) {
     dom.manualCategoryInput.innerHTML = CATEGORIES.map((category) => `<option value="${category}">${category}</option>`).join("");
   }
 
-  dom.toolTabs.forEach((button) => {
-    button.addEventListener("click", () => activateTool(button.dataset.toolTab));
+  // ONE delegated listener on the nav — the sidebar is re-rendered whenever
+  // favorites change, so per-button listeners would be lost on every re-render.
+  const toolNav = document.querySelector("nav.tool-tabs");
+  toolNav?.addEventListener("click", (event) => {
+    const star = event.target.closest("[data-tool-pin]");
+    if (star) {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleToolPin(star.dataset.toolPin);
+      return;
+    }
+    const button = event.target.closest("[data-tool-tab]");
+    if (button) activateTool(button.dataset.toolTab);
+  });
+  // Keyboard: the star is focusable, Enter/Space toggles the pin without also
+  // activating the tab underneath it.
+  toolNav?.addEventListener("keydown", (event) => {
+    const star = event.target.closest?.("[data-tool-pin]");
+    if (!star) return;
+    if (event.key !== "Enter" && event.key !== " " && event.key !== "Spacebar") return;
+    event.preventDefault();
+    event.stopPropagation();
+    const toolId = star.dataset.toolPin;
+    toggleToolPin(toolId);
+    // Re-render replaced the node; put focus back on the same tool's star.
+    document.querySelector(`[data-tool-pin="${CSS.escape(toolId)}"]`)?.focus();
   });
   initEstimator();
   dom.viewModeButtons?.forEach((button) => {
@@ -19111,6 +20263,7 @@ function wireEvents() {
   initPdfcad();
   initSeismic();
   initEarlyAccess();
+  wireHomePanel();
   initDemoStage();
   initCadx();
   dom.pdfMergeImportButton?.addEventListener("click", () => dom.pdfMergeInput?.click());
@@ -19652,6 +20805,9 @@ function wireEvents() {
     dom.settingsTocStyleSelect,
     dom.settingsEmailSubjectInput,
     dom.settingsEmailBodyInput,
+    dom.settingsDefaultContractorSelect,
+    dom.settingsHomeOnLaunchInput,
+    ...dom.settingsScanCategoryInputs,
   ].filter(Boolean).forEach((input) => {
     input.addEventListener("change", () => {
       syncSettingsFromInputs();
@@ -19659,6 +20815,23 @@ function wireEvents() {
       saveState();
     });
   });
+  // Density applies the moment you pick it — a preference you cannot see the
+  // effect of until you press Save is a preference nobody trusts.
+  // Turning Home on/off adds or removes its sidebar entry immediately.
+  dom.settingsHomeOnLaunchInput?.addEventListener("change", () => {
+    const wasHome = currentActiveTool() === "home";
+    renderToolSidebar();
+    if (wasHome && !homePanelEnabled()) activateTool("submittal");
+  });
+  dom.settingsDensitySelect?.addEventListener("change", () => {
+    syncSettingsFromInputs();
+    applyDensity();
+    updatePreviewScale();
+    saveState();
+  });
+  // The Appearance theme control is a mirror of the header dropdown: same
+  // setTheme path, no second source of truth.
+  dom.settingsThemeSelect?.addEventListener("change", () => setTheme(dom.settingsThemeSelect.value));
   dom.resetProjectButton.addEventListener("click", requestNewProject);
   dom.newProjectCancelButton?.addEventListener("click", () => dom.newProjectDialog.close());
   dom.newProjectDiscardButton?.addEventListener("click", () => {
@@ -19750,9 +20923,7 @@ function wireEvents() {
   setupPasswordToggles();
 
   dom.contractorSelect.addEventListener("change", () => {
-    state.activeContractorId = dom.contractorSelect.value;
-    syncInputsFromState();
-    renderAll();
+    selectContractorProfile(dom.contractorSelect.value);
   });
 
   for (const input of [
@@ -19877,24 +21048,7 @@ function wireEvents() {
 
     const id = event.target.dataset.selectId;
     if (!id) return;
-    const item = state.catalog.find((entry) => entry.id === id);
-    if (item && isRemoteCatalogItem(item)) {
-      event.target.checked = false;
-      setGenerateStatus("Download or import this datasheet before adding it to the submittal.", "error");
-      return;
-    }
-    const selected = new Set(state.selectedIds);
-    if (event.target.checked) {
-      selected.add(id);
-      if (item && !state.tocTitles[id]) {
-        state.tocTitles[id] = displayName(item);
-      }
-    } else {
-      selected.delete(id);
-      annotatedPdfOverrides.delete(id);
-    }
-    state.selectedIds = [...selected];
-    renderAllPreservingCatalogScroll();
+    if (!setCatalogItemSelected(id, event.target.checked)) event.target.checked = false;
   });
 
   dom.catalogList.addEventListener("input", (event) => {
@@ -19990,22 +21144,11 @@ function wireEvents() {
 let clientErrorReportCount = 0;
 let clientErrorToastShown = false;
 
+// Kept as a name so the client-error reporter's call sites don't change, but
+// there is now ONE toast system (showToast) instead of two that could stack on
+// top of each other at the bottom of the window.
 function showAppToast(message, { duration = 8000 } = {}) {
-  const existing = document.querySelector(".app-toast");
-  if (existing) existing.remove();
-  const toast = document.createElement("div");
-  toast.className = "app-toast";
-  const text = document.createElement("span");
-  text.textContent = message;
-  const close = document.createElement("button");
-  close.type = "button";
-  close.className = "app-toast-close";
-  close.setAttribute("aria-label", "Dismiss notification");
-  close.textContent = "×";
-  close.addEventListener("click", () => toast.remove());
-  toast.append(text, close);
-  document.body.appendChild(toast);
-  window.setTimeout(() => toast.remove(), duration);
+  return showToast(message, { tone: "error", timeoutMs: duration });
 }
 
 function installClientErrorReporting() {
@@ -21210,6 +22353,11 @@ async function initializeApp() {
   await loadAppInfo();
   await loadState();
   await loadExternalCatalog();
+  // A blank slate on launch counts as "a new project starts" for the default
+  // contractor setting; an in-progress session is left exactly as it was.
+  if (!state.activeContractorId && !state.project.name && !state.project.address && !state.activeSavedProjectId) {
+    applyDefaultContractor();
+  }
   renderProjectSelect();
   syncInputsFromState();
   if (dom.catalogSortSelect) dom.catalogSortSelect.value = state.catalogSort || "manufacturer";
@@ -21218,6 +22366,13 @@ async function initializeApp() {
   syncInputsFromState();
   if (dom.catalogSortSelect) dom.catalogSortSelect.value = state.catalogSort || "manufacturer";
   renderAll();
+  // The sidebar was first rendered before app-state existed; re-render now that
+  // Favorites and the Home setting are known, then pick the launch panel.
+  renderToolSidebar();
+  if (homePanelEnabled()) {
+    activateTool("home");
+    loadHomeRecentOutputs();
+  }
   renderEstimator();
   updateSpacingCalculator();
   updateFlowCalculator();
@@ -21520,3 +22675,778 @@ if ("serviceWorker" in navigator) {
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", setupPlanReviewer);
   else setupPlanReviewer();
 })();
+
+// ============================================================================
+//  COMMAND PALETTE (Ctrl+K / Ctrl+P) + the `?` shortcut overlay — UX Phase 2.
+//
+//  One ranked list over five sources: tools, actions, saved projects, loadouts,
+//  and the catalog. Two rules govern the whole thing:
+//
+//   1. NO PARALLEL CODE PATHS. Every action calls the exact function its UI
+//      button calls (generateMaterialDataSubmittal, exportProjectPackage,
+//      setCatalogItemSelected, ...). Where a handler used to be inline in a
+//      listener it was extracted and BOTH callers now use the named function.
+//   2. THE INDEX IS BUILT ONCE. Normalizing 667 catalog rows per keystroke
+//      blows the 50ms budget instantly, so every entry carries pre-computed
+//      lowercase forms and the index is rebuilt only when a source changes
+//      (invalidatePaletteIndex, called from the app's render entry points).
+//
+//  Shared client-side with the web edition: no palette action assumes a
+//  desktop-only endpoint without a catch (the web shim answers the folder
+//  routes with a no-op, and everything else is pure client state).
+// ============================================================================
+
+const PALETTE_RECENTS_MAX = 50;
+/** Rows rendered per open. Ranking runs over everything; only the top slice is
+ *  painted, because a 700-node list is the only part of this that is slow. */
+const PALETTE_MAX_ROWS = 60;
+/** Rows every matching group is guaranteed, before the leftovers are spent. */
+const PALETTE_MIN_PER_GROUP = 8;
+
+const PALETTE_GROUP_ORDER = ["Favorites", "Recent", "Tools", "Actions", "Projects", "Loadouts", "Datasheets"];
+/** Ranking floor per source, so a tool outranks a datasheet at equal text score. */
+const PALETTE_KIND_WEIGHT = { tool: 60, action: 50, project: 30, loadout: 25, catalog: 0 };
+
+function normalizePaletteRecents(raw) {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set();
+  return raw
+    .filter((entry) => entry && typeof entry === "object" && typeof entry.key === "string" && entry.key)
+    .map((entry) => ({ key: entry.key, at: Number(entry.at) || 0 }))
+    .filter((entry) => !seen.has(entry.key) && seen.add(entry.key))
+    .sort((a, b) => b.at - a.at)
+    .slice(0, PALETTE_RECENTS_MAX);
+}
+
+function rememberPaletteChoice(key) {
+  if (!key) return;
+  const rest = normalizePaletteRecents(state.paletteRecents).filter((entry) => entry.key !== key);
+  state.paletteRecents = [{ key, at: Date.now() }, ...rest].slice(0, PALETTE_RECENTS_MAX);
+  saveState();
+}
+
+/** key -> 0-based recency rank (0 = most recent). Rebuilt on open, not per key. */
+function paletteRecencyRanks() {
+  const ranks = new Map();
+  normalizePaletteRecents(state.paletteRecents).forEach((entry, index) => ranks.set(entry.key, index));
+  return ranks;
+}
+
+// ---- text normalization + fuzzy scoring ------------------------------------
+
+/** "Hazen-Williams Calculator" -> "hazen williams calculator" (case/punct-insensitive). */
+function paletteNorm(value) {
+  return String(value == null ? "" : value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function paletteTight(normalized) {
+  return normalized.replace(/ /g, "");
+}
+
+function paletteInitials(normalized) {
+  return normalized.split(" ").filter(Boolean).map((word) => word[0]).join("");
+}
+
+/**
+ * Subsequence score: every needle character must appear in order. Consecutive
+ * runs are worth progressively more, so "hazen" beats "hzn" on the same target,
+ * and a long haystack pays a bounded length penalty. Dependency-free by design.
+ */
+function paletteSubsequence(hay, needle) {
+  if (!needle) return 0;
+  if (needle.length > hay.length) return 0;
+  let hi = 0;
+  let run = 0;
+  let points = 0;
+  let prev = -2;
+  for (let ni = 0; ni < needle.length; ni += 1) {
+    const ch = needle[ni];
+    let found = -1;
+    while (hi < hay.length) {
+      if (hay[hi] === ch) { found = hi; break; }
+      hi += 1;
+    }
+    if (found < 0) return 0;
+    run = found === prev + 1 ? run + 1 : 0;
+    points += 1 + run;
+    prev = found;
+    hi = found + 1;
+  }
+  const density = points / (needle.length * 2);
+  return 300 + Math.round(70 * Math.min(1, density)) - Math.min(80, Math.round((hay.length - needle.length) * 0.4));
+}
+
+/**
+ * Score one pre-normalized field. Exact > prefix > word-prefix > initials >
+ * substring > subsequence. Returns 0 for no match.
+ */
+function paletteFieldScore(field, needleNorm, needleTight) {
+  if (!field || !field.norm) return 0;
+  if (field.norm === needleNorm) return 1000;
+  if (field.norm.startsWith(needleNorm)) return 860 - Math.min(60, field.norm.length - needleNorm.length);
+  if (field.words) {
+    for (let i = 1; i < field.words.length; i += 1) {
+      if (field.words[i].startsWith(needleNorm)) return 760 - i;
+    }
+  }
+  if (field.initials && field.initials.startsWith(needleTight)) return 700;
+  if (field.norm.includes(needleNorm)) return 620;
+  return paletteSubsequence(field.tight, needleTight);
+}
+
+function paletteField(value) {
+  const norm = paletteNorm(value);
+  if (!norm) return null;
+  const words = norm.split(" ").filter(Boolean);
+  return { norm, tight: paletteTight(norm), words, initials: paletteInitials(norm) };
+}
+
+/** Highest field score for an entry, with keywords/subtitle discounted. */
+function paletteEntryScore(entry, needleNorm, needleTight) {
+  let best = paletteFieldScore(entry.fLabel, needleNorm, needleTight);
+  if (best < 1000 && entry.fKeywords) {
+    best = Math.max(best, Math.round(paletteFieldScore(entry.fKeywords, needleNorm, needleTight) * 0.58));
+  }
+  if (best < 1000 && entry.fSub) {
+    best = Math.max(best, Math.round(paletteFieldScore(entry.fSub, needleNorm, needleTight) * 0.42));
+  }
+  return best;
+}
+
+// ---- actions ---------------------------------------------------------------
+
+/** Bring a tool on screen first, then run — an action must never fire against a hidden panel. */
+function paletteInTool(toolId, fn) {
+  return () => {
+    activateTool(toolId);
+    return fn();
+  };
+}
+
+function paletteToggleDensity() {
+  const next = normalizeSettings(state.settings).density === "compact" ? "comfortable" : "compact";
+  state.settings = normalizeSettings({ ...state.settings, density: next });
+  applyDensity();
+  renderSettings();
+  saveState();
+  showToast(`Density set to ${next}.`, { tone: "success", timeoutMs: 3500 });
+}
+
+async function paletteOpenOutputFolder() {
+  const path = normalizeSettings(state.settings).outputFolder
+    || runtime.generatedOutputs.material?.path
+    || runtime.generatedOutputs.hydraulic?.path
+    || "";
+  try {
+    await readApiJson("./api/open-output-folder", { method: "POST", body: JSON.stringify({ path }) });
+    showToast(path ? "Opened your output folder." : "Opened the default output folder.", { tone: "success", timeoutMs: 4000 });
+  } catch (error) {
+    // The web edition's shim answers this as a no-op; a real failure is a
+    // desktop path problem. Either way the palette says so instead of throwing.
+    showToast(`Could not open the output folder: ${error.message || "not available here."}`, { tone: "error", timeoutMs: 7000 });
+  }
+}
+
+const PALETTE_SETTINGS_SECTIONS = [
+  { id: "general", label: "Startup", keywords: "home on launch open home resume default panel" },
+  { id: "appearance", label: "Theme & Density", keywords: "theme dark light blueprint vellum graphite density compact comfortable legacy mode" },
+  { id: "shortcuts", label: "Keyboard", keywords: "shortcuts keys hotkeys palette bindings" },
+  { id: "shop", label: "Output, Documents & Email", keywords: "output folder toc table of contents default contractor email subject body template open generated pdf" },
+  { id: "scanning", label: "What the Plan Scan Looks For", keywords: "scan categories sprinklers piping hangers bracing valves miscellaneous" },
+];
+
+function paletteOpenSettingsSection(sectionId) {
+  activateTool("settings");
+  const section = document.querySelector(`[data-settings-section="${sectionId}"]`);
+  if (!section) return;
+  section.scrollIntoView({ block: "center", behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  section.classList.add("settings-section-flash");
+  window.setTimeout(() => section.classList.remove("settings-section-flash"), 1400);
+}
+
+/**
+ * Every palette action. `run` is always the real handler — see the header note.
+ * `shortcut` is the key the app already binds, shown on the row and listed in
+ * the `?` overlay; it is documentation of an existing binding, not a new one.
+ */
+function paletteActions() {
+  const actions = [
+    {
+      key: "action:generate-material", label: "Generate Material Data Submittal",
+      keywords: "make build submittal package pdf cut sheets print produce",
+      run: paletteInTool("submittal", () => generateMaterialDataSubmittal()),
+    },
+    {
+      key: "action:generate-hydraulic", label: "Generate Hydraulic Calc Package",
+      keywords: "make build calcs calculation package pdf produce",
+      run: paletteInTool("hydraulic", () => generateHydraulicPackage()),
+    },
+    {
+      key: "action:export-package", label: "Export Full Package",
+      keywords: "everything zip full job export all outputs plans calcs submittal",
+      run: paletteInTool("submittal", () => exportProjectPackage()),
+    },
+    {
+      key: "action:save-project", label: "Save Project", shortcut: "Ctrl + S",
+      keywords: "store keep persist saved projects write",
+      run: () => saveCurrentProject(),
+    },
+    {
+      key: "action:new-project", label: "New Project / Start Over",
+      keywords: "blank fresh clear reset wipe begin start over new job",
+      run: paletteInTool("submittal", () => requestNewProject()),
+    },
+    {
+      key: "action:new-contractor", label: "New Contractor Profile",
+      keywords: "add contractor company license shop profile blank contractor",
+      run: paletteInTool("submittal", () => {
+        selectContractorProfile("");
+        if (state.viewMode === "simple") setSimpleStep("contractor");
+        dom.contractorNameInput?.focus();
+      }),
+    },
+    {
+      key: "action:scan-plans", label: "Scan Plans",
+      keywords: "read plan set pdf title block ocr analyze intake drop plans import plans",
+      run: paletteInTool("submittal", () => {
+        if (state.viewMode === "simple") setSimpleStep("intake");
+        dom.plansPdfInput?.click();
+      }),
+    },
+    {
+      key: "action:toggle-density", label: "Toggle Density (Comfortable / Compact)",
+      keywords: "compact comfortable spacing tighter roomier padding appearance",
+      run: () => paletteToggleDensity(),
+    },
+    {
+      key: "action:open-output-folder", label: "Open Output Folder",
+      keywords: "reveal explorer finder generated pdfs where are my files destination",
+      run: () => paletteOpenOutputFolder(),
+    },
+  ];
+
+  // One action per theme rather than a submenu: a palette row you can type the
+  // theme's name into beats a two-step drill-down.
+  Object.entries(THEME_META).forEach(([id, meta]) => {
+    actions.push({
+      key: `action:theme:${id}`, label: `Switch Theme: ${meta.label}`,
+      keywords: `appearance colors ${meta.light ? "light bright" : "dark night"} palette skin`,
+      run: () => {
+        setTheme(id);
+        showToast(`Theme set to ${meta.label}.`, { tone: "success", timeoutMs: 3500 });
+      },
+    });
+  });
+
+  PALETTE_SETTINGS_SECTIONS.forEach((section) => {
+    actions.push({
+      key: `action:settings:${section.id}`, label: `Open Settings: ${section.label}`,
+      keywords: `settings preferences options ${section.keywords}`,
+      run: () => paletteOpenSettingsSection(section.id),
+    });
+  });
+
+  return actions;
+}
+
+// ---- the index -------------------------------------------------------------
+
+let paletteIndex = null;
+let paletteIndexDirty = true;
+
+/** Called from the app's render entry points; the rebuild itself waits for the next open. */
+function invalidatePaletteIndex() {
+  paletteIndexDirty = true;
+}
+
+function paletteEntry(kind, key, label, sub, group, keywords, shortcut, run) {
+  return {
+    kind, key, label, sub: sub || "", group, shortcut: shortcut || "", run,
+    fLabel: paletteField(label),
+    fKeywords: paletteField(keywords),
+    fSub: paletteField(sub),
+  };
+}
+
+function buildPaletteIndex() {
+  const entries = [];
+
+  TOOL_REGISTRY.forEach((tool) => {
+    entries.push(paletteEntry(
+      "tool", `tool:${tool.id}`, tool.label,
+      tool.group, "Tools", (tool.keywords || []).join(" "), "",
+      () => activateTool(tool.id),
+    ));
+  });
+
+  paletteActions().forEach((action) => {
+    entries.push(paletteEntry(
+      "action", action.key, action.label, "", "Actions",
+      action.keywords, action.shortcut, action.run,
+    ));
+  });
+
+  loadProjects().forEach((project) => {
+    const address = project.project?.address || "";
+    entries.push(paletteEntry(
+      "project", `project:${project.id}`, project.name || "Untitled Project",
+      address || "Saved project", "Projects",
+      `saved project job resume load open ${address}`, "",
+      () => homeResumeProject(project.id),
+    ));
+  });
+
+  (state.loadouts || []).forEach((loadout) => {
+    const count = loadoutItemCount(loadout);
+    entries.push(paletteEntry(
+      "loadout", `loadout:${loadout.id}`, loadout.name || "Untitled loadout",
+      `${count} datasheet${count === 1 ? "" : "s"}`, "Loadouts",
+      "loadout preset kit bundle apply standard package favorites set", "",
+      () => {
+        if (dom.loadoutSelect) dom.loadoutSelect.value = loadout.id;
+        applySelectedLoadout();
+      },
+    ));
+  });
+
+  (state.catalog || []).forEach((item) => {
+    const label = displayName(item);
+    const sub = [item.manufacturer, item.model, item.category].filter(Boolean).join(" · ");
+    entries.push(paletteEntry(
+      "catalog", `catalog:${item.id}`, label, sub, "Datasheets",
+      [item.manufacturer, item.model, item.product, item.category, (item.tags || []).join(" ")]
+        .filter(Boolean).join(" "),
+      "",
+      () => paletteToggleCatalogItem(item.id),
+    ));
+  });
+
+  paletteIndex = entries;
+  paletteIndexDirty = false;
+  return entries;
+}
+
+function ensurePaletteIndex() {
+  if (paletteIndexDirty || !paletteIndex) buildPaletteIndex();
+  return paletteIndex;
+}
+
+/** Enter on a datasheet row toggles it into/out of the current submittal. */
+function paletteToggleCatalogItem(id) {
+  const item = (state.catalog || []).find((entry) => entry.id === id);
+  if (!item) {
+    showToast("That datasheet is no longer in the catalog.", { tone: "error", timeoutMs: 5000 });
+    return;
+  }
+  const wanted = !state.selectedIds.includes(id);
+  if (!setCatalogItemSelected(id, wanted)) return;
+  showToast(
+    wanted
+      ? `Added "${displayName(item)}" to this submittal.`
+      : `Removed "${displayName(item)}" from this submittal.`,
+    { tone: "success", timeoutMs: 4500 },
+  );
+}
+
+// ---- ranking ---------------------------------------------------------------
+
+/**
+ * Rank the index for `query`.
+ *
+ * Empty query: pinned tools, then recents (most-recent first), then the groups
+ * in declaration order.
+ * Non-empty: one list ordered by
+ *   text score (see paletteFieldScore) + source weight + pinned bonus +
+ *   recency bonus, ties broken by the shorter label.
+ */
+function palettePickResults(query) {
+  const entries = ensurePaletteIndex();
+  const recents = paletteRecencyRanks();
+  const pinned = new Set(pinnedToolIds());
+  const needleNorm = paletteNorm(query);
+
+  if (!needleNorm) {
+    const rows = [];
+    const used = new Set();
+    pinnedToolIds().forEach((toolId) => {
+      const hit = entries.find((entry) => entry.key === `tool:${toolId}`);
+      if (hit && !used.has(hit.key)) { used.add(hit.key); rows.push({ entry: hit, group: "Favorites" }); }
+    });
+    normalizePaletteRecents(state.paletteRecents).forEach((recent) => {
+      const hit = entries.find((entry) => entry.key === recent.key);
+      if (hit && !used.has(hit.key)) { used.add(hit.key); rows.push({ entry: hit, group: "Recent" }); }
+    });
+    entries.forEach((entry) => {
+      if (used.has(entry.key)) return;
+      if (entry.kind === "catalog") return;             // 667 rows is not a useful cold start
+      rows.push({ entry, group: entry.group });
+    });
+    rows.sort((a, b) => PALETTE_GROUP_ORDER.indexOf(a.group) - PALETTE_GROUP_ORDER.indexOf(b.group));
+    return rows;
+  }
+
+  const needleTight = paletteTight(needleNorm);
+  const scored = [];
+  for (let i = 0; i < entries.length; i += 1) {
+    const entry = entries[i];
+    const base = paletteEntryScore(entry, needleNorm, needleTight);
+    if (!base) continue;
+    let score = base + (PALETTE_KIND_WEIGHT[entry.kind] || 0);
+    if (entry.kind === "tool" && pinned.has(entry.key.slice(5))) score += 40;
+    const rank = recents.get(entry.key);
+    if (rank !== undefined) score += Math.max(8, 80 - rank * 3);
+    scored.push({ entry, score, order: i });
+  }
+  scored.sort((a, b) => (b.score - a.score)
+    || (a.entry.label.length - b.entry.label.length)
+    || (a.order - b.order));
+
+  // Keep each group CONTIGUOUS. A pure score order interleaves the sources
+  // (Tools, Datasheets, Tools, Datasheets...) and the repeated headers read as
+  // a broken list. Groups are ordered by their own best hit, so the group
+  // holding the top result still leads and ranking intent survives.
+  const groups = new Map();
+  scored.forEach((row) => {
+    const name = row.entry.group;
+    if (!groups.has(name)) groups.set(name, []);
+    groups.get(name).push(row);
+  });
+  const ordered = [...groups.values()].sort((a, b) => b[0].score - a[0].score);
+
+  // Budget the visible rows PER GROUP. Without this, one huge group (the 667
+  // datasheets) eats the whole row cap and a one-hit group like Tools falls off
+  // the list entirely — "esfr" would stop finding Storage Analysis.
+  const take = ordered.map((rows) => Math.min(rows.length, PALETTE_MIN_PER_GROUP));
+  let budget = PALETTE_MAX_ROWS - take.reduce((sum, n) => sum + n, 0);
+  for (let i = take.length - 1; i >= 0 && budget < 0; i -= 1) {
+    const cut = Math.min(take[i] - 1, -budget);       // never trim a group away
+    take[i] -= cut;
+    budget += cut;
+  }
+  for (let i = 0; i < ordered.length && budget > 0; i += 1) {
+    const extra = Math.min(budget, ordered[i].length - take[i]);
+    take[i] += extra;
+    budget -= extra;
+  }
+  return ordered.flatMap((rows, i) => rows.slice(0, take[i])
+    .map((row) => ({ entry: row.entry, group: row.entry.group })));
+}
+
+// ---- the overlay -----------------------------------------------------------
+
+const paletteUi = { rows: [], active: 0, open: false, restoreFocus: null, lastRenderMs: 0 };
+
+function paletteEl(id) {
+  return document.getElementById(id);
+}
+
+/**
+ * Centre the overlay over the CONTENT column, clear of the sidebar, so opening
+ * the palette never covers the tool list you are reading it against. Falls back
+ * to the viewport when the shell is not on screen (dialog-only states).
+ */
+function positionPalette(dialog) {
+  const content = document.querySelector(".tool-content");
+  const rect = content ? content.getBoundingClientRect() : null;
+  if (!rect || rect.width < 320) {
+    dialog.style.removeProperty("--palette-left");
+    dialog.style.removeProperty("--palette-width");
+    return;
+  }
+  const width = Math.min(760, Math.max(320, rect.width - 32));
+  dialog.style.setProperty("--palette-width", `${Math.round(width)}px`);
+  dialog.style.setProperty("--palette-left", `${Math.round(rect.left + (rect.width - width) / 2)}px`);
+}
+
+function paletteRowMarkup(row, index, active) {
+  const { entry } = row;
+  // The row tag names the entry's SOURCE, which is what makes a row
+  // self-describing once you have scrolled away from its header — and stops it
+  // parroting "FAVORITES / FAVORITES" under the Favorites and Recent headers.
+  const group = entry.group;
+  const sub = entry.sub && entry.kind !== "tool" ? entry.sub : "";
+  const selectedMark = entry.kind === "catalog" && state.selectedIds.includes(entry.key.slice(8))
+    ? '<span class="palette-row-flag">In submittal</span>' : "";
+  return `<div class="palette-row${active ? " is-active" : ""}" role="option" id="paletteRow${index}"`
+    + ` aria-selected="${active ? "true" : "false"}" data-palette-index="${index}">`
+    + `<span class="palette-row-tag" data-kind="${escapeHtml(entry.kind)}">${escapeHtml(group)}</span>`
+    + `<span class="palette-row-label">${escapeHtml(entry.label)}</span>`
+    // Always emitted, even when empty: it is also the flex spacer that pins the
+    // shortcut/flag to the right edge, so every row's trailing column lines up.
+    + `<span class="palette-row-sub">${escapeHtml(sub)}</span>`
+    + selectedMark
+    + (entry.shortcut ? `<kbd class="palette-row-key">${escapeHtml(entry.shortcut)}</kbd>` : "")
+    + "</div>";
+}
+
+function renderPaletteResults(query) {
+  const list = paletteEl("commandPaletteList");
+  const empty = paletteEl("commandPaletteEmpty");
+  const count = paletteEl("commandPaletteCount");
+  if (!list) return;
+  const rows = palettePickResults(query).slice(0, PALETTE_MAX_ROWS);
+  paletteUi.rows = rows;
+  paletteUi.active = rows.length ? 0 : -1;
+
+  const html = [];
+  let lastGroup = "";
+  rows.forEach((row, index) => {
+    if (row.group !== lastGroup) {
+      lastGroup = row.group;
+      html.push(`<div class="palette-group" data-palette-group="${escapeHtml(row.group)}">${escapeHtml(row.group)}</div>`);
+    }
+    html.push(paletteRowMarkup(row, index, index === 0));
+  });
+  list.innerHTML = html.join("");
+  if (empty) empty.hidden = rows.length > 0;
+  if (count) count.textContent = rows.length ? `${rows.length} result${rows.length === 1 ? "" : "s"}` : "";
+  syncPaletteActive(false);
+}
+
+function syncPaletteActive(scroll = true) {
+  const list = paletteEl("commandPaletteList");
+  const input = paletteEl("commandPaletteInput");
+  if (!list) return;
+  list.querySelectorAll(".palette-row").forEach((node) => {
+    const on = Number(node.dataset.paletteIndex) === paletteUi.active;
+    node.classList.toggle("is-active", on);
+    node.setAttribute("aria-selected", on ? "true" : "false");
+    if (on && scroll) node.scrollIntoView({ block: "nearest" });
+  });
+  const activeNode = list.querySelector(".palette-row.is-active");
+  if (input) input.setAttribute("aria-activedescendant", activeNode ? activeNode.id : "");
+}
+
+function movePaletteActive(delta) {
+  if (!paletteUi.rows.length) return;
+  const next = paletteUi.active + delta;
+  paletteUi.active = next < 0
+    ? paletteUi.rows.length - 1
+    : (next >= paletteUi.rows.length ? 0 : next);
+  syncPaletteActive();
+}
+
+/** PageUp/PageDown jump to the first row of the previous/next group. */
+function jumpPaletteGroup(direction) {
+  if (!paletteUi.rows.length) return;
+  const starts = [];
+  let seen = "";
+  paletteUi.rows.forEach((row, index) => {
+    if (row.group !== seen) { seen = row.group; starts.push(index); }
+  });
+  const reversed = starts.slice().reverse();
+  let currentGroupStart = 0;
+  for (const index of reversed) {
+    if (index <= paletteUi.active) { currentGroupStart = index; break; }
+  }
+  const at = starts.indexOf(currentGroupStart);
+  const target = direction > 0
+    ? starts[Math.min(starts.length - 1, at + 1)]
+    : (paletteUi.active > currentGroupStart ? currentGroupStart : starts[Math.max(0, at - 1)]);
+  paletteUi.active = target;
+  syncPaletteActive();
+}
+
+function runPaletteRow(index) {
+  const row = paletteUi.rows[index];
+  if (!row) return;
+  closeCommandPalette();
+  rememberPaletteChoice(row.entry.key);
+  try {
+    row.entry.run();
+  } catch (error) {
+    showToast(`Could not run "${row.entry.label}": ${error.message || "unknown error."}`,
+      { tone: "error", timeoutMs: 8000 });
+  }
+}
+
+function commandPaletteIsOpen() {
+  return Boolean(paletteUi.open);
+}
+
+function openCommandPalette(prefill = "") {
+  const dialog = paletteEl("commandPalette");
+  const input = paletteEl("commandPaletteInput");
+  if (!dialog || !input) return;
+  if (paletteUi.open) { input.focus(); input.select(); return; }
+  paletteUi.restoreFocus = document.activeElement;
+  positionPalette(dialog);
+  input.value = prefill;
+  if (typeof dialog.showModal === "function" && !dialog.open) dialog.showModal();
+  else dialog.setAttribute("open", "");
+  paletteUi.open = true;
+  const started = performance.now();
+  renderPaletteResults(prefill);
+  paletteUi.lastRenderMs = performance.now() - started;
+  input.focus();
+  input.select();
+}
+
+function closeCommandPalette() {
+  const dialog = paletteEl("commandPalette");
+  if (!dialog) return;
+  paletteUi.open = false;
+  if (dialog.open && typeof dialog.close === "function") dialog.close();
+  else dialog.removeAttribute("open");
+  const restore = paletteUi.restoreFocus;
+  paletteUi.restoreFocus = null;
+  if (restore && typeof restore.focus === "function" && restore.isConnected) restore.focus();
+}
+
+// ---- `?` shortcut overlay ---------------------------------------------------
+
+/**
+ * The generated shortcut table. Palette keys come from the bindings installed
+ * in wireCommandPalette(); the rest are shortcuts that already existed in the
+ * app and were previously only documented by a hand-kept list. Settings >
+ * Shortcuts and the `?` overlay both render THIS.
+ */
+function shortcutRegistry() {
+  return [
+    {
+      group: "Command palette",
+      items: [
+        { keys: "Ctrl + K", what: "Open the command palette (works inside dialogs too)" },
+        { keys: "Ctrl + P", what: "Open the command palette" },
+        { keys: "?", what: "Open this shortcut list" },
+        { keys: "Esc", what: "Close the palette, an open dialog, or a preview" },
+        { keys: "Up / Down", what: "Move through palette results" },
+        { keys: "PgUp / PgDn", what: "Jump to the previous / next palette group" },
+        { keys: "Enter", what: "Run the highlighted palette result" },
+      ],
+    },
+    {
+      group: "Project",
+      items: [
+        { keys: "Ctrl + S", what: "Save the current project" },
+        { keys: "Ctrl + V", what: "Paste a contractor logo onto the logo box" },
+      ],
+    },
+    {
+      group: "Everywhere",
+      items: [
+        { keys: "Enter", what: "Run the calculator you are typing in" },
+        { keys: "Tab / Shift + Tab", what: "Move between fields and controls" },
+        { keys: "Arrow keys", what: "Move through a dropdown or a list of options" },
+        { keys: "Space", what: "Toggle the focused checkbox, or pin the focused tool" },
+      ],
+    },
+  ];
+}
+
+function renderShortcutsOverlay() {
+  const body = paletteEl("shortcutsOverlayBody");
+  if (!body) return;
+  body.innerHTML = shortcutRegistry().map((group) => (
+    '<section class="shortcuts-overlay-group">'
+    + `<p class="eyebrow">${escapeHtml(group.group)}</p>`
+    + '<ul class="shortcut-list">'
+    + group.items.map((item) => `<li><span class="shortcut-what">${escapeHtml(item.what)}</span>`
+      + `<kbd>${escapeHtml(item.keys)}</kbd></li>`).join("")
+    + "</ul></section>"
+  )).join("");
+}
+
+function openShortcutsOverlay() {
+  const dialog = paletteEl("shortcutsOverlay");
+  if (!dialog) return;
+  renderShortcutsOverlay();
+  if (typeof dialog.showModal === "function" && !dialog.open) dialog.showModal();
+  else dialog.setAttribute("open", "");
+  paletteEl("shortcutsOverlayCloseButton")?.focus();
+}
+
+function closeShortcutsOverlay() {
+  const dialog = paletteEl("shortcutsOverlay");
+  if (!dialog) return;
+  if (dialog.open && typeof dialog.close === "function") dialog.close();
+  else dialog.removeAttribute("open");
+}
+
+// ---- wiring -----------------------------------------------------------------
+
+/** True when the keystroke belongs to whatever the user is typing into. */
+function paletteInTextEntry(target) {
+  const el = target instanceof Element ? target : null;
+  if (!el) return false;
+  if (el.isContentEditable) return true;
+  const tag = el.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+}
+
+function wireCommandPalette() {
+  const dialog = paletteEl("commandPalette");
+  const input = paletteEl("commandPaletteInput");
+  const list = paletteEl("commandPaletteList");
+  if (!dialog || !input || !list) return;
+
+  // CAPTURE phase, on window: the palette has to beat a <dialog>'s focus trap
+  // and every per-field Ctrl handler in the app, and Ctrl+P has to beat the
+  // browser's print dialog.
+  window.addEventListener("keydown", (event) => {
+    const key = (event.key || "").toLowerCase();
+    // Ctrl+P stays the browser's print on the WEB edition (the shim sets
+    // __SPRINKFLOW_WEB_BUILD__); the desktop shell has no print, so there it
+    // doubles as a palette opener alongside Ctrl+K.
+    const paletteKey = key === "k" || (key === "p" && !window.__SPRINKFLOW_WEB_BUILD__);
+    if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && paletteKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (paletteUi.open) closeCommandPalette();
+      else openCommandPalette();
+      return;
+    }
+    if (event.key === "?" && !event.ctrlKey && !event.metaKey && !event.altKey
+        && !paletteInTextEntry(event.target) && !paletteUi.open) {
+      event.preventDefault();
+      openShortcutsOverlay();
+    }
+  }, true);
+
+  input.addEventListener("input", () => {
+    const started = performance.now();
+    renderPaletteResults(input.value);
+    paletteUi.lastRenderMs = performance.now() - started;
+  });
+
+  dialog.addEventListener("keydown", (event) => {
+    switch (event.key) {
+      case "ArrowDown": event.preventDefault(); movePaletteActive(1); break;
+      case "ArrowUp": event.preventDefault(); movePaletteActive(-1); break;
+      case "PageDown": event.preventDefault(); jumpPaletteGroup(1); break;
+      case "PageUp": event.preventDefault(); jumpPaletteGroup(-1); break;
+      case "Enter": event.preventDefault(); runPaletteRow(paletteUi.active); break;
+      default: break;
+    }
+  });
+
+  // Esc on a <dialog> fires `cancel`; route it through the same close path so
+  // focus goes back where it came from.
+  dialog.addEventListener("cancel", (event) => { event.preventDefault(); closeCommandPalette(); });
+  dialog.addEventListener("close", () => { paletteUi.open = false; });
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) { closeCommandPalette(); return; }
+    const row = event.target.closest ? event.target.closest("[data-palette-index]") : null;
+    if (row) runPaletteRow(Number(row.dataset.paletteIndex));
+  });
+  list.addEventListener("mousemove", (event) => {
+    const row = event.target.closest ? event.target.closest("[data-palette-index]") : null;
+    if (!row) return;
+    const index = Number(row.dataset.paletteIndex);
+    if (index === paletteUi.active) return;
+    paletteUi.active = index;
+    syncPaletteActive(false);
+  });
+
+  const shortcuts = paletteEl("shortcutsOverlay");
+  if (shortcuts) {
+    shortcuts.addEventListener("cancel", (event) => { event.preventDefault(); closeShortcutsOverlay(); });
+    shortcuts.addEventListener("click", (event) => { if (event.target === shortcuts) closeShortcutsOverlay(); });
+  }
+  paletteEl("shortcutsOverlayCloseButton")?.addEventListener("click", closeShortcutsOverlay);
+
+  window.addEventListener("resize", () => { if (paletteUi.open) positionPalette(dialog); });
+}

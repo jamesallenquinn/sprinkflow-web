@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0820-0032-0c8874a" />
+    <link rel="stylesheet" href="./styles.css?v=b0820-2328-ba4e86d" />
   </head>
   <body>
     <div class="app-shell">
@@ -51,39 +51,10 @@
       </header>
 
       <div class="tool-shell">
-      <nav class="tool-tabs" aria-label="Fire sprinkler design tools">
-        <div class="tool-tab-group">Generators</div>
-        <button class="tool-tab active" type="button" data-tool-tab="submittal" aria-pressed="true">Material Data Submittal</button>
-        <button class="tool-tab" type="button" data-tool-tab="hydraulic" aria-pressed="false">Hydraulic Calculation Package</button>
-        <button class="tool-tab" type="button" data-tool-tab="storage" aria-pressed="false">Storage Analysis</button>
-        <button class="tool-tab" type="button" data-tool-tab="water" aria-pressed="false">Water Supply Analysis</button>
-        <button class="tool-tab" type="button" data-tool-tab="layout" aria-pressed="false">Head Layout Generator</button>
-        <button class="tool-tab" type="button" data-tool-tab="vicinity" aria-pressed="false">Vicinity Map</button>
-        <button class="tool-tab" type="button" data-tool-tab="hanger" aria-pressed="false">Hanger Detail</button>
-        <button class="tool-tab" type="button" data-tool-tab="symbols" aria-pressed="false">Plan Symbols</button>
-        <button class="tool-tab" type="button" data-tool-tab="estimator" aria-pressed="false">Bid Estimator</button>
-
-        <div class="tool-tab-group">Design Tools</div>
-        <button class="tool-tab" type="button" data-tool-tab="catalog" aria-pressed="false">Material Catalog</button>
-        <button class="tool-tab" type="button" data-tool-tab="prelim" aria-pressed="false">Preliminary Calculation</button>
-        <button class="tool-tab" type="button" data-tool-tab="hydreport" aria-pressed="false">Hydraulic Analysis Report</button>
-        <button class="tool-tab" type="button" data-tool-tab="seismic" aria-pressed="false">Seismic Bracing</button>
-        <button class="tool-tab" type="button" data-tool-tab="spacing" aria-pressed="false">Sprinkler Spacing Calculator</button>
-        <button class="tool-tab" type="button" data-tool-tab="bracing" aria-pressed="false">Hangers / Bracing Spacing</button>
-        <button class="tool-tab" type="button" data-tool-tab="feet" aria-pressed="false">Feet / Inch Calculator</button>
-        <button class="tool-tab" type="button" data-tool-tab="hazen" aria-pressed="false">Hazen-Williams Calculator</button>
-
-        <div class="tool-tab-group">Code</div>
-        <button class="tool-tab" type="button" data-tool-tab="code" aria-pressed="false">NFPA Code Assist</button>
-        <button class="tool-tab" type="button" data-tool-tab="nfpa1142" aria-pressed="false">NFPA 1142 Calculator</button>
-
-        <div class="tool-tab-group">Tools</div>
-        <button class="tool-tab" type="button" data-tool-tab="pdfcad" aria-pressed="false">Convert PDF to CAD</button>
-        <button class="tool-tab" type="button" data-tool-tab="cadexplode" aria-pressed="false">Explode CAD Blocks</button>
-        <button class="tool-tab" type="button" data-tool-tab="dwgpdf" aria-pressed="false">DWG to PDF</button>
-        <button class="tool-tab" type="button" data-tool-tab="pdf" aria-pressed="false">Merge / Compress PDFs</button>
-        <button class="tool-tab" type="button" data-tool-tab="settings" aria-pressed="false">Settings</button>
-      </nav>
+      <!-- Rendered from TOOL_REGISTRY in app.js (renderToolSidebar). Do not
+           hand-write tool buttons here: add the tool to TOOL_REGISTRY instead,
+           so the command palette, pinning and the Home panel all see it. -->
+      <nav class="tool-tabs" aria-label="Fire sprinkler design tools"></nav>
       <div class="tool-content">
 
       <section class="license-tool-gate" id="licenseToolGateBanner" hidden>
@@ -93,6 +64,37 @@
           <span id="licenseToolGateMessage">Connect an active trial, beta grant, subscription, or offline lease to use the design tools.</span>
         </div>
         <button class="secondary-button" id="licenseToolGateAccountButton" type="button">Open Account</button>
+      </section>
+
+      <section class="tool-panel sprinkler-calculator-panel home-panel" data-tool-panel="home" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">Home</p>
+            <h2 id="homeGreeting">Pick up where you left off</h2>
+          </div>
+          <button class="secondary-button" id="homeNewProjectButton" type="button">Start a new project</button>
+        </div>
+        <div class="home-grid">
+          <section class="panel-section calculator-section home-resume-section">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Last saved project</p>
+                <h3 id="homeResumeTitle">No saved projects yet</h3>
+              </div>
+            </div>
+            <div class="home-resume-body" id="homeResumeBody"></div>
+          </section>
+
+          <section class="panel-section calculator-section home-outputs-section" id="homeOutputsSection">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Recent output files</p>
+                <h3>Your last three PDFs</h3>
+              </div>
+            </div>
+            <div class="home-outputs" id="homeOutputsList"></div>
+          </section>
+        </div>
       </section>
 
       <main class="tool-panel active" data-tool-panel="submittal">
@@ -3079,70 +3081,142 @@
           </div>
           <button class="ghost-button" id="settingsResetButton" type="button">Reset Settings</button>
         </div>
+        <!-- Sectioned scaffold: General / Shop defaults / Scanning / Appearance /
+             Shortcuts. Later UX phases add keys into these sections without
+             layout work. Each column is a flex wrapper that owns its grid
+             column (PROJECT_CONFORMANCE.md 6a) with one elastic card so the
+             two columns share a bottom rail. -->
         <div class="settings-grid">
-          <section class="panel-section calculator-section">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Interface</p>
-                <h3>Layout Mode</h3>
+          <div class="settings-col">
+            <section class="panel-section calculator-section" data-settings-section="general">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">General</p>
+                  <h3>Startup</h3>
+                </div>
               </div>
-            </div>
-            <label class="option-row">
-              <input id="settingsLegacyModeInput" type="checkbox" />
-              <span>Legacy Mode &mdash; show the classic all-in-one layout instead of the guided step-by-step builder.</span>
-            </label>
-            <p class="pdf-mode-hint">Most users should leave this off. Legacy Mode shows every field on one screen and the bottom generate bar.</p>
-          </section>
-          <section class="panel-section calculator-section">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Output</p>
-                <h3>Generated PDF Folder</h3>
-              </div>
-            </div>
-            <label>
-              Default Output Folder
-              <input id="settingsOutputFolderInput" type="text" readonly placeholder="SprinkFlow default generated submittals folder" />
-            </label>
-            <div class="inline-actions settings-actions">
-              <button class="secondary-button" id="settingsChooseOutputFolderButton" type="button">Choose Folder</button>
-              <button class="ghost-button" id="settingsClearOutputFolderButton" type="button">Use Default</button>
-            </div>
-            <label class="option-row">
-              <input id="settingsOpenGeneratedPdfInput" type="checkbox" checked />
-              <span>Open generated PDFs after creation</span>
-            </label>
-            <label>
-              Table of Contents
-              <select id="settingsTocStyleSelect">
-                <option value="standard">Standard</option>
-                <option value="web-links">Web Links Table</option>
-              </select>
-            </label>
-            <p class="settings-helper">Web Links Table adds model, supplier, manufacturer, page number, and a visible datasheet link for each item.</p>
-          </section>
+              <label class="option-row">
+                <input id="settingsHomeOnLaunchInput" type="checkbox" checked />
+                <span>Open Home on launch &mdash; start on the Home panel with your last project and recent output files.</span>
+              </label>
+              <p class="settings-helper">Turn this off to land on the Material Data Submittal builder the way SprinkFlow used to open.</p>
+            </section>
 
-          <section class="panel-section calculator-section">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Email</p>
-                <h3>Submittal Package Email Template</h3>
+            <section class="panel-section calculator-section" data-settings-section="appearance">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Appearance</p>
+                  <h3>Theme &amp; Density</h3>
+                </div>
               </div>
-            </div>
-            <p class="settings-helper">Variables: PROJECT_NAME, PROJECT_ADDRESS, CONTRACTOR_NAME, CONTRACTOR_COMPANY, CLIENT_NAME, DATE, MATERIAL_SUBMITTAL, HYDRAULIC_CALCS.</p>
-            <label>
-              Subject
-              <input id="settingsEmailSubjectInput" type="text" autocomplete="off" />
-            </label>
-            <label>
-              Body
-              <textarea id="settingsEmailBodyInput" rows="10"></textarea>
-            </label>
-            <div class="inline-actions settings-actions">
-              <button class="primary-button" id="settingsSaveButton" type="button">Save Settings</button>
-            </div>
-            <p class="calculator-status" id="settingsStatus" aria-live="polite"></p>
-          </section>
+              <div class="field-grid two">
+                <label>
+                  Theme
+                  <select id="settingsThemeSelect">
+                    <option value="default">Dark</option>
+                    <option value="plain-light">Plain Light</option>
+                    <option value="blueprint">Blueprint</option>
+                    <option value="vellum">Vellum</option>
+                    <option value="graphite">Graphite</option>
+                  </select>
+                </label>
+                <label>
+                  Density
+                  <select id="settingsDensitySelect">
+                    <option value="comfortable">Comfortable</option>
+                    <option value="compact">Compact</option>
+                  </select>
+                </label>
+              </div>
+              <p class="settings-helper">Compact tightens padding and card spacing so more fits on a laptop screen. Text sizes do not change.</p>
+              <label class="option-row">
+                <input id="settingsLegacyModeInput" type="checkbox" />
+                <span>Legacy Mode &mdash; show the classic all-in-one layout instead of the guided step-by-step builder.</span>
+              </label>
+              <p class="settings-helper">Most users should leave Legacy Mode off. It shows every field on one screen and the bottom generate bar.</p>
+            </section>
+
+            <section class="panel-section calculator-section settings-shortcuts-section" data-settings-section="shortcuts">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Shortcuts</p>
+                  <h3>Keyboard</h3>
+                </div>
+              </div>
+              <ul class="shortcut-list" id="settingsShortcutList"></ul>
+              <p class="settings-helper settings-shortcuts-note">Press <kbd>Ctrl</kbd> + <kbd>K</kbd> anywhere for the command palette, or <kbd>?</kbd> for this list as a full-screen overlay.</p>
+            </section>
+          </div>
+
+          <div class="settings-col">
+            <section class="panel-section calculator-section settings-shop-section" data-settings-section="shop">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Shop defaults</p>
+                  <h3>Output, Documents &amp; Email</h3>
+                </div>
+              </div>
+              <label>
+                Default Output Folder
+                <input id="settingsOutputFolderInput" type="text" readonly placeholder="SprinkFlow default generated submittals folder" />
+              </label>
+              <div class="inline-actions settings-actions">
+                <button class="secondary-button" id="settingsChooseOutputFolderButton" type="button">Choose Folder</button>
+                <button class="ghost-button" id="settingsClearOutputFolderButton" type="button">Use Default</button>
+              </div>
+              <label class="option-row">
+                <input id="settingsOpenGeneratedPdfInput" type="checkbox" checked />
+                <span>Open generated PDFs after creation</span>
+              </label>
+              <div class="field-grid two">
+                <label>
+                  Table of Contents
+                  <select id="settingsTocStyleSelect">
+                    <option value="standard">Standard</option>
+                    <option value="web-links">Web Links Table</option>
+                  </select>
+                </label>
+                <label>
+                  Default Contractor
+                  <select id="settingsDefaultContractorSelect">
+                    <option value="">Ask each time</option>
+                  </select>
+                </label>
+              </div>
+              <p class="settings-helper">Web Links Table adds model, supplier, manufacturer, page number, and a visible datasheet link for each item. The default contractor is filled in automatically when you start a new, blank project.</p>
+              <label>
+                Email Subject
+                <input id="settingsEmailSubjectInput" type="text" autocomplete="off" />
+              </label>
+              <label class="settings-email-body">
+                Email Body
+                <textarea id="settingsEmailBodyInput" rows="8"></textarea>
+              </label>
+              <p class="settings-helper">Variables: PROJECT_NAME, PROJECT_ADDRESS, CONTRACTOR_NAME, CONTRACTOR_COMPANY, CLIENT_NAME, DATE, MATERIAL_SUBMITTAL, HYDRAULIC_CALCS.</p>
+              <div class="inline-actions settings-actions">
+                <button class="primary-button" id="settingsSaveButton" type="button">Save Settings</button>
+              </div>
+              <p class="calculator-status" id="settingsStatus" aria-live="polite"></p>
+            </section>
+
+            <section class="panel-section calculator-section" data-settings-section="scanning">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Scanning</p>
+                  <h3>What the Plan Scan Looks For</h3>
+                </div>
+              </div>
+              <p class="settings-helper">Turn a category off to skip it when SprinkFlow reads a plan set. Fewer categories means a faster scan and a shorter review list.</p>
+              <div class="settings-scan-grid" id="settingsScanCategories">
+                <label class="option-row"><input type="checkbox" data-scan-category="sprinklers" checked /><span>Sprinklers</span></label>
+                <label class="option-row"><input type="checkbox" data-scan-category="piping" checked /><span>Pipe &amp; Fittings</span></label>
+                <label class="option-row"><input type="checkbox" data-scan-category="hangers" checked /><span>Hangers</span></label>
+                <label class="option-row"><input type="checkbox" data-scan-category="bracing" checked /><span>Seismic Bracing</span></label>
+                <label class="option-row"><input type="checkbox" data-scan-category="valves" checked /><span>Valves &amp; Risers</span></label>
+                <label class="option-row"><input type="checkbox" data-scan-category="miscellaneous" checked /><span>Miscellaneous</span></label>
+              </div>
+            </section>
+          </div>
         </div>
       </section>
 
@@ -3753,12 +3827,57 @@
       </div>
     </dialog>
 
+    <!-- ====================================================================
+         Command palette (Ctrl+K / Ctrl+P) and the shortcut overlay (?).
+         Both are <dialog>s so they render in the top layer and therefore open
+         ON TOP of any other modal dialog the user already has open. Every row
+         is built by app.js from the same registries the sidebar and the
+         Settings > Shortcuts section read, so there is one source of truth.
+         ==================================================================== -->
+    <dialog class="command-palette" id="commandPalette" aria-label="Command palette">
+      <div class="command-palette-search">
+        <span class="command-palette-glyph" aria-hidden="true">&#9906;</span>
+        <input
+          id="commandPaletteInput"
+          type="text"
+          autocomplete="off"
+          spellcheck="false"
+          role="combobox"
+          aria-expanded="true"
+          aria-controls="commandPaletteList"
+          aria-autocomplete="list"
+          placeholder="Search tools, actions, projects, loadouts and datasheets&hellip;"
+        />
+        <kbd class="command-palette-esc">Esc</kbd>
+      </div>
+      <div class="command-palette-list" id="commandPaletteList" role="listbox" aria-label="Palette results"></div>
+      <p class="command-palette-empty" id="commandPaletteEmpty" hidden>Nothing matches that search.</p>
+      <div class="command-palette-foot">
+        <span><kbd>&uarr;</kbd><kbd>&darr;</kbd> move</span>
+        <span><kbd>PgUp</kbd><kbd>PgDn</kbd> jump group</span>
+        <span><kbd>Enter</kbd> run</span>
+        <span><kbd>?</kbd> all shortcuts</span>
+        <span class="command-palette-count" id="commandPaletteCount"></span>
+      </div>
+    </dialog>
+
+    <dialog class="shortcuts-overlay" id="shortcutsOverlay" aria-label="Keyboard shortcuts">
+      <div class="shortcuts-overlay-head">
+        <div>
+          <p class="eyebrow">Keyboard</p>
+          <h3>Every SprinkFlow shortcut</h3>
+        </div>
+        <button class="ghost-button compact-button" id="shortcutsOverlayCloseButton" type="button">Close</button>
+      </div>
+      <div class="shortcuts-overlay-body" id="shortcutsOverlayBody"></div>
+    </dialog>
+
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0820-0032-0c8874a"></script>
-    <script src="./app.js?v=b0820-0032-0c8874a"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0820-0032-0c8874a"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0820-0032-0c8874a"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0820-0032-0c8874a"></script>
-    <script src="./prelim-calc-desktop.js?v=b0820-0032-0c8874a"></script>
+    <script src="./web-backend.js?v=b0820-2328-ba4e86d"></script>
+    <script src="./app.js?v=b0820-2328-ba4e86d"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0820-2328-ba4e86d"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0820-2328-ba4e86d"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0820-2328-ba4e86d"></script>
+    <script src="./prelim-calc-desktop.js?v=b0820-2328-ba4e86d"></script>
   </body>
 </html>
