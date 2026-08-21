@@ -669,9 +669,11 @@ const dom = {
   licenseRefreshButton: document.querySelector("#licenseRefreshButton"),
   licenseLogoutButton: document.querySelector("#licenseLogoutButton"),
   licenseCheckUpdatesButton: document.querySelector("#licenseCheckUpdatesButton"),
+  updateCheckResult: document.querySelector("#updateCheckResult"),
   licenseSaveProfileButton: document.querySelector("#licenseSaveProfileButton"),
   licenseCheckoutButton: document.querySelector("#licenseCheckoutButton"),
   licenseBillingPortalButton: document.querySelector("#licenseBillingPortalButton"),
+  licenseBillingHelperText: document.querySelector("#licenseBillingHelperText"),
   licenseDownloadUpdateButton: document.querySelector("#licenseDownloadUpdateButton"),
   betaInvitePanel: document.querySelector("#betaInvitePanel"),
   betaInviteEmailsInput: document.querySelector("#betaInviteEmailsInput"),
@@ -1554,6 +1556,9 @@ function setLicenseStatusMessage(message = "", tone = "") {
   if (!dom.licenseStatusMessage) return;
   dom.licenseStatusMessage.textContent = message;
   dom.licenseStatusMessage.dataset.tone = tone || "";
+  // .generate-status is display:none until .active - every account action's
+  // feedback was silently invisible without this.
+  dom.licenseStatusMessage.classList.toggle("active", Boolean(message));
 }
 
 function setStartupLoginStatus(message = "", tone = "") {
@@ -1602,14 +1607,32 @@ function renderLicenseUi() {
     dom.licenseSignInButton.title = !license.apiConfigured
       ? "No SprinkFlow License API is configured for this build."
       : !license.supabaseAuthConfigured
-        ? "No beta account sign-in service is configured for this build."
-        : "Sign in with your SprinkFlow beta account.";
+        ? "No account sign-in service is configured for this build."
+        : "Sign in with your SprinkFlow account.";
   }
   if (dom.licenseConnectCloudButton) dom.licenseConnectCloudButton.disabled = !license.apiConfigured;
   if (dom.licenseRefreshButton) dom.licenseRefreshButton.disabled = !license.apiConfigured;
   if (dom.licenseSaveProfileButton) dom.licenseSaveProfileButton.disabled = !license.apiConfigured || !license.authenticated;
   if (dom.licenseCheckoutButton) dom.licenseCheckoutButton.disabled = !license.apiConfigured || !license.authenticated || !license.billingConfigured;
   if (dom.licenseBillingPortalButton) dom.licenseBillingPortalButton.disabled = !license.apiConfigured || !license.authenticated;
+  const licenseStatusKey = String(license.status || "").toLowerCase();
+  if (dom.licenseBillingHelperText) {
+    let billingCopy;
+    if (!license.authenticated) {
+      billingCopy = "Sign in to manage your subscription. Subscribing unlocks exports and document generation - the free design tools stay free.";
+    } else if (licenseStatusKey === "active") {
+      billingCopy = "Your subscription is active - exports and document generation are unlocked. Manage Billing opens the secure Stripe portal to update your payment method, view invoices, or change your plan.";
+    } else if (licenseStatusKey === "trial") {
+      billingCopy = `Your trial is active${license.trialEndsAt ? ` until ${formatLicenseDate(license.trialEndsAt)}` : ""}. Subscribe to keep exports and document generation when it ends.`;
+    } else if (licenseStatusKey === "grace" || licenseStatusKey === "past_due") {
+      billingCopy = "There's a payment issue on your subscription - open Manage Billing to update your payment method and keep exports active.";
+    } else {
+      billingCopy = "Subscribing unlocks exports and document generation - the free design tools stay free. Manage Billing opens the secure Stripe portal.";
+    }
+    dom.licenseBillingHelperText.textContent = billingCopy;
+  }
+  // An active subscriber has nothing to subscribe to - the portal handles plan changes.
+  if (dom.licenseCheckoutButton) dom.licenseCheckoutButton.hidden = licenseStatusKey === "active";
   if (dom.licenseMockLoginButton) {
     const mockAvailable = license.mockLicenseAvailable !== false && !license.enforcementRequired;
     dom.licenseMockLoginButton.disabled = !mockAvailable;
@@ -2507,8 +2530,26 @@ async function checkUpdatesInBackground() {
   }
 }
 
+function setUpdateCheckResult(message = "", tone = "") {
+  // Renders right under the Check for Updates button so the answer is
+  // impossible to miss; the bottom-of-dialog status line mirrors it for
+  // screen-reader continuity with the other account actions.
+  if (dom.updateCheckResult) {
+    dom.updateCheckResult.textContent = message;
+    dom.updateCheckResult.dataset.tone = tone || "";
+    // .generate-status is display:none until .active - without this the
+    // message exists but never paints (the original "nothing happened" bug).
+    dom.updateCheckResult.classList.toggle("active", Boolean(message));
+    return;
+  }
+  // No inline slot (older markup) - fall back to the dialog's status line.
+  setLicenseStatusMessage(message, tone);
+}
+
 async function checkLicenseUpdates() {
-  setLicenseStatusMessage("Checking update service...", "");
+  const btn = dom.licenseCheckUpdatesButton;
+  if (btn) { btn.disabled = true; btn.textContent = "Checking..."; }
+  setUpdateCheckResult("Checking for updates...", "");
   try {
     const payload = await readApiJson(`./api/updates/check?ts=${Date.now()}`, { cache: "no-store" });
     runtime.app = payload.app || runtime.app;
@@ -2518,15 +2559,18 @@ async function checkLicenseUpdates() {
     const update = runtime.update || {};
     if (update.available) {
       if (update.canDownload) {
-        setLicenseStatusMessage(`Update available: ${update.latestVersion || "new version"}. Ready to download and verify.`, "success");
+        setUpdateCheckResult(`Version ${update.latestVersion || "unknown"} is available - click Download Update to get it.`, "success");
       } else {
-        setLicenseStatusMessage(`Update available, but metadata needs attention: ${(update.metadataErrors || []).join(" ")}`, "error");
+        setUpdateCheckResult(`Update available, but metadata needs attention: ${(update.metadataErrors || []).join(" ")}`, "error");
       }
     } else {
-      setLicenseStatusMessage(update.message || "No update is available.", "");
+      const current = (runtime.app || {}).version;
+      setUpdateCheckResult(`✓ You're on the latest version of SprinkFlow${current ? ` (${current})` : ""}.`, "success");
     }
   } catch (error) {
-    setLicenseStatusMessage(error.message || "Could not check for updates.", "error");
+    setUpdateCheckResult(error.message || "Could not reach the update service. Check your connection and try again.", "error");
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Check for Updates"; }
   }
 }
 
