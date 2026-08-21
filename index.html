@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0820-2328-ba4e86d" />
+    <link rel="stylesheet" href="./styles.css?v=b0821-1835-df8e2db" />
   </head>
   <body>
     <div class="app-shell">
@@ -415,6 +415,25 @@
           </section>
         </section>
         </div>
+        <!-- Live document preview (Advanced mode). Renders the SAME cover + TOC
+             sheets as the Review step — one renderer, no second implementation. -->
+        <aside class="panel-section live-preview-rail" id="livePreviewRail" aria-label="Live document preview">
+          <div class="live-rail-head">
+            <button class="live-rail-toggle" id="livePreviewRailToggle" type="button"
+                    aria-expanded="true" aria-controls="livePreviewRailBody"
+                    title="Collapse the live preview">
+              <span class="live-rail-chevron" aria-hidden="true"></span>
+              <span class="live-rail-label">Live preview</span>
+            </button>
+            <span class="live-rail-count" id="livePreviewRailCount">2 pages</span>
+          </div>
+          <div class="live-rail-body" id="livePreviewRailBody">
+            <p class="live-rail-project" id="livePreviewRailProject">Untitled Project</p>
+            <div class="live-rail-stage">
+              <div class="document-preview live-rail-preview" id="livePreviewRailPreview"></div>
+            </div>
+          </div>
+        </aside>
         <aside class="panel-section submittal-cart-section" id="submittalCart">
           <div class="section-heading">
             <p class="eyebrow">My submittal package</p>
@@ -1774,7 +1793,7 @@
             </div>
             <div class="pdfcad-pick-row">
               <button class="secondary-button" id="pdfcadPickButton" type="button" title="Open a PDF straight off disk — the reliable way to load large drawing sets">&#128193; Choose PDF (large sets)</button>
-              <span class="pdfcad-pick-note">Big plan sets (60&nbsp;MB+) load faster and more reliably this way. A dense sheet can take a minute to read.</span>
+              <span class="pdfcad-pick-note" id="pdfcadPickNote">Big plan sets (60&nbsp;MB+) load faster and more reliably this way. A dense sheet can take a minute to read.</span>
             </div>
             <p class="calculator-status" id="pdfcadFileStatus"></p>
 
@@ -3441,6 +3460,30 @@
       </form>
     </dialog>
 
+    <!-- "Show source": the title-block crop the scan read a field from, with the
+         source region highlighted. Opened from the scan review; the crops are
+         transient review state and are never written to app state. -->
+    <dialog class="review-dialog scan-source-dialog" id="scanSourceDialog">
+      <form method="dialog">
+        <div class="dialog-heading">
+          <p class="eyebrow">Scan source</p>
+          <h2 id="scanSourceHeading">Where this was read</h2>
+        </div>
+        <p class="dialog-copy" id="scanSourceNote"></p>
+        <!-- The caption sits ABOVE the image on purpose: below it, it collided
+             with the dialog's action row (measured 6px of overlap). -->
+        <p class="scan-source-caption" id="scanSourceCaption"></p>
+        <div class="scan-source-stage" id="scanSourceStage">
+          <img id="scanSourceImage" alt="" />
+          <span class="scan-source-highlight" id="scanSourceHighlight" hidden></span>
+        </div>
+        <div class="dialog-actions">
+          <button class="secondary-button" id="scanSourceZoomButton" type="button">Show whole crop</button>
+          <button class="primary-button" id="scanSourceCloseButton" type="button">Close</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog class="review-dialog loadout-editor-dialog" id="loadoutEditorDialog">
       <form method="dialog">
         <div class="dialog-heading">
@@ -3541,23 +3584,47 @@
           <h2>Sign in to unlock the free tools</h2>
           <p>Any SprinkFlow account unlocks the free design tools &mdash; calculators, the material catalog, and viewers. Subscribing adds exports and document generation. No account yet? Create one free at sprinkflow.studio.</p>
         </div>
-        <div class="startup-login-fields">
-          <label>
-            Email
-            <input id="startupLoginEmailInput" name="email" type="email" autocomplete="username" placeholder="name@company.com" />
-          </label>
-          <label>
-            Password
-            <span class="password-field">
-              <input id="startupLoginPasswordInput" name="password" type="password" autocomplete="current-password" placeholder="SprinkFlow password" />
-              <button type="button" class="password-toggle" data-password-toggle="startupLoginPasswordInput" aria-label="Show password" title="Show password">&#128065;</button>
-            </span>
-          </label>
+        <div class="signin-methods">
+          <div class="signin-browser-block" id="startupBrowserBlock">
+            <button class="primary-button signin-browser-button" id="startupBrowserSignInButton" type="button">
+              <span class="signin-browser-glyph" aria-hidden="true">&#127760;</span>
+              <span class="signin-browser-label">Sign in with browser</span>
+            </button>
+            <p class="signin-hint">Opens sprinkflow.studio in your normal browser, where your password manager can fill it in for you.</p>
+          </div>
+          <div class="signin-divider" id="startupSignInDivider"><span>or sign in with email</span></div>
+          <div class="startup-login-fields">
+            <label>
+              Email
+              <input id="startupLoginEmailInput" name="email" type="email" autocomplete="username" placeholder="name@company.com" />
+            </label>
+            <label>
+              Password
+              <span class="password-field">
+                <input id="startupLoginPasswordInput" name="password" type="password" autocomplete="current-password" placeholder="SprinkFlow password" />
+                <button type="button" class="password-toggle" data-password-toggle="startupLoginPasswordInput" aria-label="Show password" title="Show password">&#128065;</button>
+              </span>
+            </label>
+          </div>
+          <div class="signin-alt-actions">
+            <button class="link-button" id="startupEmailCodeButton" type="button">Email me a code</button>
+            <button class="link-button" id="startupForgotButton" type="button">Forgot password?</button>
+          </div>
+          <div class="signin-code-block" id="startupEmailCodeBlock" hidden>
+            <label>
+              6-digit code
+              <input id="startupEmailCodeInput" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" />
+            </label>
+            <div class="signin-code-actions">
+              <button class="secondary-button" id="startupEmailCodeVerifyButton" type="button">Verify &amp; Sign In</button>
+              <button class="link-button" id="startupEmailCodeResendButton" type="button">Resend code</button>
+            </div>
+          </div>
         </div>
         <p class="generate-status" id="startupLoginStatus" role="status" aria-live="polite"></p>
         <div class="dialog-actions">
           <button class="ghost-button" id="startupLoginSkipButton" type="button">Look Around</button>
-          <button class="primary-button" id="startupLoginButton" type="button">Sign In</button>
+          <button class="secondary-button" id="startupLoginButton" type="button">Sign In with Password</button>
         </div>
       </form>
     </dialog>
@@ -3619,30 +3686,54 @@
 
         <div class="account-tab-panel" data-account-panel="signin" hidden>
           <div class="license-form-card">
-            <p class="license-helper-text">Sign in with your SprinkFlow account email. Your name and company appear on the cover sheets you generate.</p>
-            <div class="field-grid two">
-              <label>
-                Email
-                <input id="licenseEmailInput" name="email" type="email" autocomplete="username" placeholder="name@company.com" />
-              </label>
-              <label>
-                Password
-                <span class="password-field">
-                  <input id="licensePasswordInput" name="password" type="password" autocomplete="current-password" placeholder="SprinkFlow password" />
-                  <button type="button" class="password-toggle" data-password-toggle="licensePasswordInput" aria-label="Show password" title="Show password">&#128065;</button>
-                </span>
-              </label>
-              <label>
-                Name
-                <input id="licenseNameInput" type="text" autocomplete="name" placeholder="Your name" />
-              </label>
-              <label class="wide-field">
-                Company
-                <input id="licenseCompanyInput" type="text" autocomplete="organization" placeholder="Company name" />
-              </label>
+            <p class="license-helper-text">Sign in with your SprinkFlow account. Your name and company appear on the cover sheets you generate.</p>
+            <div class="signin-methods">
+              <div class="signin-browser-block" id="accountBrowserBlock">
+                <button class="primary-button signin-browser-button" id="accountBrowserSignInButton" type="button">
+                  <span class="signin-browser-glyph" aria-hidden="true">&#127760;</span>
+                  <span class="signin-browser-label">Sign in with browser</span>
+                </button>
+                <p class="signin-hint">Opens sprinkflow.studio in your normal browser, where your password manager can fill it in for you.</p>
+              </div>
+              <div class="signin-divider" id="accountSignInDivider"><span>or sign in with email</span></div>
+              <div class="field-grid two">
+                <label>
+                  Email
+                  <input id="licenseEmailInput" name="email" type="email" autocomplete="username" placeholder="name@company.com" />
+                </label>
+                <label>
+                  Password
+                  <span class="password-field">
+                    <input id="licensePasswordInput" name="password" type="password" autocomplete="current-password" placeholder="SprinkFlow password" />
+                    <button type="button" class="password-toggle" data-password-toggle="licensePasswordInput" aria-label="Show password" title="Show password">&#128065;</button>
+                  </span>
+                </label>
+                <label>
+                  Name
+                  <input id="licenseNameInput" type="text" autocomplete="name" placeholder="Your name" />
+                </label>
+                <label class="wide-field">
+                  Company
+                  <input id="licenseCompanyInput" type="text" autocomplete="organization" placeholder="Company name" />
+                </label>
+              </div>
+              <div class="signin-alt-actions">
+                <button class="link-button" id="accountEmailCodeButton" type="button">Email me a code</button>
+                <button class="link-button" id="accountForgotButton" type="button">Forgot password?</button>
+              </div>
+              <div class="signin-code-block" id="accountEmailCodeBlock" hidden>
+                <label>
+                  6-digit code
+                  <input id="accountEmailCodeInput" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" />
+                </label>
+                <div class="signin-code-actions">
+                  <button class="secondary-button" id="accountEmailCodeVerifyButton" type="button">Verify &amp; Sign In</button>
+                  <button class="link-button" id="accountEmailCodeResendButton" type="button">Resend code</button>
+                </div>
+              </div>
             </div>
             <div class="inline-actions">
-              <button class="primary-button" id="licenseSignInButton" type="button">Sign In</button>
+              <button class="secondary-button" id="licenseSignInButton" type="button">Sign In with Password</button>
               <button class="ghost-button" id="licenseSaveProfileButton" type="button">Save Profile</button>
             </div>
             <p class="generate-status sign-in-result" id="licenseSignInResult" role="status" aria-live="assertive"></p>
@@ -3872,12 +3963,32 @@
       <div class="shortcuts-overlay-body" id="shortcutsOverlayBody"></div>
     </dialog>
 
+    <!-- ====================================================================
+         Global drop chooser (Phase 4a). A file dropped ANYWHERE that is not
+         already a specific drop zone lands here: we name what the file looks
+         like and offer every destination that can actually take it, with the
+         best guess preselected. Misclassification is always one click to
+         correct — never a dead end.
+         ==================================================================== -->
+    <dialog class="drop-chooser" id="dropChooser" aria-label="Choose where the dropped file should go">
+      <div class="drop-chooser-head">
+        <p class="eyebrow" id="dropChooserEyebrow">Dropped file</p>
+        <h3 id="dropChooserTitle">Where should this go?</h3>
+        <p class="drop-chooser-reason" id="dropChooserReason"></p>
+      </div>
+      <div class="drop-chooser-list" id="dropChooserList" role="listbox" aria-label="Destinations"></div>
+      <div class="drop-chooser-foot">
+        <span class="drop-chooser-note" id="dropChooserNote"></span>
+        <button class="ghost-button compact-button" id="dropChooserCancel" type="button">Cancel</button>
+      </div>
+    </dialog>
+
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0820-2328-ba4e86d"></script>
-    <script src="./app.js?v=b0820-2328-ba4e86d"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0820-2328-ba4e86d"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0820-2328-ba4e86d"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0820-2328-ba4e86d"></script>
-    <script src="./prelim-calc-desktop.js?v=b0820-2328-ba4e86d"></script>
+    <script src="./web-backend.js?v=b0821-1835-df8e2db"></script>
+    <script src="./app.js?v=b0821-1835-df8e2db"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0821-1835-df8e2db"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0821-1835-df8e2db"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0821-1835-df8e2db"></script>
+    <script src="./prelim-calc-desktop.js?v=b0821-1835-df8e2db"></script>
   </body>
 </html>

@@ -3604,6 +3604,176 @@ body[data-view-mode="standard"] .datasheet-database-section .datasheet-drop {
   width: 860px;
 }
 
+/* ---------------------------------------------------------------------------
+   Live document preview rail — Advanced mode (UX gameplan Phase 5).
+   A persistent right rail showing the SAME cover + TOC sheets the Review step
+   renders (one renderer, see renderSubmittalSheets), updated as you type. In
+   Advanced the rail OWNS the preview, so the bottom "Generated submittal" panel
+   keeps its status + output actions but no longer paints a second copy of the
+   same two pages.
+--------------------------------------------------------------------------- */
+[data-tool-panel="submittal"] .live-preview-rail { display: none; }
+
+body[data-view-mode="standard"] [data-tool-panel="submittal"] .workspace {
+  /* 320px — the same rail width Quick mode gives My Submittal Package, so the
+     workspace keeps one rhythm across both modes. */
+  grid-template-columns: minmax(0, 1fr) var(--live-rail-width, 320px);
+}
+body[data-view-mode="standard"][data-live-preview-rail="collapsed"] [data-tool-panel="submittal"] .workspace {
+  --live-rail-width: 48px;
+}
+body[data-view-mode="standard"] [data-tool-panel="submittal"] .builder-panel {
+  grid-column: 1;
+}
+body[data-view-mode="standard"] [data-tool-panel="submittal"] .builder-panel > .preview-panel .document-preview {
+  display: none;
+}
+
+body[data-view-mode="standard"] [data-tool-panel="submittal"] .live-preview-rail {
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  grid-column: 2;
+  /* 12px sticky offset + the 68px fixed Generate dock + breathing room, so the
+     rail's last page never slides under the dock (§9: nothing overlaps). */
+  max-height: calc(100vh - 110px);
+  min-width: 0;
+  position: sticky;
+  top: 12px;
+}
+
+.live-rail-head {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.live-rail-toggle {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--accent);
+  cursor: pointer;
+  display: flex;
+  font-family: Consolas, "SFMono-Regular", ui-monospace, monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  gap: 8px;
+  letter-spacing: 0.05em;
+  min-width: 0;
+  padding: 2px 0;
+  text-transform: uppercase;
+}
+.live-rail-toggle:hover .live-rail-label,
+.live-rail-toggle:focus-visible .live-rail-label { text-decoration: underline; }
+
+.live-rail-chevron {
+  border-bottom: 5px solid transparent;
+  border-left: 6px solid currentColor;
+  border-top: 5px solid transparent;
+  flex: 0 0 auto;
+  height: 0;
+  transition: transform 120ms ease;
+  width: 0;
+}
+.live-preview-rail[data-collapsed="true"] .live-rail-chevron { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) {
+  .live-rail-chevron { transition: none; }
+}
+
+.live-rail-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-rail-count {
+  color: var(--muted);
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+}
+
+.live-rail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.live-rail-project {
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-rail-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body[data-view-mode="standard"] [data-tool-panel="submittal"] .live-rail-preview {
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+  padding-bottom: 0;
+}
+
+/* `zoom` (not transform: scale) so a page collapses its layout box to the size
+   it actually draws at — no reserved void under the rail (§10). */
+body[data-view-mode="standard"] [data-tool-panel="submittal"] .live-rail-preview .sheet {
+  aspect-ratio: auto;
+  height: 1112.94px;
+  margin: 0;
+  max-width: none;
+  min-height: 0;
+  width: 860px;
+  zoom: var(--live-rail-scale, 0.38);
+}
+
+/* Collapsed: a slim spine with the label running down it. */
+@media (min-width: 1281px) {
+  body[data-live-preview-rail="collapsed"] [data-tool-panel="submittal"] .live-preview-rail {
+    align-items: center;
+    padding: 12px 6px;
+  }
+  body[data-live-preview-rail="collapsed"] [data-tool-panel="submittal"] .live-rail-head {
+    flex-direction: column;
+    gap: 10px;
+    justify-content: flex-start;
+  }
+  body[data-live-preview-rail="collapsed"] [data-tool-panel="submittal"] .live-rail-toggle {
+    flex-direction: column;
+    gap: 10px;
+  }
+  body[data-live-preview-rail="collapsed"] [data-tool-panel="submittal"] .live-rail-label {
+    writing-mode: vertical-rl;
+  }
+  body[data-live-preview-rail="collapsed"] [data-tool-panel="submittal"] .live-rail-count {
+    display: none;
+  }
+}
+
+/* Narrow windows: the rail stops being a rail and stacks under the builder,
+   rather than squeezing the 3-column form into a sliver. */
+@media (max-width: 1280px) {
+  body[data-view-mode="standard"] [data-tool-panel="submittal"] .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  body[data-view-mode="standard"] [data-tool-panel="submittal"] .live-preview-rail {
+    grid-column: 1;
+    max-height: none;
+    position: static;
+  }
+}
+
 .simple-step-nav {
   align-items: center;
   background:
@@ -8059,6 +8229,25 @@ body[data-theme="plain-light"] .startup-login-dialog .generate-status {
   box-shadow: 0 8px 22px rgba(230, 74, 25, 0.35);
 }
 
+/* Email + password and Verify are SECONDARY to the browser hand-off now. The
+   base .secondary-button flips to a white fill in Plain Light, which reads as a
+   bright slab on the branded dark card — pin it to the shell's own palette
+   (constants, not theme tokens; PROJECT_CONFORMANCE §5a) so it stays clearly
+   subordinate to the orange primary in both themes. */
+.review-dialog.startup-login-dialog .secondary-button,
+body[data-theme="plain-light"] .startup-login-dialog .secondary-button {
+  background: rgba(255, 112, 72, 0.16);
+  border: 1px solid rgba(255, 112, 72, 0.72);
+  border-radius: 10px;
+  color: #ffdccd;
+}
+
+.review-dialog.startup-login-dialog .secondary-button:hover,
+body[data-theme="plain-light"] .startup-login-dialog .secondary-button:hover {
+  background: rgba(255, 112, 72, 0.3);
+  color: #ffffff;
+}
+
 .license-overview-card,
 .license-form-card {
   background:
@@ -8248,6 +8437,162 @@ body[data-theme="plain-light"] .beta-invite-results[data-tone="error"] > p {
   color: #ffb4a6;
 }
 
+/* ---------------------------------------------------------------------------
+   Sign-in surfaces (startup dialog + Account > Sign In tab)
+
+   Both surfaces render the SAME three options in the same order, so they share
+   one component set: browser hand-off (primary), a divider, email + password,
+   then the email-code path. The startup card is pinned dark in both themes
+   (see .startup-login-shell), so every color here comes from a token and the
+   dark card re-pins the few that need it (PROJECT_CONFORMANCE §5a).
+--------------------------------------------------------------------------- */
+.signin-methods {
+  display: grid;
+  gap: 12px;
+}
+
+.signin-browser-block {
+  display: grid;
+  gap: 7px;
+}
+
+.signin-browser-button {
+  align-items: center;
+  display: flex;
+  gap: 9px;
+  justify-content: center;
+  min-height: 44px;
+  width: 100%;
+}
+
+.signin-browser-glyph {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.signin-hint {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  margin: 0;
+  text-align: center;
+}
+
+.signin-divider {
+  align-items: center;
+  color: var(--muted);
+  display: grid;
+  font-size: 0.72rem;
+  font-weight: 900;
+  gap: 10px;
+  grid-template-columns: 1fr auto 1fr;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.signin-divider::before,
+.signin-divider::after {
+  background: var(--line);
+  content: "";
+  height: 1px;
+}
+
+.signin-alt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  justify-content: space-between;
+}
+
+/* The Account card puts its Sign In / Save Profile row straight after the
+   methods block; without this the "Forgot password?" link butts against the
+   buttons with zero gap (PROJECT_CONFORMANCE §1.2, no cramming). */
+.signin-methods + .inline-actions {
+  margin-top: 14px;
+}
+
+.signin-code-block {
+  border: 1px dashed var(--line);
+  border-radius: 9px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.signin-code-block input {
+  font-size: 1.15rem;
+  font-weight: 900;
+  letter-spacing: 0.32em;
+  text-align: center;
+}
+
+.signin-code-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  justify-content: space-between;
+}
+
+.signin-code-actions .secondary-button {
+  flex: 1 1 auto;
+}
+
+.link-button[disabled] {
+  cursor: default;
+  opacity: 0.55;
+  text-decoration: none;
+}
+
+/* Inside the branded dark startup card the theme tokens flip to dark ink in
+   Plain Light and disappear — re-pin to the shell's light-on-dark palette. */
+.startup-login-shell .signin-hint,
+.startup-login-shell .signin-divider {
+  color: #9fadb8 !important;
+}
+
+.startup-login-shell .signin-divider::before,
+.startup-login-shell .signin-divider::after,
+.startup-login-shell .signin-code-block {
+  border-color: rgba(92, 123, 142, 0.58);
+}
+
+.startup-login-shell .signin-divider::before,
+.startup-login-shell .signin-divider::after {
+  background: rgba(92, 123, 142, 0.58);
+}
+
+.startup-login-shell .link-button {
+  color: #ffb08c;
+}
+
+/* Busy state for any button that kicks off a network round trip. currentColor
+   keeps the spinner legible on every button variant in every theme. */
+button[data-busy="1"] {
+  cursor: progress;
+}
+
+button[data-busy="1"]::after {
+  animation: sf-button-spin 0.7s linear infinite;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  border-top-color: transparent;
+  content: "";
+  display: inline-block;
+  height: 13px;
+  margin-left: 9px;
+  vertical-align: -2px;
+  width: 13px;
+}
+
+@keyframes sf-button-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button[data-busy="1"]::after { animation-duration: 2.6s; }
+}
+
 .sign-in-result {
   margin-top: 12px;
   font-weight: 700;
@@ -8387,6 +8732,71 @@ body[data-theme="plain-light"] .beta-invite-results[data-tone="error"] > p {
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: none;
+}
+
+/* "Show source" - sits inline at the end of the provenance line, so it reads as
+   part of the sentence about where the value came from rather than a new row.
+   Only rendered when the scan actually shipped a crop for that field. */
+.scan-source-button {
+  background: var(--surface-soft);
+  border: 1px solid var(--water);
+  border-radius: 999px;
+  color: var(--ink);
+  cursor: pointer;
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  font-weight: 800;
+  min-height: 26px;
+  padding: 3px 11px;
+  white-space: nowrap;
+}
+
+.scan-source-button:hover {
+  background: var(--surface-lift);
+}
+
+.scan-source-button:focus-visible {
+  outline: 2px solid var(--water);
+  outline-offset: 2px;
+}
+
+/* The crop viewer. The image is positioned in JS (zoom + pan are computed from
+   the source box), so the stage is just a measured, clipped window. */
+.scan-source-dialog {
+  max-width: 720px;
+  width: min(720px, calc(100vw - 40px));
+}
+
+.scan-source-stage {
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  height: min(52vh, 420px);
+  overflow: hidden;
+  position: relative;
+}
+
+.scan-source-stage img {
+  position: absolute;
+  /* Title-block lettering is thin; smoothing it into mush defeats the point. */
+  image-rendering: -webkit-optimize-contrast;
+  left: 0;
+  top: 0;
+}
+
+.scan-source-highlight {
+  border: 2px solid var(--brand);
+  border-radius: 3px;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.55), 0 0 14px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  position: absolute;
+}
+
+.scan-source-caption {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  margin: 0;
 }
 
 /* Plan-scan contractor match: a one-line verdict plus (when matched) the same
@@ -11566,3 +11976,170 @@ body[data-theme="vellum"] .seismic-cond.is-acked { border-left-color: #3c6a37; }
 
 .plan-offer-controls { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .plan-offer-back { opacity: 0.75; }
+
+/* ===========================================================================
+   Global drop chooser (Phase 4a). Shown when a file is dropped anywhere that
+   is not already a specific drop zone. Structure mirrors the command palette
+   (same surface, border, shadow and backdrop) so the app has one overlay
+   language; spacing runs on the density tokens so compact mode needs no rules
+   of its own, and every color is a token so all five themes are correct.
+   =========================================================================== */
+
+.drop-chooser {
+  position: fixed;
+  top: 12vh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(620px, calc(100vw - 32px));
+  max-width: calc(100vw - 24px);
+  max-height: 74vh;
+  margin: 0;
+  padding: 0;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  z-index: 4300;
+}
+
+.drop-chooser[open] { display: flex; }
+.drop-chooser::backdrop { background: rgba(6, 10, 14, 0.42); }
+
+.drop-chooser-head {
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--line);
+  padding: var(--pad-card);
+}
+
+.drop-chooser-head h3 {
+  margin: 4px 0 0;
+  font-size: 1.02rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.drop-chooser-reason {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.drop-chooser-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 0 8px;
+}
+
+.drop-chooser-row {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-left: 3px solid transparent;
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  font-family: inherit;
+  font-size: 0.9rem;
+  gap: 11px;
+  padding: 9px var(--pad-card);
+  text-align: left;
+  width: 100%;
+}
+
+.drop-chooser-row:hover { background: var(--surface-soft); }
+
+.drop-chooser-row.is-active {
+  background: var(--surface-soft);
+  border-left-color: var(--accent);
+}
+
+.drop-chooser-row:focus-visible { outline: 2px solid var(--water); outline-offset: -2px; }
+
+.drop-chooser-glyph {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1;
+  width: 20px;
+  text-align: center;
+}
+
+.drop-chooser-row.is-active .drop-chooser-glyph { color: var(--accent); }
+
+.drop-chooser-copy { flex: 1 1 auto; min-width: 0; }
+
+.drop-chooser-label {
+  display: block;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drop-chooser-sub {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* "Best guess" marker. Tinted fill + ink text so it stays legible on light
+   and dark alike (PROJECT_CONFORMANCE 5a) — never accent-on-accent. */
+.drop-chooser-badge {
+  flex: 0 0 auto;
+  background: var(--surface-lift);
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  color: var(--ink);
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  padding: 3px 7px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.drop-chooser-foot {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex: 0 0 auto;
+  gap: 12px;
+  padding: var(--pad-card);
+}
+
+.drop-chooser-note {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+/* Whole-window drag affordance: a calm inset ring that tells the user a stray
+   drop is safe to make. Pointer-events off so it never eats the drop itself. */
+.drop-router-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 4250;
+  display: none;
+  pointer-events: none;
+  border: 2px dashed var(--accent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+body.is-drop-routing .drop-router-veil { display: block; }
+
+@media (prefers-reduced-motion: reduce) {
+  .drop-chooser-row { transition: none; }
+}

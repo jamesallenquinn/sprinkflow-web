@@ -170,6 +170,9 @@ const DEFAULT_SETTINGS = {
   density: "comfortable",
   // --- General ---
   homeOnLaunch: true,
+  // Last account we signed in as, so the sign-in surfaces prefill instead of
+  // making the user retype their email on every launch.
+  lastSignInEmail: "",
 };
 const BETA_INVITE_DEFAULT_DOWNLOAD_URL = "https://www.dropbox.com/t/XvHbWK53rblUgmv1";
 const COVER_ADDITIONAL_INFO_FIELDS = [
@@ -217,6 +220,10 @@ const state = {
   viewMode: "simple",
   simpleStep: "intake",
   previewView: "both",
+  // Advanced-mode live document preview rail: collapsed or not. In app-state
+  // (not localStorage) so the choice roams with the database like every other
+  // workspace preference.
+  livePreviewRailCollapsed: false,
   specRequirements: null,
   betaInviteResults: [],
   settings: { ...DEFAULT_SETTINGS },
@@ -788,6 +795,12 @@ const dom = {
   documentPreview: document.querySelector("#documentPreview"),
   documentTitle: document.querySelector("#documentTitle"),
   pageCount: document.querySelector("#pageCount"),
+  livePreviewRail: document.querySelector("#livePreviewRail"),
+  livePreviewRailBody: document.querySelector("#livePreviewRailBody"),
+  livePreviewRailToggle: document.querySelector("#livePreviewRailToggle"),
+  livePreviewRailPreview: document.querySelector("#livePreviewRailPreview"),
+  livePreviewRailCount: document.querySelector("#livePreviewRailCount"),
+  livePreviewRailProject: document.querySelector("#livePreviewRailProject"),
   generateStatus: document.querySelector("#generateStatus"),
   datasheetReviewDialog: document.querySelector("#datasheetReviewDialog"),
   projectInfoReviewDialog: document.querySelector("#projectInfoReviewDialog"),
@@ -844,6 +857,15 @@ const dom = {
   projectInfoCancelButton: document.querySelector("#projectInfoCancelButton"),
   projectInfoApplyButton: document.querySelector("#projectInfoApplyButton"),
   plansReviewDialog: document.querySelector("#plansReviewDialog"),
+  scanSourceDialog: document.querySelector("#scanSourceDialog"),
+  scanSourceHeading: document.querySelector("#scanSourceHeading"),
+  scanSourceNote: document.querySelector("#scanSourceNote"),
+  scanSourceStage: document.querySelector("#scanSourceStage"),
+  scanSourceImage: document.querySelector("#scanSourceImage"),
+  scanSourceHighlight: document.querySelector("#scanSourceHighlight"),
+  scanSourceCaption: document.querySelector("#scanSourceCaption"),
+  scanSourceZoomButton: document.querySelector("#scanSourceZoomButton"),
+  scanSourceCloseButton: document.querySelector("#scanSourceCloseButton"),
   plansReviewSummary: document.querySelector("#plansReviewSummary"),
   plansReviewProjectNameInput: document.querySelector("#plansReviewProjectNameInput"),
   plansReviewProjectNameCandidatesLabel: document.querySelector("#plansReviewProjectNameCandidatesLabel"),
@@ -1203,6 +1225,7 @@ function applySavedState(parsed) {
   syncCategoriesFromCatalog();
   state.activeCategory = (parsed.activeCategory === "All" || CATEGORIES.includes(parsed.activeCategory)) ? parsed.activeCategory : "Sprinklers";
   state.previewView = ["both", "cover", "toc"].includes(parsed.previewView) ? parsed.previewView : "both";
+  state.livePreviewRailCollapsed = Boolean(parsed.livePreviewRailCollapsed);
   state.specRequirements = (parsed.specRequirements && typeof parsed.specRequirements === "object") ? parsed.specRequirements : null;
   resetCatalogFilters();
   state.coverTemplate = coverTemplateById(parsed.coverTemplate)?.id || "technical-navy";
@@ -1239,6 +1262,7 @@ function normalizeSettings(settings) {
     ),
     density: DENSITY_MODES.includes(parsed.density) ? parsed.density : "comfortable",
     homeOnLaunch: parsed.homeOnLaunch !== false,
+    lastSignInEmail: String(parsed.lastSignInEmail || "").trim().toLowerCase(),
   };
 }
 
@@ -1604,6 +1628,11 @@ function renderLicenseUi() {
     dom.accountOverviewSignInButton.hidden = Boolean(license.authenticated) || !license.apiConfigured || !license.supabaseAuthConfigured;
   }
   renderBetaInvitePanel();
+  // Last: the sign-in surfaces own the enabled/hidden state of their own
+  // controls, so they run AFTER the generic per-button rules above (which would
+  // otherwise re-enable the password path mid browser hand-off).
+  applySignInSurfaceState();
+  applyRememberedSignInEmail();
   applyLicenseToolAccess();
 }
 
@@ -1922,9 +1951,9 @@ function setSignInResult(message = "", tone = "") {
 }
 
 async function signInCloudLicense() {
-  if (!dom.licenseSignInButton) return;
+  if (!dom.licenseSignInButton || browserSignIn.active) return;
   const email = dom.licenseEmailInput?.value || "";
-  dom.licenseSignInButton.disabled = true;
+  setButtonBusy(dom.licenseSignInButton, true, "Signing In…");
   setSignInResult("Signing in… The first attempt of the day can take up to a minute while the service wakes up.", "info");
   try {
     await performCloudLicenseSignIn({
@@ -1933,8 +1962,10 @@ async function signInCloudLicense() {
       name: dom.licenseNameInput?.value || "",
       company: dom.licenseCompanyInput?.value || "",
     });
+    rememberSignInEmail(email);
     renderLicenseUi();
     const who = email ? ` as ${email}` : "";
+    showToast(`Signed in${who}.`, { tone: "success", timeoutMs: 5000 });
     if (licenseToolsAllowed()) {
       setSignInResult(`✓ Signed in${who}. SprinkFlow tools are unlocked.`, "success");
     } else {
@@ -1947,7 +1978,7 @@ async function signInCloudLicense() {
     return false;
   } finally {
     if (dom.licensePasswordInput) dom.licensePasswordInput.value = "";
-    dom.licenseSignInButton.disabled = false;
+    setButtonBusy(dom.licenseSignInButton, false);
     renderLicenseUi();
   }
 }
@@ -1962,8 +1993,8 @@ async function performCloudLicenseSignIn({ email = "", password = "", name = "",
 }
 
 async function signInFromStartupPrompt() {
-  if (!dom.startupLoginButton) return;
-  dom.startupLoginButton.disabled = true;
+  if (!dom.startupLoginButton || browserSignIn.active) return;
+  setButtonBusy(dom.startupLoginButton, true, "Signing In…");
   setStartupLoginStatus("Signing in... The first attempt of the day can take up to a minute while the service wakes up.", "");
   try {
     const email = dom.startupLoginEmailInput?.value || "";
@@ -1972,7 +2003,9 @@ async function signInFromStartupPrompt() {
     if (dom.licenseEmailInput) dom.licenseEmailInput.value = email;
     if (dom.licensePasswordInput) dom.licensePasswordInput.value = "";
     if (dom.startupLoginPasswordInput) dom.startupLoginPasswordInput.value = "";
+    rememberSignInEmail(email);
     renderLicenseUi();
+    showToast(email ? `Signed in as ${email}.` : "Signed in.", { tone: "success", timeoutMs: 5000 });
     if (licenseToolsAllowed()) {
       setStartupLoginStatus("✓ Signed in. SprinkFlow is unlocked.", "success");
       closeDialogSafely(dom.startupLoginDialog);
@@ -1984,9 +2017,408 @@ async function signInFromStartupPrompt() {
     if (dom.startupLoginPasswordInput) dom.startupLoginPasswordInput.value = "";
     setStartupLoginStatus(`✗ Sign-in failed: ${error.message || "check your email and password and try again."}`, "error");
   } finally {
-    dom.startupLoginButton.disabled = false;
+    setButtonBusy(dom.startupLoginButton, false);
     renderLicenseUi();
   }
+}
+
+// ============================================================================
+//  Sign-in surfaces — the startup dialog and Account > Sign In & Profile
+//
+//  Both offer the SAME three routes, in the same order, driven by one set of
+//  functions so they can never drift:
+//    1. "Sign in with browser" — a loopback hand-off. The app opens
+//       sprinkflow.studio in the DEFAULT browser (where the password manager
+//       lives), the site page POSTs the Supabase session back to the local
+//       server, and we poll ./api/license/status until it lands.
+//    2. Email + password (the original path).
+//    3. "Email me a code" — a Supabase email OTP, verified in-app.
+//  The browser hand-off is desktop-only: the web edition IS a browser and has
+//  no shim for those routes, so applySignInSurfaceState() hides it there.
+// ============================================================================
+const SIGNIN_BROWSER_POLL_MS = 2000;
+const SIGNIN_BROWSER_TIMEOUT_MS = 10 * 60 * 1000;
+const SIGNIN_CODE_RESEND_SECONDS = 30;
+const SIGNIN_SURFACES = {
+  startup: {
+    browserBlock: "startupBrowserBlock",
+    browserButton: "startupBrowserSignInButton",
+    divider: "startupSignInDivider",
+    emailInput: "startupLoginEmailInput",
+    passwordInput: "startupLoginPasswordInput",
+    passwordButton: "startupLoginButton",
+    codeToggleButton: "startupEmailCodeButton",
+    forgotButton: "startupForgotButton",
+    codeBlock: "startupEmailCodeBlock",
+    codeInput: "startupEmailCodeInput",
+    codeVerifyButton: "startupEmailCodeVerifyButton",
+    codeResendButton: "startupEmailCodeResendButton",
+  },
+  account: {
+    browserBlock: "accountBrowserBlock",
+    browserButton: "accountBrowserSignInButton",
+    divider: "accountSignInDivider",
+    emailInput: "licenseEmailInput",
+    passwordInput: "licensePasswordInput",
+    passwordButton: "licenseSignInButton",
+    codeToggleButton: "accountEmailCodeButton",
+    forgotButton: "accountForgotButton",
+    codeBlock: "accountEmailCodeBlock",
+    codeInput: "accountEmailCodeInput",
+    codeVerifyButton: "accountEmailCodeVerifyButton",
+    codeResendButton: "accountEmailCodeResendButton",
+  },
+};
+const browserSignIn = { active: false, scope: "", timer: 0, deadline: 0, sinceSuccessAt: 0 };
+const signInResendTimers = {};
+
+function signInEls(scope) {
+  const map = SIGNIN_SURFACES[scope];
+  if (!map) return null;
+  const els = { scope };
+  for (const [key, id] of Object.entries(map)) els[key] = document.getElementById(id);
+  return els;
+}
+
+function signInStatus(scope, message = "", tone = "") {
+  if (scope === "startup") setStartupLoginStatus(message, tone);
+  else setSignInResult(message, tone);
+}
+
+// A button's visible label lives in a child span when the button has an icon,
+// so busy/idle text swaps must target that node — never the whole button, which
+// would delete the icon.
+function buttonLabelNode(button) {
+  return button?.querySelector(".signin-browser-label") || button;
+}
+
+function setButtonBusy(button, busy, label = "") {
+  if (!button) return;
+  const labelNode = buttonLabelNode(button);
+  if (busy) {
+    if (labelNode.dataset.idleLabel === undefined) labelNode.dataset.idleLabel = labelNode.textContent;
+    button.dataset.busy = "1";
+    button.disabled = true;
+    if (label) labelNode.textContent = label;
+    return;
+  }
+  delete button.dataset.busy;
+  button.disabled = false;
+  if (labelNode.dataset.idleLabel !== undefined) {
+    labelNode.textContent = labelNode.dataset.idleLabel;
+    delete labelNode.dataset.idleLabel;
+  }
+}
+
+function setSignInFormLocked(scope, locked) {
+  const els = signInEls(scope);
+  if (!els) return;
+  for (const key of ["emailInput", "passwordInput", "codeInput", "codeToggleButton", "forgotButton", "codeVerifyButton"]) {
+    if (els[key]) els[key].disabled = locked;
+  }
+  if (els.passwordButton) els.passwordButton.disabled = locked;
+  if (els.codeResendButton && locked) els.codeResendButton.disabled = true;
+}
+
+function rememberedSignInEmail() {
+  return String(state.settings?.lastSignInEmail || "").trim();
+}
+
+function rememberSignInEmail(email) {
+  const value = String(email || "").trim().toLowerCase();
+  if (!value || value === rememberedSignInEmail()) return;
+  state.settings = normalizeSettings({ ...state.settings, lastSignInEmail: value });
+  saveState();
+}
+
+// Prefill both surfaces with the account we last signed in as, so the common
+// case is "click the button" rather than "retype your email".
+function applyRememberedSignInEmail() {
+  const email = String(runtime.license?.email || "").trim() || rememberedSignInEmail();
+  if (!email) return;
+  for (const scope of Object.keys(SIGNIN_SURFACES)) {
+    const els = signInEls(scope);
+    if (els?.emailInput && !els.emailInput.value) els.emailInput.value = email;
+  }
+}
+
+function applySignInSurfaceState() {
+  const license = runtime.license || {};
+  const webEdition = Boolean(window.__SPRINKFLOW_WEB_BUILD__);
+  const configured = Boolean(license.apiConfigured && license.supabaseAuthConfigured);
+  for (const scope of Object.keys(SIGNIN_SURFACES)) {
+    const els = signInEls(scope);
+    if (!els) continue;
+    const waiting = browserSignIn.active && browserSignIn.scope === scope;
+    if (els.browserBlock) els.browserBlock.hidden = webEdition;
+    if (els.divider) els.divider.hidden = webEdition;
+    if (els.browserButton) {
+      els.browserButton.disabled = !waiting && !configured;
+      els.browserButton.title = configured
+        ? "Sign in on sprinkflow.studio in your browser, then come back."
+        : "No SprinkFlow sign-in service is configured for this build.";
+    }
+    if (els.codeToggleButton) els.codeToggleButton.disabled = waiting || !configured;
+    if (els.forgotButton) els.forgotButton.disabled = waiting || !configured;
+    if (waiting) setSignInFormLocked(scope, true);
+    // In the web edition the email+password button is the only route, so it
+    // takes the primary treatment back.
+    if (els.passwordButton && webEdition) {
+      els.passwordButton.classList.remove("secondary-button");
+      els.passwordButton.classList.add("primary-button");
+      const labelNode = buttonLabelNode(els.passwordButton);
+      if (labelNode.dataset.idleLabel === undefined && labelNode.textContent !== "Sign In") {
+        labelNode.textContent = "Sign In";
+      }
+    }
+  }
+}
+
+async function startBrowserSignIn(scope) {
+  const els = signInEls(scope);
+  if (!els?.browserButton) return;
+  // While waiting, the same button is the Cancel affordance.
+  if (browserSignIn.active) {
+    cancelBrowserSignIn("Browser sign-in cancelled. You can still sign in with your email and password.");
+    return;
+  }
+  setButtonBusy(els.browserButton, true, "Opening your browser…");
+  setSignInFormLocked(scope, true);
+  signInStatus(scope, "Opening sprinkflow.studio in your browser…", "");
+  try {
+    // Read the completion marker BEFORE the browser can possibly come back, so
+    // a very fast sign-in cannot land between the start call and the baseline.
+    let sinceSuccessAt = 0;
+    try {
+      const before = await readApiJson("./api/license/status");
+      sinceSuccessAt = Number(before.browserSignIn?.lastSuccessAt || 0);
+    } catch (_) {
+      // Best-effort baseline; the 10-minute deadline still bounds the wait.
+    }
+    const payload = await readApiJson("./api/license/browser-signin/start", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    browserSignIn.active = true;
+    browserSignIn.scope = scope;
+    browserSignIn.deadline = Date.now() + SIGNIN_BROWSER_TIMEOUT_MS;
+    browserSignIn.sinceSuccessAt = sinceSuccessAt;
+    setButtonBusy(els.browserButton, false);
+    buttonLabelNode(els.browserButton).textContent = "Waiting for your browser… Cancel";
+    els.browserButton.disabled = false;
+    setSignInFormLocked(scope, true);
+    signInStatus(
+      scope,
+      payload.opened === false
+        ? "Couldn't open your browser automatically. Open sprinkflow.studio/desktop-signin.html from the link SprinkFlow just tried to launch, or use your email and password below."
+        : "Finish signing in in your browser — SprinkFlow unlocks the moment you do.",
+      "",
+    );
+    pollBrowserSignIn();
+  } catch (error) {
+    setButtonBusy(els.browserButton, false);
+    setSignInFormLocked(scope, false);
+    signInStatus(
+      scope,
+      `Could not start browser sign-in: ${error.message || "use your email and password below instead."}`,
+      "error",
+    );
+  }
+}
+
+function pollBrowserSignIn() {
+  clearTimeout(browserSignIn.timer);
+  browserSignIn.timer = setTimeout(async () => {
+    if (!browserSignIn.active) return;
+    if (Date.now() > browserSignIn.deadline) {
+      cancelBrowserSignIn("That browser sign-in timed out after 10 minutes. Start it again when you're ready.");
+      return;
+    }
+    try {
+      const payload = await readApiJson("./api/license/status");
+      const license = payload.license || {};
+      const completedAt = Number(payload.browserSignIn?.lastSuccessAt || 0);
+      if (license.authenticated && completedAt > browserSignIn.sinceSuccessAt) {
+        runtime.license = license;
+        completeBrowserSignIn(license);
+        return;
+      }
+    } catch (_) {
+      // A single failed poll is not a failed sign-in — keep waiting.
+    }
+    pollBrowserSignIn();
+  }, SIGNIN_BROWSER_POLL_MS);
+}
+
+function stopBrowserSignInPolling() {
+  clearTimeout(browserSignIn.timer);
+  browserSignIn.timer = 0;
+  const scope = browserSignIn.scope;
+  browserSignIn.active = false;
+  browserSignIn.scope = "";
+  const els = signInEls(scope);
+  if (els?.browserButton) {
+    buttonLabelNode(els.browserButton).textContent = "Sign in with browser";
+    els.browserButton.disabled = false;
+  }
+  if (scope) setSignInFormLocked(scope, false);
+  return scope;
+}
+
+function cancelBrowserSignIn(message = "") {
+  const scope = stopBrowserSignInPolling();
+  if (!scope) return;
+  renderLicenseUi();
+  if (message) signInStatus(scope, message, "error");
+}
+
+function completeBrowserSignIn(license) {
+  const scope = stopBrowserSignInPolling();
+  rememberSignInEmail(license.email || "");
+  renderLicenseUi();
+  const who = license.email ? ` as ${license.email}` : "";
+  showToast(`Signed in${who}.`, { tone: "success", timeoutMs: 5000 });
+  if (licenseToolsAllowed(license)) {
+    signInStatus(scope, `✓ Signed in${who}. SprinkFlow is unlocked.`, "success");
+    closeDialogSafely(dom.startupLoginDialog);
+  } else {
+    const reason = licenseToolBlockMessage() || "this account doesn't have active beta, trial, or subscription access yet.";
+    signInStatus(scope, `Signed in${who}, but tools stay locked — ${reason}`, "error");
+  }
+}
+
+function signInEmailValue(scope) {
+  const els = signInEls(scope);
+  const email = String(els?.emailInput?.value || "").trim().toLowerCase();
+  if (!email || !email.includes("@")) {
+    signInStatus(scope, "Enter the email address on your SprinkFlow account first.", "error");
+    els?.emailInput?.focus?.();
+    return "";
+  }
+  return email;
+}
+
+async function sendSignInEmailCode(scope, { resend = false } = {}) {
+  const els = signInEls(scope);
+  const email = signInEmailValue(scope);
+  if (!email) return;
+  const button = resend ? els.codeResendButton : els.codeToggleButton;
+  setButtonBusy(button, true, resend ? "Sending…" : "Sending…");
+  try {
+    await readApiJson("./api/license/email-code/send", { method: "POST", body: JSON.stringify({ email }) });
+    rememberSignInEmail(email);
+    if (els.codeBlock) els.codeBlock.hidden = false;
+    signInStatus(scope, `We emailed a 6-digit code to ${email}. It expires in a few minutes.`, "success");
+    setButtonBusy(button, false);
+    startSignInResendCooldown(scope);
+    setTimeout(() => els.codeInput?.focus?.(), 60);
+  } catch (error) {
+    setButtonBusy(button, false);
+    signInStatus(scope, `Could not send a code: ${error.message || "try again in a minute."}`, "error");
+  }
+}
+
+function startSignInResendCooldown(scope) {
+  const els = signInEls(scope);
+  const button = els?.codeResendButton;
+  if (!button) return;
+  clearInterval(signInResendTimers[scope]);
+  let remaining = SIGNIN_CODE_RESEND_SECONDS;
+  const tick = () => {
+    if (remaining <= 0) {
+      clearInterval(signInResendTimers[scope]);
+      signInResendTimers[scope] = 0;
+      button.disabled = false;
+      button.textContent = "Resend code";
+      return;
+    }
+    button.disabled = true;
+    button.textContent = `Resend code (${remaining}s)`;
+    remaining -= 1;
+  };
+  tick();
+  signInResendTimers[scope] = setInterval(tick, 1000);
+}
+
+async function verifySignInEmailCode(scope) {
+  const els = signInEls(scope);
+  const email = signInEmailValue(scope);
+  if (!email) return;
+  const code = String(els?.codeInput?.value || "").replace(/[^0-9]/g, "");
+  if (code.length < 6) {
+    signInStatus(scope, "Enter all six digits from the email.", "error");
+    els?.codeInput?.focus?.();
+    return;
+  }
+  setButtonBusy(els.codeVerifyButton, true, "Verifying…");
+  try {
+    const payload = await readApiJson("./api/license/email-code/verify", {
+      method: "POST",
+      body: JSON.stringify({ email, code }),
+    });
+    runtime.license = payload.license || runtime.license;
+    if (els.codeInput) els.codeInput.value = "";
+    if (els.codeBlock) els.codeBlock.hidden = true;
+    rememberSignInEmail(email);
+    setButtonBusy(els.codeVerifyButton, false);
+    renderLicenseUi();
+    showToast(`Signed in as ${email}.`, { tone: "success", timeoutMs: 5000 });
+    if (licenseToolsAllowed()) {
+      signInStatus(scope, `✓ Signed in as ${email}. SprinkFlow is unlocked.`, "success");
+      closeDialogSafely(dom.startupLoginDialog);
+    } else {
+      const reason = licenseToolBlockMessage() || "this account doesn't have active beta, trial, or subscription access yet.";
+      signInStatus(scope, `Signed in as ${email}, but tools stay locked — ${reason}`, "error");
+    }
+  } catch (error) {
+    setButtonBusy(els.codeVerifyButton, false);
+    signInStatus(scope, `That code didn't work: ${error.message || "send yourself a new one and try again."}`, "error");
+    els?.codeInput?.focus?.();
+  }
+}
+
+async function sendSignInPasswordReset(scope) {
+  const els = signInEls(scope);
+  const email = signInEmailValue(scope);
+  if (!email) return;
+  setButtonBusy(els.forgotButton, true, "Sending…");
+  try {
+    await readApiJson("./api/license/recover", { method: "POST", body: JSON.stringify({ email }) });
+    // Supabase answers identically whether or not the address exists, so the
+    // copy must not confirm that an account is there.
+    signInStatus(
+      scope,
+      `Check your email — if ${email} has a SprinkFlow account, a password reset link is on its way.`,
+      "success",
+    );
+  } catch (error) {
+    signInStatus(scope, `Could not send a reset email: ${error.message || "try again in a minute."}`, "error");
+  } finally {
+    setButtonBusy(els.forgotButton, false);
+  }
+}
+
+function wireSignInSurfaces() {
+  for (const scope of Object.keys(SIGNIN_SURFACES)) {
+    const els = signInEls(scope);
+    if (!els) continue;
+    els.browserButton?.addEventListener("click", () => startBrowserSignIn(scope));
+    els.codeToggleButton?.addEventListener("click", () => sendSignInEmailCode(scope));
+    els.codeResendButton?.addEventListener("click", () => sendSignInEmailCode(scope, { resend: true }));
+    els.codeVerifyButton?.addEventListener("click", () => verifySignInEmailCode(scope));
+    els.forgotButton?.addEventListener("click", () => sendSignInPasswordReset(scope));
+    els.codeInput?.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        verifySignInEmailCode(scope);
+      }
+    });
+    els.codeInput?.addEventListener("input", () => {
+      const digits = String(els.codeInput.value || "").replace(/[^0-9]/g, "").slice(0, 6);
+      if (els.codeInput.value !== digits) els.codeInput.value = digits;
+    });
+  }
+  applySignInSurfaceState();
 }
 
 function startupLoginPromptDismissed() {
@@ -2011,10 +2443,15 @@ function maybeOpenStartupLoginPrompt() {
   if (!dom.startupLoginDialog || startupLoginPromptDismissed()) return;
   if (!license.apiConfigured || !license.supabaseAuthConfigured) return;
   if (license.authenticated && licenseToolsAllowed(license)) return;
-  if (dom.startupLoginEmailInput && license.email) dom.startupLoginEmailInput.value = license.email;
+  const knownEmail = String(license.email || "").trim() || rememberedSignInEmail();
+  if (dom.startupLoginEmailInput && knownEmail && !dom.startupLoginEmailInput.value) {
+    dom.startupLoginEmailInput.value = knownEmail;
+  }
   setStartupLoginStatus("");
+  applySignInSurfaceState();
   openDialogSafely(dom.startupLoginDialog);
   setTimeout(() => {
+    // Autofocus the first EMPTY field so a remembered email doesn't cost a tab.
     (dom.startupLoginEmailInput?.value ? dom.startupLoginPasswordInput : dom.startupLoginEmailInput)?.focus?.();
   }, 80);
 }
@@ -2599,6 +3036,7 @@ function persistentStateSnapshot() {
     catalogSelectedOnly: state.catalogSelectedOnly,
     activeCategory: state.activeCategory,
     previewView: state.previewView,
+    livePreviewRailCollapsed: Boolean(state.livePreviewRailCollapsed),
     specRequirements: state.specRequirements,
     catalogFilters: defaultCatalogFilters(),
     customCategories: state.customCategories,
@@ -2748,6 +3186,20 @@ const TRASH_KIND_LABELS = {
   loadout: "Loadout",
   project: "Saved project",
   catalog: "Datasheet",
+  // Phase 4b — the rest of the destructive actions. Kinds ending in a plural
+  // or a "…state" noun are snapshots of something that was replaced rather
+  // than a record that was removed; the restorer puts the snapshot back.
+  catalogbatch: "Datasheets",
+  commonref: "Custom code reference",
+  savedbid: "Saved bid",
+  seismicproject: "Seismic project",
+  hydreport: "Hydraulic report",
+  settings: "Settings",
+  estimatorbid: "Bid",
+  hangertable: "Hanger spacing table",
+  selection: "Submittal selection",
+  logo: "Contractor logo",
+  estimatorline: "Line item",
 };
 
 function normalizeTrash(entries) {
@@ -2769,7 +3221,7 @@ function normalizeTrash(entries) {
   // entries keep their payload; older ones degrade to a metadata-only record.
   let budget = TRASH_PAYLOAD_TOTAL_BYTES;
   for (const entry of list) {
-    const size = entry.payload?.dataUrl ? entry.payload.dataUrl.length : 0;
+    const size = trashPayloadBytes(entry.payload);
     if (!size) continue;
     if (size > budget) entry.payload = null;
     else budget -= size;
@@ -2777,10 +3229,34 @@ function normalizeTrash(entries) {
   return list;
 }
 
+/**
+ * Bytes a trash payload will cost once persisted. A bulk delete carries its
+ * captured PDFs in payload.items[], so counting only payload.dataUrl would let
+ * one bulk entry blow straight past the whole budget.
+ */
+function trashPayloadBytes(payload) {
+  if (!payload || typeof payload !== "object") return 0;
+  let bytes = typeof payload.dataUrl === "string" ? payload.dataUrl.length : 0;
+  if (Array.isArray(payload.items)) {
+    for (const item of payload.items) {
+      if (item && typeof item.dataUrl === "string") bytes += item.dataUrl.length;
+    }
+  }
+  return bytes;
+}
+
 /** Can this trash entry actually be put back? */
 function trashEntryRestorable(entry) {
   if (!entry) return false;
   if (entry.kind === "catalog") return Boolean(entry.payload?.dataUrl);
+  // A bulk catalog delete is undoable if ANY of its PDFs were captured; the
+  // restorer reports how many actually came back.
+  if (entry.kind === "catalogbatch") {
+    return Array.isArray(entry.payload?.items) && entry.payload.items.some((item) => item?.dataUrl);
+  }
+  // The logo image lives in the (size-gated) payload, so a logo whose bytes
+  // were dropped is not restorable and must not offer an Undo that throws.
+  if (entry.kind === "logo") return Boolean(entry.payload?.dataUrl);
   return true;
 }
 
@@ -2896,6 +3372,141 @@ const TRASH_RESTORERS = {
       }),
     });
     await refreshCatalog({ preserveScroll: true });
+  },
+
+  // --- Phase 4b -----------------------------------------------------------
+
+  /** Bulk catalog delete. One entry, N PDFs, one Undo that puts them all back. */
+  async catalogbatch(entry) {
+    const items = (entry.payload && entry.payload.items) || [];
+    const withBytes = items.filter((item) => item && item.dataUrl);
+    if (!withBytes.length) throw new Error("none of these datasheet PDFs were captured before deletion");
+    let restored = 0;
+    for (const item of withBytes) {
+      try {
+        await readApiJson("./api/import-datasheet", {
+          method: "POST",
+          body: JSON.stringify({
+            file: { name: item.fileName || `${item.displayName || "Datasheet"}.pdf`, dataUrl: item.dataUrl },
+            category: item.category || "Miscellaneous",
+            displayName: item.displayName || "Datasheet",
+            subcategory: item.subcategory || "",
+            aliases: item.aliases || "",
+            action: "add",
+          }),
+        });
+        restored += 1;
+      } catch (error) { /* keep going — the shortfall is reported below */ }
+    }
+    await refreshCatalog({ preserveScroll: true });
+    if (!restored) throw new Error("the datasheets could not be re-imported");
+    // Be honest when the restore was partial rather than claiming a clean undo.
+    if (restored < entry.record.count) {
+      showToast(`Put back ${restored} of ${entry.record.count} datasheets — the rest could not be recovered.`,
+        { tone: "error", timeoutMs: 9000 });
+    }
+  },
+
+  commonref(entry) {
+    const record = entry.record || {};
+    if (!state.customCommonReferences.some((item) => item.id === record.id)) {
+      state.customCommonReferences.push(record);
+    }
+    renderCommonCodeReferences();
+    saveState();
+  },
+
+  savedbid(entry) {
+    const record = entry.record || {};
+    if (!Array.isArray(state.estimator.savedBids)) state.estimator.savedBids = [];
+    const list = state.estimator.savedBids;
+    if (!list.some((item) => item.id === record.id)) {
+      const index = Number.isInteger(entry.payload?.index) ? entry.payload.index : list.length;
+      list.splice(Math.min(Math.max(index, 0), list.length), 0, record);
+    }
+    renderSavedBids();
+    saveState();
+  },
+
+  seismicproject(entry) {
+    const record = entry.record || {};
+    const list = seismicLoadProjects();
+    if (!list.some((item) => item.id === record.id)) {
+      const index = Number.isInteger(entry.payload?.index) ? entry.payload.index : list.length;
+      list.splice(Math.min(Math.max(index, 0), list.length), 0, record);
+    }
+    seismicSaveProjects(list);
+    seismicRefreshProjectSelect();
+  },
+
+  hydreport(entry) {
+    const record = entry.record || {};
+    const list = hydreportLoadReports();
+    if (!list.some((item) => item.id === record.id)) {
+      const index = Number.isInteger(entry.payload?.index) ? entry.payload.index : list.length;
+      list.splice(Math.min(Math.max(index, 0), list.length), 0, record);
+    }
+    hydreportSaveReports(list);
+    renderHydreportReportSelect();
+  },
+
+  settings(entry) {
+    state.settings = { ...DEFAULT_SETTINGS, ...(entry.record || {}) };
+    saveState();
+    renderSettings();
+    syncInputsFromState();
+  },
+
+  estimatorbid(entry) {
+    const record = entry.record || {};
+    state.estimator.mode = record.mode === "quick" ? "quick" : "detailed";
+    state.estimator.roundTo = estNum(record.roundTo);
+    state.estimator.rates = normalizeEstimator({ rates: record.rates }).rates;
+    state.estimator.bid = normalizeEstimator({ bid: record.bid }).bid;
+    state.estimator.quick = normalizeEstimatorQuick(record.quick);
+    renderEstimator();
+    saveState();
+  },
+
+  estimatorline(entry) {
+    const record = entry.record || {};
+    const index = Number.isInteger(entry.payload?.index) ? entry.payload.index : 0;
+    if (entry.payload?.sectionId) {
+      const section = (state.estimator.bid.sections || []).find((item) => item.id === entry.payload.sectionId);
+      if (!section) throw new Error("that section is gone");
+      section.items.splice(Math.min(index, section.items.length), 0, record);
+    } else {
+      const key = entry.payload?.listKey;
+      if (!key || !Array.isArray(state.estimator.bid[key])) throw new Error("that list is gone");
+      state.estimator.bid[key].splice(Math.min(index, state.estimator.bid[key].length), 0, record);
+    }
+    renderEstimator();
+    saveState();
+  },
+
+  hangertable(entry) {
+    state.hangerSpacing = JSON.parse(JSON.stringify(entry.record || {}));
+    renderHangerTable();
+    saveState();
+  },
+
+  selection(entry) {
+    const record = entry.record || {};
+    state.selectedIds = Array.isArray(record.selectedIds) ? [...record.selectedIds] : [];
+    state.tocTitles = { ...(record.tocTitles || {}) };
+    renderAll();
+    saveState();
+  },
+
+  logo(entry) {
+    const contractor = state.contractors.find((item) => item.id === entry.payload?.contractorId);
+    if (!contractor) throw new Error("that contractor is gone");
+    if (!entry.payload?.dataUrl) throw new Error("the logo image was too large to keep for undo");
+    contractor.logo = entry.payload.dataUrl;
+    contractorFormHydratedFor = null;
+    syncInputsFromState();
+    renderAll();
+    saveState();
   },
 };
 
@@ -3387,11 +3998,17 @@ function saveSettingsFromInputs() {
 }
 
 function resetSettings() {
+  const previous = { ...normalizeSettings(state.settings) };
   state.settings = { ...DEFAULT_SETTINGS };
   renderSettings();
   renderPreview();
   saveState();
   setSettingsStatus("Settings reset to SprinkFlow defaults.", "success");
+  softDelete("settings", previous, {
+    label: "your previous settings",
+    restore: (entry) => TRASH_RESTORERS.settings(entry),
+    message: "Settings reset to SprinkFlow defaults.",
+  });
 }
 
 async function chooseOutputFolder() {
@@ -5109,25 +5726,121 @@ function handleCatalogAction(action, id) {
   if (action === "remove") removeLocalCatalogItem(id);
 }
 
-function renderPreview() {
+/**
+ * Everything the cover + TOC sheets need, read once from the live form + state.
+ * Split out of renderPreview so the Review panel and the Advanced live rail
+ * share one source of truth (a second copy would drift the day someone edits
+ * a template).
+ */
+function submittalPreviewModel() {
   syncStateFromInputs();
-  const contractor = formContractor();
   const tocStyle = normalizeSettings(state.settings).tocStyle;
-  const selectedItems = selectedCatalogItems();
-  const plan = buildPagePlan(selectedItems, tocStyle);
+  const plan = buildPagePlan(selectedCatalogItems(), tocStyle);
+  return {
+    contractor: formContractor(),
+    tocStyle,
+    plan,
+    title: state.project.name || "Untitled Project",
+    pageLabel: `${plan.totalPages} pages`,
+  };
+}
 
-  dom.documentTitle.textContent = state.project.name || "Untitled Project";
-  dom.pageCount.textContent = `${plan.totalPages} pages`;
+/** THE cover + TOC sheet renderer. Every preview surface goes through here. */
+function renderSubmittalSheets(model) {
+  return [
+    renderCoverSheet(1, model.contractor),
+    ...renderTocSheets(2, model.plan, model.tocStyle),
+  ].join("");
+}
 
-  const pages = [
-    renderCoverSheet(1, contractor),
-    ...renderTocSheets(2, plan, tocStyle),
-  ];
+// Test/instrumentation counter: one increment per actual paint, so a typing
+// burst can be asserted to produce exactly one render.
+let previewRenderCount = 0;
+let previewRenderTimer = null;
 
+/**
+ * Debounced repaint for keystroke-rate callers. Input handlers must stay well
+ * under a frame (16ms), so they only commit + arm this timer — the sheets are
+ * rebuilt once, after typing stops.
+ *
+ * The commit is NOT debounced. Every keystroke used to run renderPreview(),
+ * which committed the form to state on its way through; anything that
+ * re-hydrates the form (syncInputsFromState, a project load, a save) has always
+ * been able to run at any moment and must still see the latest keystrokes.
+ * Deferring the commit too would let a re-hydrate inside the debounce window
+ * overwrite what the user just typed. syncStateFromInputs() is a handful of
+ * .value reads — the expensive half is the document render, and only that waits.
+ */
+function schedulePreviewRender(delay = 300) {
+  syncStateFromInputs();
+  if (previewRenderTimer) clearTimeout(previewRenderTimer);
+  previewRenderTimer = window.setTimeout(() => {
+    previewRenderTimer = null;
+    renderPreview();
+  }, delay);
+}
+
+function renderPreview() {
+  previewRenderCount += 1;
+  const model = submittalPreviewModel();
+
+  dom.documentTitle.textContent = model.title;
+  dom.pageCount.textContent = model.pageLabel;
+  if (dom.livePreviewRailCount) dom.livePreviewRailCount.textContent = model.pageLabel;
+  if (dom.livePreviewRailProject) dom.livePreviewRailProject.textContent = model.title;
+
+  // In Advanced the rail owns the document preview — the same two pages are
+  // never painted twice on one screen, and a collapsed rail paints nothing.
+  const railOwns = state.viewMode === "standard";
+  const railCollapsed = Boolean(state.livePreviewRailCollapsed);
+  const sheets = (railOwns && railCollapsed) ? "" : renderSubmittalSheets(model);
+
+  if (railOwns) {
+    if (dom.documentPreview.innerHTML) dom.documentPreview.innerHTML = "";
+    if (dom.livePreviewRailPreview) dom.livePreviewRailPreview.innerHTML = sheets;
+    updateLivePreviewRailScale();
+    return;
+  }
+
+  if (dom.livePreviewRailPreview?.innerHTML) dom.livePreviewRailPreview.innerHTML = "";
   updatePreviewScale({ force: true });
-  dom.documentPreview.innerHTML = pages.join("");
+  dom.documentPreview.innerHTML = sheets;
   schedulePreviewScaleUpdate();
   window.setTimeout(() => schedulePreviewScaleUpdate(), 80);
+}
+
+/** Collapsed/open chrome for the live rail. State lives in app-state. */
+function applyLivePreviewRailState() {
+  const collapsed = Boolean(state.livePreviewRailCollapsed);
+  document.body.dataset.livePreviewRail = collapsed ? "collapsed" : "open";
+  if (dom.livePreviewRail) dom.livePreviewRail.dataset.collapsed = collapsed ? "true" : "false";
+  if (dom.livePreviewRailBody) dom.livePreviewRailBody.hidden = collapsed;
+  if (dom.livePreviewRailToggle) {
+    dom.livePreviewRailToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    dom.livePreviewRailToggle.title = collapsed
+      ? "Show the live cover and contents preview"
+      : "Collapse the live preview";
+  }
+}
+
+function toggleLivePreviewRail() {
+  state.livePreviewRailCollapsed = !state.livePreviewRailCollapsed;
+  applyLivePreviewRailState();
+  renderPreview();
+  saveState();
+}
+
+/**
+ * Fit an 860px page into the rail. `zoom` (not transform: scale) so the pages
+ * collapse their layout box and the rail hugs their real height — §10.
+ */
+function updateLivePreviewRailScale() {
+  if (!dom.livePreviewRail || !dom.livePreviewRailPreview) return;
+  if (state.livePreviewRailCollapsed) return;
+  const width = dom.livePreviewRailPreview.clientWidth;
+  if (!width) return;
+  const scale = Math.min(1, Math.max(0.18, width / 860));
+  dom.livePreviewRail.style.setProperty("--live-rail-scale", scale.toFixed(4));
 }
 
 function schedulePreviewScaleUpdate() {
@@ -5878,7 +6591,8 @@ async function analyzePlansPdf(file, providedDataUrl = "") {
   const enabledLabels = Object.entries(scanOptions)
     .filter(([, enabled]) => enabled)
     .map(([key]) => PLAN_SCAN_LABELS[key] || key.toLowerCase());
-  const tracker = createPlanScanTracker(file, enabledLabels);
+  const scanId = createPlanScanId();
+  const tracker = createPlanScanTracker(file, enabledLabels, scanId);
   tracker.update(4, "Preparing plan scan...", [
     `File: ${file.name}`,
     enabledLabels.length ? `Looking for: ${enabledLabels.join(", ")}` : "Catalog matching disabled for this scan",
@@ -5907,7 +6621,7 @@ async function analyzePlansPdf(file, providedDataUrl = "") {
     const response = await fetch("./api/analyze-plans", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ file: { name: file.name, dataUrl }, scanOptions }),
+      body: JSON.stringify({ file: { name: file.name, dataUrl }, scanOptions, scanId }),
     });
     tracker.stopAnalysis();
     tracker.update(88, "Parsing scan results...", [
@@ -5974,18 +6688,97 @@ function hasPlansScanResults(projectInfo) {
   return hasProjectInfo || hasContractorInfo || hasCatalogSuggestions;
 }
 
-function createPlanScanTracker(file, enabledLabels) {
+// A scan is one long POST, so the client can only learn what the server is
+// doing from a side channel. This id names the run in both.
+function createPlanScanId() {
+  try {
+    if (window.crypto?.randomUUID) return window.crypto.randomUUID().replace(/-/g, "").slice(0, 32);
+  } catch (error) {
+    /* fall through to the time-based id */
+  }
+  return `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+}
+
+// How often the client asks the server which stage the scan is on. Short enough
+// that a 3-second stage is still seen, cheap enough to be free (the answer is a
+// handful of bytes out of an in-memory dict).
+const PLAN_SCAN_PROGRESS_POLL_MS = 700;
+// Consecutive failed polls before the client gives up and stays on simulated
+// copy for the rest of the scan. The web edition has no such route, so its very
+// first poll fails and it never pays for another.
+const PLAN_SCAN_PROGRESS_MAX_FAILURES = 3;
+
+// Diagnostics hook: the last scan's real stage events, in arrival order. Read
+// by the headless verification harness; nothing in the app depends on it.
+window.__planScanProgressLog = [];
+
+function createPlanScanTracker(file, enabledLabels, scanId = "") {
   let analysisTimer = null;
+  let pollTimer = null;
   let analysisStartedAt = 0;
+  let liveStage = null;        // newest REAL stage event, once one arrives
+  let livePercent = 0;         // clamped so real progress never runs backwards
+  let pollFailures = 0;
+  let pollBusy = false;
   const fileSize = formatFileSize(file?.size || 0);
 
   function update(percent, label, details = []) {
     setPlanScanProgress(percent, label, { details });
   }
 
+  async function pollProgress() {
+    if (!scanId || pollBusy) return;
+    pollBusy = true;
+    try {
+      const response = await fetch(`./api/plan-scan-progress?scan=${encodeURIComponent(scanId)}`, {
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error(`progress ${response.status}`);
+      const payload = await response.json();
+      // The web edition's fetch shim answers unknown routes with a bare
+      // placeholder ok:true and no events key. That is not a scan reporting
+      // nothing - it is a backend that cannot report, so stop asking.
+      if (!Array.isArray(payload?.events)) throw new Error("progress route not implemented");
+      const events = payload.events;
+      pollFailures = 0;
+      for (const event of events) {
+        const percent = Number(event?.percent) || 0;
+        if (!event?.stage || percent <= livePercent) continue;
+        livePercent = percent;
+        liveStage = event;
+        window.__planScanProgressLog.push({ stage: event.stage, percent, at: Date.now() });
+      }
+    } catch (error) {
+      // No route (web edition), or the server is busy answering the scan
+      // itself. Either way the simulated copy keeps the user informed.
+      pollFailures += 1;
+      if (pollFailures >= PLAN_SCAN_PROGRESS_MAX_FAILURES) stopPolling();
+    } finally {
+      pollBusy = false;
+    }
+  }
+
+  function stopPolling() {
+    if (pollTimer) {
+      window.clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  }
+
   function startAnalysis() {
     stopAnalysis();
     analysisStartedAt = Date.now();
+    liveStage = null;
+    livePercent = 0;
+    pollFailures = 0;
+    window.__planScanProgressLog = [];
+    if (scanId) {
+      pollTimer = window.setInterval(pollProgress, PLAN_SCAN_PROGRESS_POLL_MS);
+      pollProgress();
+    }
+    // Kept verbatim: this is the FALLBACK narration, used until (and only until)
+    // a real stage event arrives, and for the whole scan on the web edition,
+    // whose fetch shim has no progress route to answer.
     const stages = [
       { seconds: 0, percent: 34, label: "Extracting selectable PDF text...", detail: "Reading title block text from the first plan sheets" },
       { seconds: 3, percent: 44, label: "Finding project name and full address...", detail: "Ranking title-block candidates and filtering sheet-note noise" },
@@ -5998,6 +6791,15 @@ function createPlanScanTracker(file, enabledLabels) {
 
     analysisTimer = window.setInterval(() => {
       const elapsed = Math.floor((Date.now() - analysisStartedAt) / 1000);
+      if (liveStage) {
+        // Real stage from the running scan. The seconds counter keeps ticking
+        // between polls so a long OCR stage still reads as alive.
+        update(livePercent, `${liveStage.label} ${elapsed}s`, [
+          liveStage.detail,
+          `PDF size: ${fileSize}`,
+        ]);
+        return;
+      }
       const activeStage = [...stages].reverse().find((stage) => elapsed >= stage.seconds) || stages[0];
       const nextStage = stages.find((stage) => stage.seconds > elapsed);
       const nextPercent = nextStage ? nextStage.percent : 92;
@@ -6017,9 +6819,10 @@ function createPlanScanTracker(file, enabledLabels) {
       window.clearInterval(analysisTimer);
       analysisTimer = null;
     }
+    stopPolling();
   }
 
-  return { update, startAnalysis, stopAnalysis };
+  return { update, startAnalysis, stopAnalysis, stages: () => window.__planScanProgressLog.slice() };
 }
 
 function summarizePlanScan(projectInfo) {
@@ -6112,10 +6915,48 @@ function buildPlansReview(projectInfo) {
       addressConfidence: planScanConfidence(projectInfo.addressConfidence),
       addressSource: planScanSourceText(projectInfo.addressSource),
       addressFromScan: Boolean(String(projectInfo.address || "").trim()),
+      // Transient: the title-block crops the scan read these fields from. Lives
+      // on the review object for as long as the dialog is open and goes nowhere
+      // near app state or the database - they are ~100KB of JPEG each.
+      provenance: normalizeScanProvenance(projectInfo.provenance),
     },
     contractorChoice: buildScanContractorChoice(projectInfo.contractor || {}),
     suggestions: buildPlanCatalogSuggestions(projectInfo),
   };
+}
+
+// Scan provenance ("show me where it read this"). Absent on high-confidence
+// scans and on the web edition, whose shim runs the pure core and renders no
+// crops - in both cases the review simply shows no source affordance.
+function normalizeScanProvenance(raw) {
+  const crops = raw?.crops;
+  const fields = raw?.fields;
+  if (!crops || !fields || typeof crops !== "object" || typeof fields !== "object") return null;
+  const usableCrops = {};
+  for (const [id, crop] of Object.entries(crops)) {
+    const dataUrl = String(crop?.dataUrl || "");
+    const width = Number(crop?.width) || 0;
+    const height = Number(crop?.height) || 0;
+    if (!dataUrl.startsWith("data:image/") || width <= 0 || height <= 0) continue;
+    usableCrops[id] = { id, dataUrl, width, height, label: String(crop?.label || "the plan sheet") };
+  }
+  const usableFields = {};
+  for (const [name, field] of Object.entries(fields)) {
+    const crop = usableCrops[field?.cropId];
+    if (!crop) continue;
+    const box = field?.box;
+    usableFields[name] = {
+      cropId: field.cropId,
+      kind: String(field?.kind || ""),
+      note: String(field?.note || ""),
+      value: String(field?.value || ""),
+      box: box && Number(box.w) > 0 && Number(box.h) > 0
+        ? { x: Number(box.x) || 0, y: Number(box.y) || 0, w: Number(box.w), h: Number(box.h) }
+        : null,
+    };
+  }
+  if (!Object.keys(usableFields).length) return null;
+  return { crops: usableCrops, fields: usableFields };
 }
 
 function planScanNameCandidatePayload(projectInfo) {
@@ -7230,6 +8071,8 @@ function populatePlansReviewDialog(review) {
     candidates: review.project.nameCandidates,
     valueFromScan: review.project.nameFromScan !== false,
     noun: "project name",
+    provenance: review.project.provenance,
+    provenanceField: "name",
   });
   applyScanFieldGuidance({
     input: dom.plansReviewProjectAddressInput,
@@ -7242,6 +8085,8 @@ function populatePlansReviewDialog(review) {
     candidates: review.project.addressCandidates,
     valueFromScan: review.project.addressFromScan !== false,
     noun: "project address",
+    provenance: review.project.provenance,
+    provenanceField: "address",
   });
 
   renderScanContractorChoice(plansContractorRefs(), review.contractorChoice);
@@ -7294,10 +8139,23 @@ function planScanProvenanceMarkup(confidence, source, hasValue, hasCandidates, n
   return `${chip}<span class="scan-provenance-text">${escapeHtml(text)}</span>`;
 }
 
-function renderScanProvenance(element, markup) {
+const SCAN_SOURCE_KIND_LABELS = {
+  "pdf-text": "labeled title-block text",
+  "strip-ocr": "high-resolution OCR",
+  "strip-ocr-crop": "OCR of the title-block crop",
+  ai: "AI read",
+};
+
+function scanSourceButtonMarkup(fieldKey, entry) {
+  if (!fieldKey || !entry) return "";
+  const kind = SCAN_SOURCE_KIND_LABELS[entry.kind] || "the plan sheet";
+  return `<button class="scan-source-button" type="button" data-scan-source="${escapeHtml(fieldKey)}" title="${escapeHtml(`See the crop this was read from (${kind})`)}">Show source</button>`;
+}
+
+function renderScanProvenance(element, markup, sourceMarkup = "") {
   if (!element) return;
-  element.innerHTML = markup || "";
-  element.hidden = !markup;
+  element.innerHTML = `${markup || ""}${sourceMarkup || ""}`;
+  element.hidden = !markup && !sourceMarkup;
 }
 
 function renderScanSuggestions(container, candidates, onPick) {
@@ -7355,12 +8213,28 @@ function applyScanFieldGuidance(config) {
   const hasMeta = Boolean(conf || src);
   const hasValue = config.valueFromScan !== false && Boolean(input.value.trim());
   const needsCorrection = hasMeta && (conf === "low" || !hasValue);
+  // The source affordance only exists when the scan actually shipped a crop for
+  // THIS field: high-confidence reads and the web edition show nothing.
+  const sourceField = config.provenanceField || "";
+  const sourceEntry = hasValue ? config.provenance?.fields?.[sourceField] || null : null;
+  const sourceMarkup = scanSourceButtonMarkup(sourceField, sourceEntry);
+  if (config.sourceEl) {
+    config.sourceEl.onclick = sourceEntry
+      ? (event) => {
+        const button = event.target?.closest?.("[data-scan-source]");
+        if (!button || !config.sourceEl.contains(button)) return;
+        event.preventDefault();
+        openScanSourceViewer(config.provenance, sourceField, noun);
+      }
+      : null;
+  }
   const onPick = (value) => {
     input.value = detectedProjectCaps(value);
     input.dispatchEvent(new Event("input", { bubbles: true }));
     renderScanProvenance(
       config.sourceEl,
       `<span class="scan-provenance-text">${escapeHtml(`Filled from a suggested ${noun} - edit it if it is not right.`)}</span>`,
+      sourceMarkup,
     );
     try {
       input.focus();
@@ -7371,6 +8245,7 @@ function applyScanFieldGuidance(config) {
   renderScanProvenance(
     config.sourceEl,
     hasMeta ? planScanProvenanceMarkup(conf, src, hasValue, candidates.length > 0, noun) : "",
+    sourceMarkup,
   );
   renderScanSuggestions(config.suggestionsEl, needsCorrection ? candidates : [], onPick);
   renderScanCandidatePicker(
@@ -7380,6 +8255,131 @@ function applyScanFieldGuidance(config) {
     input.value,
     onPick,
   );
+}
+
+// ---------------------------------------------------------------------------
+// "Show source" viewer: the title-block crop a scanned value was read from,
+// with the source region boxed. Opens zoomed onto the box (a 1568px strip shown
+// whole is unreadable lettering) and toggles out to the whole crop for context.
+// ---------------------------------------------------------------------------
+const scanSourceView = { crop: null, box: null, zoomed: false };
+
+function openScanSourceViewer(provenance, fieldKey, noun) {
+  const entry = provenance?.fields?.[fieldKey];
+  const crop = entry ? provenance.crops?.[entry.cropId] : null;
+  if (!entry || !crop || !dom.scanSourceDialog || !dom.scanSourceImage) return;
+  scanSourceView.crop = crop;
+  scanSourceView.box = entry.box;
+  scanSourceView.zoomed = Boolean(entry.box);
+  if (dom.scanSourceHeading) dom.scanSourceHeading.textContent = `Where the ${noun} was read`;
+  if (dom.scanSourceNote) {
+    dom.scanSourceNote.textContent = entry.value
+      ? `"${entry.value}" - ${entry.note}`
+      : entry.note || "Read from this crop of the plan sheet.";
+  }
+  if (dom.scanSourceCaption) {
+    if (entry.box) {
+      dom.scanSourceCaption.textContent = `Highlighted on the ${crop.label}.`;
+    } else if (entry.kind === "ai") {
+      dom.scanSourceCaption.textContent = `The ${crop.label}, as the AI was shown it. No single line to point at.`;
+    } else {
+      dom.scanSourceCaption.textContent = `The ${crop.label}. Every word of this value was read out of it, but not as one line.`;
+    }
+  }
+  if (dom.scanSourceZoomButton) {
+    dom.scanSourceZoomButton.hidden = !entry.box;
+    dom.scanSourceZoomButton.textContent = "Show whole crop";
+  }
+  dom.scanSourceImage.alt = `Scanned ${noun} source: the ${crop.label}`;
+  dom.scanSourceImage.src = crop.dataUrl;
+  openDialogSafely(dom.scanSourceDialog);
+  // The stage has no measurable size until the dialog is actually laid out.
+  requestAnimationFrame(() => requestAnimationFrame(renderScanSourceView));
+}
+
+function renderScanSourceView() {
+  const { crop, box, zoomed } = scanSourceView;
+  const stage = dom.scanSourceStage;
+  const image = dom.scanSourceImage;
+  const highlight = dom.scanSourceHighlight;
+  if (!crop || !stage || !image) return;
+  const stageWidth = stage.clientWidth;
+  const stageHeight = stage.clientHeight;
+  if (stageWidth <= 0 || stageHeight <= 0) return;
+  const fitZoom = Math.min(stageWidth / crop.width, stageHeight / crop.height);
+  let zoom = fitZoom;
+  if (zoomed && box) {
+    // Frame the box with room to read what surrounds it, never below "fit".
+    // The margins are ADDITIVE, not multiples of the box: CAD title blocks
+    // letter the project name vertically, so a source box is routinely 300px
+    // tall and 40px wide. Multiplying its height demanded a stage three times
+    // taller than the screen and collapsed the zoom back to "fit" - the one
+    // shape this viewer exists to show ended up the least legible.
+    const marginX = Math.max(box.w * 0.5, 110);
+    const marginY = Math.max(box.h * 0.25, 70);
+    zoom = Math.max(fitZoom, Math.min(
+      stageWidth / (box.w + marginX * 2),
+      stageHeight / (box.h + marginY * 2),
+      8,
+    ));
+  }
+  const renderWidth = crop.width * zoom;
+  const renderHeight = crop.height * zoom;
+  let left = (stageWidth - renderWidth) / 2;
+  let top = (stageHeight - renderHeight) / 2;
+  if (zoomed && box) {
+    if (renderWidth > stageWidth) {
+      left = Math.min(0, Math.max(stageWidth - renderWidth, stageWidth / 2 - (box.x + box.w / 2) * zoom));
+    }
+    if (renderHeight > stageHeight) {
+      top = Math.min(0, Math.max(stageHeight - renderHeight, stageHeight / 2 - (box.y + box.h / 2) * zoom));
+    }
+  }
+  image.style.width = `${renderWidth}px`;
+  image.style.height = `${renderHeight}px`;
+  image.style.left = `${left}px`;
+  image.style.top = `${top}px`;
+  if (!highlight) return;
+  if (!box) {
+    highlight.hidden = true;
+    return;
+  }
+  highlight.hidden = false;
+  highlight.style.left = `${left + box.x * zoom}px`;
+  highlight.style.top = `${top + box.y * zoom}px`;
+  highlight.style.width = `${box.w * zoom}px`;
+  highlight.style.height = `${box.h * zoom}px`;
+}
+
+function toggleScanSourceZoom() {
+  if (!scanSourceView.box) return;
+  scanSourceView.zoomed = !scanSourceView.zoomed;
+  if (dom.scanSourceZoomButton) {
+    dom.scanSourceZoomButton.textContent = scanSourceView.zoomed ? "Show whole crop" : "Zoom to source";
+  }
+  renderScanSourceView();
+}
+
+function wireScanSourceViewer() {
+  if (!dom.scanSourceDialog) return;
+  dom.scanSourceZoomButton?.addEventListener("click", (event) => {
+    event.preventDefault();
+    toggleScanSourceZoom();
+  });
+  dom.scanSourceCloseButton?.addEventListener("click", (event) => {
+    event.preventDefault();
+    closeDialogSafely(dom.scanSourceDialog);
+  });
+  dom.scanSourceDialog.addEventListener("close", () => {
+    // Drop the crop as soon as the viewer closes: it is review-only state and
+    // there is no reason for ~100KB of JPEG to sit in memory afterwards.
+    scanSourceView.crop = null;
+    scanSourceView.box = null;
+    if (dom.scanSourceImage) dom.scanSourceImage.removeAttribute("src");
+  });
+  window.addEventListener("resize", () => {
+    if (dom.scanSourceDialog.open) renderScanSourceView();
+  });
 }
 
 function refreshPlansReviewSuggestionList(review) {
@@ -9309,18 +10309,20 @@ async function deleteSelectedCatalogItems() {
     return;
   }
 
-  const names = items.map(displayName).filter(Boolean);
-  const previewNames = names.slice(0, 8).map((name) => `- ${name}`).join("\n");
-  const extraCount = names.length > 8 ? `\n...and ${names.length - 8} more` : "";
-  const confirmed = window.confirm(
-    `Are you sure you want to delete ${items.length} datasheet${items.length === 1 ? "" : "s"} from the database?\n\n${previewNames}${extraCount}\n\nThis will remove the PDFs from the datasheet folder.`,
-  );
-  if (!confirmed) return;
-
   dom.deleteSelectedDatasheetsButton.disabled = true;
   setGenerateStatus(`Deleting ${items.length} datasheet${items.length === 1 ? "" : "s"}...`, "info");
 
+  // Capture the PDF bytes BEFORE deleting them, exactly as the single-item
+  // delete does — this is what makes one Undo able to put all N back. Without
+  // it the confirm dialog was the only thing standing between a mis-click and
+  // an unrecoverable multi-file wipe.
+  const captured = new Map();
+  for (const item of items) {
+    captured.set(item.id, await captureCatalogPdfPayload(item));
+  }
+
   const deletedIds = [];
+  const deletedRecords = [];
   const failures = [];
   for (const item of items) {
     try {
@@ -9329,6 +10331,7 @@ async function deleteSelectedCatalogItems() {
         relativePath: item.relativePath,
       });
       deletedIds.push(item.id);
+      deletedRecords.push({ item, payload: captured.get(item.id) });
     } catch (error) {
       failures.push(`${displayName(item)}: ${error.message || "Delete failed."}`);
     }
@@ -9347,11 +10350,45 @@ async function deleteSelectedCatalogItems() {
     updateBulkDeleteButton();
   }
 
+  if (deletedRecords.length) softDeleteCatalogBatch(deletedRecords);
+
   if (failures.length) {
     setGenerateStatus(`Deleted ${deletedIds.length}; ${failures.length} failed. ${failures[0]}`, "error");
   } else {
     setGenerateStatus(`Deleted ${deletedIds.length} datasheet${deletedIds.length === 1 ? "" : "s"} from the database.`, "success");
   }
+}
+
+/**
+ * One trash entry for a whole bulk delete, so the user gets ONE toast with one
+ * Undo that restores all N — not N toasts stacked on top of each other.
+ * @param {Array<{item: object, payload: object|null}>} deleted
+ */
+function softDeleteCatalogBatch(deleted) {
+  const count = deleted.length;
+  const first = displayName(deleted[0].item);
+  const label = count === 1 ? `datasheet "${first}"` : `${count} datasheets`;
+  const items = deleted.map(({ item, payload }) => ({
+    id: item.id,
+    fileName: payload?.fileName || `${displayName(item) || "Datasheet"}.pdf`,
+    displayName: payload?.displayName || item.customTitle || displayName(item) || "Datasheet",
+    category: item.category || "Miscellaneous",
+    subcategory: item.subcategory || "",
+    aliases: Array.isArray(item.aliases) ? item.aliases.join(", ") : (item.aliases || ""),
+    dataUrl: payload?.dataUrl || "",
+  }));
+  const missing = items.filter((item) => !item.dataUrl).length;
+
+  softDelete("catalogbatch", { count, names: items.map((item) => item.displayName) }, {
+    label,
+    payload: { items },
+    restore: (entry) => TRASH_RESTORERS.catalogbatch(entry),
+    message: missing === count
+      ? `Deleted ${label}. ${count === 1 ? "It was" : "They were"} too large to keep for undo.`
+      : missing
+        ? `Deleted ${label}. ${missing} of them were too large to keep for undo.`
+        : `Deleted ${label}.`,
+  });
 }
 
 function removeLocalCatalogItem(id) {
@@ -9616,10 +10653,24 @@ function setupPasswordToggles() {
 function clearContractorLogo() {
   const contractor = currentContractor();
   if (!contractor.id && !contractor.logo) return;
+  // The uploaded logo is the only copy — without an undo, clearing it means
+  // going and finding the image file again.
+  const previousLogo = contractor.logo || "";
+  const contractorId = contractor.id;
   contractor.logo = "";
   syncStateFromInputs();
   renderAll();
   setGenerateStatus("Contractor logo cleared.", "info");
+  if (previousLogo && contractorId) {
+    // Bytes live in the payload, which is the half softDelete size-gates; the
+    // record stays metadata-only so a huge logo cannot bloat the app state.
+    softDelete("logo", { contractorId }, {
+      label: `the logo for ${contractor.name || "this contractor"}`,
+      payload: { contractorId, dataUrl: previousLogo },
+      restore: (entry) => TRASH_RESTORERS.logo(entry),
+      message: "Contractor logo cleared.",
+    });
+  }
 }
 
 function resetProject() {
@@ -10147,13 +11198,22 @@ async function matcatDeleteSelected() {
   const items = matcatSelectedItems((i) => i.source === "database" && isLocalCatalogItem(i));
   const st = document.getElementById("matcatStatus");
   if (!items.length) return;
-  if (!window.confirm(`Delete ${items.length} datasheet${items.length === 1 ? "" : "s"} from the catalog? The file${items.length === 1 ? "" : "s"} will be removed.`)) return;
   if (st) st.textContent = `Deleting ${items.length}…`;
+  // Same capture-then-delete order as the submittal-side bulk delete: the
+  // bytes have to be in hand before the server removes the file, or Undo has
+  // nothing to put back.
+  const deleted = [];
   for (const item of items) {
-    try { await postCatalogAction("./api/catalog/delete", { id: item.id, relativePath: item.relativePath || "" }); matcatSel.delete(item.id); } catch (e) { /* keep going */ }
+    const payload = await captureCatalogPdfPayload(item);
+    try {
+      await postCatalogAction("./api/catalog/delete", { id: item.id, relativePath: item.relativePath || "" });
+      matcatSel.delete(item.id);
+      deleted.push({ item, payload });
+    } catch (e) { /* keep going */ }
   }
   await refreshCatalog();
-  if (st) st.textContent = `Deleted ${items.length} datasheet${items.length === 1 ? "" : "s"}.`;
+  if (st) st.textContent = `Deleted ${deleted.length} datasheet${deleted.length === 1 ? "" : "s"}.`;
+  if (deleted.length) softDeleteCatalogBatch(deleted);
 }
 
 async function matcatImportRemote(id) {
@@ -10345,6 +11405,7 @@ function updateViewModeUI() {
   updateThemeUI();
   document.body.dataset.viewMode = state.viewMode;
   document.body.dataset.simpleStep = state.simpleStep;
+  applyLivePreviewRailState();
   placeProjectDetails();
   // Cover galleries render while their panel/step is still hidden, where every
   // offset measures 0. This runs on every tool switch AND wizard step change --
@@ -13672,6 +14733,15 @@ async function pdfcadAnalyze(fileDataUrl, fileName, page, freshOverride) {
 
 function pdfcadApplyAnalyze(payload, fileName, isFreshImport) {
   const status = document.getElementById("pdfcadFileStatus");
+  // A backend that answers without the analyze fields (an older build, or a
+  // route this edition doesn't serve) must produce a readable message, never a
+  // TypeError deeper in the render. Everything below assumes real page dims.
+  if (!payload || !payload.token || typeof payload.pageWidthIn !== "number"
+      || typeof payload.pageHeightIn !== "number") {
+    if (status) status.textContent = (payload && payload.error)
+      || "This build of SprinkFlow could not read that PDF's page data — try again, or use the desktop app.";
+    return;
+  }
   {
     /* shared by the upload, native-pick and page-change paths */
     pdfcadState.token = payload.token;
@@ -13875,7 +14945,10 @@ function syncPdfcadCustomScale() {
 function renderPdfcadSummary() {
   const box = document.getElementById("pdfcadSummary");
   if (!box) return;
-  if (!pdfcadState.dims) return;
+  // dims only exist after a successful analyze; a partial/blank payload leaves
+  // them undefined and must simply render nothing (never throw on .toFixed).
+  if (!pdfcadState.dims
+      || typeof pdfcadState.dims.w !== "number" || typeof pdfcadState.dims.h !== "number") return;
   const scale = pdfcadScale();
   const selIds = new Set(pdfcadSelectedHexes());
   const selObjs = pdfcadState.groups.filter((g) => selIds.has(pdfcadGroupId(g))).reduce((s, g) => s + g.count, 0);
@@ -13901,7 +14974,10 @@ async function pdfcadConvert() {
   const btn = document.getElementById("pdfcadConvertButton");
   if (btn) btn.disabled = true;
   const wantFmt = pdfcadState.dwgCapable ? "dwg" : "dxf";
-  if (status) status.textContent = `Converting... choose where to save the ${wantFmt.toUpperCase()}.`;
+  // Desktop pops a Save dialog; the browser edition downloads the file instead.
+  if (status) status.textContent = window.__SPRINKFLOW_WEB__
+    ? `Converting... the ${wantFmt.toUpperCase()} downloads when it is ready (a dense sheet takes a minute).`
+    : `Converting... choose where to save the ${wantFmt.toUpperCase()}.`;
   try {
     const base = (pdfcadState.fileName || "pdf-import").replace(/\.pdf$/i, "");
     const payload = await readApiJson("./api/pdf-to-cad/convert", {
@@ -13919,7 +14995,10 @@ async function pdfcadConvert() {
     });
     const savedFmt = (payload.format || "dxf").toUpperCase();
     const fallbackNote = payload.dwgFallback ? " (DWG needs the free ODA File Converter — saved DXF instead.)" : "";
-    if (status) status.textContent = `Saved ${savedFmt}: ${payload.path} (${payload.weldedPolylines.toLocaleString()} polylines, ${payload.textLines.toLocaleString()} text).${fallbackNote}`;
+    const verb = payload.downloaded ? "Downloaded" : "Saved";
+    const polys = Number(payload.weldedPolylines || 0).toLocaleString();
+    const texts = Number(payload.textLines || 0).toLocaleString();
+    if (status) status.textContent = `${verb} ${savedFmt}: ${payload.path} (${polys} polylines, ${texts} text).${fallbackNote}`;
   } catch (error) {
     if (status) status.textContent = (error.message === "Save cancelled." ? "Save cancelled." : (error.message || "Conversion failed."));
   }
@@ -15706,10 +16785,16 @@ function seismicDeleteProject() {
   const list = seismicLoadProjects();
   const proj = list.find((p) => p.id === id);
   if (!proj) { if (st) st.textContent = "Pick a saved project to delete."; return; }
+  const index = list.findIndex((p) => p.id === id);
   seismicSaveProjects(list.filter((p) => p.id !== id));
   seismicState.activeProjectId = "";
   seismicRefreshProjectSelect();
   if (st) st.textContent = `Deleted "${proj.name}". Its braces stay on the rack until you clear them.`;
+  softDelete("seismicproject", proj, {
+    label: `seismic project "${proj.name}"`,
+    payload: { index },
+    restore: (entry) => TRASH_RESTORERS.seismicproject(entry),
+  });
 }
 
 function seismicApplyPayloadToForm(p) {
@@ -16260,11 +17345,14 @@ function pdfcadApplyDwgCapable(capable) {
   const convBtn = document.getElementById("pdfcadConvertButton");
   if (convBtn) convBtn.textContent = capable ? "Convert & Save DWG..." : "Convert & Save DXF...";
   const odaNote = document.getElementById("pdfcadOdaNote");
-  if (odaNote) odaNote.hidden = capable !== false;
+  // The ODA converter is a Windows program: in the browser edition there is
+  // nothing to install, so the DWG upsell would be a dead end. DXF only there.
+  if (odaNote) odaNote.hidden = capable !== false || !!window.__SPRINKFLOW_WEB__;
 }
 
 /** Ask the backend once at startup whether the ODA converter is present. */
 async function pdfcadProbeDwgCapable() {
+  if (window.__SPRINKFLOW_WEB__) { pdfcadApplyDwgCapable(false); return; }   // browser engine writes DXF only
   try {
     const r = await readApiJson("./api/oda-status", { method: "POST", body: "{}" });
     pdfcadApplyDwgCapable(!!r.dwgCapable);
@@ -16288,6 +17376,12 @@ function initPdfcad() {
     // web view can't hold. Send big sets through the native picker instead
     // (the browser never exposes a dropped file's real path, so we must ask).
     if (file.size > 60 * 1024 * 1024) {
+      // The browser edition has no native picker to fall back to, and a data
+      // URL that big cannot be held in memory — say so instead of hanging.
+      if (window.__SPRINKFLOW_WEB__) {
+        if (st) st.textContent = `${file.name} is ${(file.size / 1048576).toFixed(0)} MB — too large for the browser edition. Split the set, or convert it in the desktop app.`;
+        return;
+      }
       if (st) st.textContent = `${file.name} is ${(file.size / 1048576).toFixed(0)} MB — opening the file picker so it can be read straight off disk...`;
       await pdfcadPickFile();
       return;
@@ -16307,7 +17401,19 @@ function initPdfcad() {
   drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("drag-over"); });
   drop.addEventListener("dragleave", () => drop.classList.remove("drag-over"));
   drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("drag-over"); if (e.dataTransfer.files[0]) takeFile(e.dataTransfer.files[0]); });
-  document.getElementById("pdfcadPickButton")?.addEventListener("click", pdfcadPickFile);
+  const pickBtn = document.getElementById("pdfcadPickButton");
+  if (pickBtn && window.__SPRINKFLOW_WEB__) {
+    // No native Open dialog in a browser — the same button opens the ordinary
+    // file input, so it still does what its label promises.
+    pickBtn.textContent = "\u{1F4C1} Choose PDF";
+    pickBtn.title = "Choose a PDF from your computer";
+    pickBtn.addEventListener("click", () => fileInput?.click());
+    const pickNote = document.getElementById("pdfcadPickNote");
+    if (pickNote) pickNote.innerHTML =
+      "Vector PDFs only (a scanned sheet has no linework to convert). Sheets up to 60&nbsp;MB convert in the browser; bigger sets need the desktop app. A dense sheet can take a minute to read.";
+  } else {
+    pickBtn?.addEventListener("click", pdfcadPickFile);
+  }
   document.getElementById("pdfcadScaleSelect")?.addEventListener("change", syncPdfcadCustomScale);
   document.getElementById("pdfcadCustomScaleInput")?.addEventListener("input", syncPdfcadCustomScale);
   // ODA download link (PDF-to-CAD note)
@@ -16691,11 +17797,21 @@ function initHydreport() {
     const sel = document.getElementById("hydreportReportSelect");
     const id = sel?.value;
     if (!id) return;
-    const reports = hydreportLoadReports().filter((r) => r.id !== id);
+    const all = hydreportLoadReports();
+    const removed = all.find((r) => r.id === id);
+    const index = all.findIndex((r) => r.id === id);
+    const reports = all.filter((r) => r.id !== id);
     hydreportSaveReports(reports);
     if (hydreportState.activeReportId === id) hydreportState.activeReportId = "";
     renderHydreportReportSelect();
     const status = document.getElementById("hydreportStatus"); if (status) status.textContent = "Report deleted.";
+    if (removed) {
+      softDelete("hydreport", removed, {
+        label: `report "${removed.name || "Untitled report"}"`,
+        payload: { index },
+        restore: (entry) => TRASH_RESTORERS.hydreport(entry),
+      });
+    }
   });
   document.getElementById("hydreportNewReportButton")?.addEventListener("click", () => {
     hydreportState.activeReportId = "";
@@ -16863,11 +17979,21 @@ function initHangerSpacing() {
     if (!hangerTableEditMode) { syncHangerMaxSpacing(); calculateAndRenderHanger(); saveState(); }
   });
   dom.hangerTableResetButton?.addEventListener("click", () => {
+    const previous = JSON.parse(JSON.stringify(state.hangerSpacing || {}));
     state.hangerSpacing = JSON.parse(JSON.stringify(HANGER_SPACING_DEFAULT));
     renderHangerTable();
     syncHangerMaxSpacing();
     calculateAndRenderHanger();
     saveState();
+    softDelete("hangertable", previous, {
+      label: "your edited hanger spacing table",
+      restore: (entry) => {
+        TRASH_RESTORERS.hangertable(entry);
+        syncHangerMaxSpacing();
+        calculateAndRenderHanger();
+      },
+      message: "Hanger spacing table reset to the NFPA defaults.",
+    });
   });
   dom.hangerTable?.addEventListener("input", (e) => {
     const t = e.target;
@@ -18680,9 +19806,14 @@ function saveCustomCommonReference() {
 function deleteCustomCommonReference(id) {
   const reference = state.customCommonReferences.find((item) => item.id === id);
   if (!reference) return;
-  if (!window.confirm(`Delete custom common rule reference "${reference.name}"?`)) return;
+  const index = state.customCommonReferences.findIndex((item) => item.id === id);
   state.customCommonReferences = state.customCommonReferences.filter((item) => item.id !== id);
   renderCommonCodeReferences();
+  softDelete("commonref", reference, {
+    label: `custom reference "${reference.name}"`,
+    payload: { index },
+    restore: (entry) => TRASH_RESTORERS.commonref(entry),
+  });
   if (dom.codeConverterResults?.textContent?.includes(reference.name)) {
     dom.codeConverterResults.innerHTML = '<div class="empty-state">Enter an NFPA 13 section number or choose a common rule reference.</div>';
     if (dom.codeConverterCount) dom.codeConverterCount.textContent = "0 matches";
@@ -20126,6 +21257,7 @@ function clearNfpa1142Calculator() {
 
 function wireEvents() {
   wireCommandPalette();
+  wireGlobalDropRouter();
   if (dom.manualCategoryInput) {
     dom.manualCategoryInput.innerHTML = CATEGORIES.map((category) => `<option value="${category}">${category}</option>`).join("");
   }
@@ -20162,6 +21294,7 @@ function wireEvents() {
     button.addEventListener("click", () => setViewMode(button.dataset.viewMode));
   });
   dom.themeSelect?.addEventListener("change", () => setTheme(dom.themeSelect.value));
+  wireScanSourceViewer();
   dom.simpleToolCards?.forEach((button) => {
     button.addEventListener("click", () => handleSimpleToolChoice(button.dataset.simpleToolChoice));
   });
@@ -20720,8 +21853,13 @@ function wireEvents() {
     if (event.key === "Enter") signInFromStartupPrompt();
   });
   dom.startupLoginEmailInput?.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") dom.startupLoginPasswordInput?.focus();
+    if (event.key !== "Enter") return;
+    // Enter submits everywhere: from the email box, jump to the password if it
+    // is still empty, otherwise sign in.
+    if (dom.startupLoginPasswordInput?.value) signInFromStartupPrompt();
+    else dom.startupLoginPasswordInput?.focus();
   });
+  wireSignInSurfaces();
   dom.licenseDialogCloseButton?.addEventListener("click", closeLicenseDialog);
   dom.licenseDialog?.addEventListener("cancel", (event) => {
     event.preventDefault();
@@ -20731,6 +21869,11 @@ function wireEvents() {
   dom.licenseSignInButton?.addEventListener("click", signInCloudLicense);
   dom.licensePasswordInput?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") signInCloudLicense();
+  });
+  dom.licenseEmailInput?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    if (dom.licensePasswordInput?.value) signInCloudLicense();
+    else dom.licensePasswordInput?.focus();
   });
   dom.licenseConnectCloudButton?.addEventListener("click", connectCloudLicense);
   dom.licenseRefreshButton?.addEventListener("click", refreshLicenseStatus);
@@ -20768,10 +21911,23 @@ function wireEvents() {
   dom.loadProjectButton?.addEventListener("click", loadSelectedProject);
   dom.deleteProjectButton?.addEventListener("click", deleteSelectedProject);
   dom.clearSelectionsButton.addEventListener("click", () => {
+    const previous = {
+      selectedIds: [...(state.selectedIds || [])],
+      tocTitles: { ...(state.tocTitles || {}) },
+    };
+    const count = previous.selectedIds.length;
     state.selectedIds = [];
     annotatedPdfOverrides.clear();
     setGenerateStatus("", false);
     renderAll();
+    if (!count) return;
+    // Note the annotation overrides are NOT restorable — they hold live
+    // annotated-PDF blobs, so the toast promises back only what it can.
+    softDelete("selection", previous, {
+      label: `${count} selected datasheet${count === 1 ? "" : "s"}`,
+      restore: (entry) => TRASH_RESTORERS.selection(entry),
+      message: `Cleared ${count} selected datasheet${count === 1 ? "" : "s"}.`,
+    });
   });
   dom.deleteSelectedDatasheetsButton?.addEventListener("click", deleteSelectedCatalogItems);
   dom.printButton.addEventListener("click", generateMaterialDataSubmittal);
@@ -20870,10 +22026,15 @@ function wireEvents() {
     if (dom.debugResetDatabaseButton) dom.debugResetDatabaseButton.disabled = resetConfirmText() !== "RESET";
   });
   window.addEventListener("resize", schedulePreviewScaleUpdate);
+  window.addEventListener("resize", updateLivePreviewRailScale);
   if ("ResizeObserver" in window && dom.documentPreview) {
     const previewResizeObserver = new ResizeObserver(() => schedulePreviewScaleUpdate());
     previewResizeObserver.observe(dom.documentPreview.closest(".preview-panel") || dom.documentPreview);
   }
+  if ("ResizeObserver" in window && dom.livePreviewRailPreview) {
+    new ResizeObserver(() => updateLivePreviewRailScale()).observe(dom.livePreviewRailPreview);
+  }
+  dom.livePreviewRailToggle?.addEventListener("click", toggleLivePreviewRail);
   dom.importButton.addEventListener("click", () => dom.datasheetInput.click());
   dom.addCategoryButton?.addEventListener("click", promptForCustomCategory);
   dom.datasheetInput.addEventListener("change", (event) => importDatasheets([...event.target.files]));
@@ -20889,12 +22050,10 @@ function wireEvents() {
   });
   dom.datasheetDrop.addEventListener("dragleave", () => dom.datasheetDrop.classList.remove("drag-over"));
   dom.datasheetDrop.addEventListener("drop", handleDatasheetDrop);
-  document.addEventListener("dragover", (event) => event.preventDefault());
-  document.addEventListener("drop", (event) => {
-    if (!dom.datasheetDrop.contains(event.target) && !dom.imageIntake.contains(event.target) && !dom.contractorLogoDrop?.contains(event.target)) {
-      event.preventDefault();
-    }
-  });
+  // The window-level drag/drop handling that used to live here (swallow every
+  // stray drop so the browser does not navigate away) is now the global drop
+  // router — it still swallows the drop, but offers to route it somewhere
+  // useful instead of dropping it on the floor. See wireGlobalDropRouter().
   dom.addManualItemButton?.addEventListener("click", addManualItem);
   dom.saveContractorButton.addEventListener("click", saveContractor);
   dom.deleteContractorButton.addEventListener("click", deleteContractor);
@@ -20936,7 +22095,9 @@ function wireEvents() {
     dom.contractorAddressInput,
     dom.disclaimerInput,
   ].filter(Boolean)) {
-    input.addEventListener("input", renderPreview);
+    // Keystroke handlers only arm a timer — the preview repaints once, ~300ms
+    // after typing stops, so the caret never waits on a document render.
+    input.addEventListener("input", () => schedulePreviewRender());
     input.addEventListener("change", () => {
       syncStateFromInputs();
       renderAll();
@@ -20978,7 +22139,7 @@ function wireEvents() {
     input.addEventListener("input", () => {
       syncCoverAdditionalInfoEditorToState(activeCoverAdditionalInfoType);
       renderCoverAdditionalInfoSummary();
-      renderPreview();
+      schedulePreviewRender();
     });
     input.addEventListener("change", () => {
       syncStateFromInputs();
@@ -21057,7 +22218,7 @@ function wireEvents() {
     const value = event.target.value.trim();
     if (value) state.tocTitles[id] = value;
     else delete state.tocTitles[id];
-    renderPreview();
+    schedulePreviewRender();
     saveState();
   });
 
@@ -21896,10 +23057,22 @@ function onEstimatorSectionClick(event) {
     renderEstimatorTotals();
     saveState();
   } else if (action === "remove-item") {
-    sec.items.splice(Number(btn.dataset.index), 1);
+    const index = Number(btn.dataset.index);
+    const [removed] = sec.items.splice(index, 1);
     renderEstimatorSections();
     renderEstimatorTotals();
     saveState();
+    if (removed) {
+      softDelete("estimatorline", removed, {
+        label: removed.desc ? `line "${removed.desc}"` : "that bid line",
+        payload: { sectionId: sec.id, index },
+        restore: (entry) => {
+          TRASH_RESTORERS.estimatorline(entry);
+          renderEstimatorSections();
+          renderEstimatorTotals();
+        },
+      });
+    }
   }
 }
 
@@ -21913,17 +23086,44 @@ function onEstimatorListInput(event, key) {
 function onEstimatorListClick(event, key) {
   const btn = event.target.closest("[data-action='remove-line']");
   if (!btn) return;
-  state.estimator.bid[key].splice(Number(btn.dataset.index), 1);
+  const index = Number(btn.dataset.index);
+  const [removed] = state.estimator.bid[key].splice(index, 1);
   renderEstimatorLists();
   saveState();
+  if (removed) {
+    softDelete("estimatorline", removed, {
+      label: typeof removed === "string" && removed.trim() ? `"${removed.trim()}"` : "that line",
+      payload: { listKey: key, index },
+      restore: (entry) => {
+        TRASH_RESTORERS.estimatorline(entry);
+        renderEstimatorLists();
+      },
+    });
+  }
 }
 
 function resetEstimatorBid() {
-  if (!window.confirm("Clear the current bid? Your company rate defaults are kept.")) return;
+  const snapshot = estimatorSnapshotForUndo();
   state.estimator.bid = defaultEstimatorBid();
   renderEstimator();
   saveState();
   setEstimatorStatus("Bid cleared.", "info");
+  softDelete("estimatorbid", snapshot, {
+    label: "the previous bid",
+    restore: (entry) => TRASH_RESTORERS.estimatorbid(entry),
+    message: "Bid cleared. Your company rate defaults are kept.",
+  });
+}
+
+/** Everything loadSavedBid/resetEstimatorBid overwrite, in one restorable object. */
+function estimatorSnapshotForUndo() {
+  return {
+    mode: state.estimator.mode,
+    roundTo: state.estimator.roundTo,
+    rates: state.estimator.rates,
+    bid: state.estimator.bid,
+    quick: state.estimator.quick,
+  };
 }
 
 // Map a Quick estimate to a single-section bid so the same PDF/engine renders it.
@@ -22040,7 +23240,7 @@ function saveCurrentBid() {
 function loadSavedBid(id, asCopy) {
   const b = (state.estimator.savedBids || []).find((x) => x.id === id);
   if (!b) return;
-  if (!asCopy && !window.confirm("Open this saved bid? Your current unsaved bid will be replaced.")) return;
+  const replaced = asCopy ? null : estimatorSnapshotForUndo();
   state.estimator.mode = b.mode === "quick" ? "quick" : "detailed";
   state.estimator.roundTo = estNum(b.roundTo);
   state.estimator.rates = normalizeEstimator({ rates: b.rates }).rates;
@@ -22050,13 +23250,30 @@ function loadSavedBid(id, asCopy) {
   renderEstimator();
   saveState();
   setEstimatorStatus(asCopy ? "Duplicated into the working bid." : `Opened “${b.name}”.`, "info");
+  // Opening a saved bid overwrites whatever was on the bench. That used to be
+  // guarded by a confirm; now it just happens, and the toast offers the
+  // previous working bid back.
+  if (replaced) {
+    softDelete("estimatorbid", replaced, {
+      label: "the bid you were working on",
+      restore: (entry) => TRASH_RESTORERS.estimatorbid(entry),
+      message: `Opened “${b.name}”. Your previous working bid was replaced.`,
+    });
+  }
 }
 function deleteSavedBid(id) {
-  const b = (state.estimator.savedBids || []).find((x) => x.id === id);
-  if (b && !window.confirm(`Delete saved bid “${b.name}”?`)) return;
-  state.estimator.savedBids = (state.estimator.savedBids || []).filter((x) => x.id !== id);
+  const list = state.estimator.savedBids || [];
+  const b = list.find((x) => x.id === id);
+  if (!b) return;
+  const index = list.findIndex((x) => x.id === id);
+  state.estimator.savedBids = list.filter((x) => x.id !== id);
   renderSavedBids();
   saveState();
+  softDelete("savedbid", b, {
+    label: `saved bid “${b.name}”`,
+    payload: { index },
+    restore: (entry) => TRASH_RESTORERS.savedbid(entry),
+  });
 }
 
 async function generateBid() {
@@ -23449,4 +24666,627 @@ function wireCommandPalette() {
   paletteEl("shortcutsOverlayCloseButton")?.addEventListener("click", closeShortcutsOverlay);
 
   window.addEventListener("resize", () => { if (paletteUi.open) positionPalette(dialog); });
+}
+
+// ============================================================================
+//  GLOBAL DROP ROUTER (Phase 4a)
+//
+//  One window-level drop target. A file dropped ANYWHERE that is not already a
+//  specific drop zone is classified, named back to the user in a chooser, and
+//  then routed into the EXISTING pipeline for whatever they pick.
+//
+//  How routing works, and why:
+//  The six intake pipelines take three different argument shapes - File,
+//  File[], and a data-URL string - and two of them (pdfcad, cadexplode) keep
+//  their File->dataURL adapter trapped in a closure inside their init(). They
+//  also each own behaviour a router must not silently drop: the 60 MB cliffs,
+//  the license guard (ensureLicensedToolAccess), the "too big, use the native
+//  picker" diversion, and per-tool status text.
+//
+//  So the router does NOT call the entry functions. It rebuilds a DataTransfer
+//  and dispatches a synthetic `drop` on the destination tool's OWN drop zone.
+//  Every pipeline therefore runs byte-identically to a real hand drop on that
+//  zone, and this router owns zero copies of their logic. A new tool that adds
+//  a drop zone gets routed by adding one row to DROP_DESTINATIONS.
+// ============================================================================
+
+/** Every EXISTING per-tool drop zone. A drop landing inside one of these is
+ *  none of the router's business - the zone handles it exactly as it does
+ *  today. Marked with data-drop-zone at wire time so the contract is visible
+ *  in the DOM as well as here. */
+const DROP_ZONE_SELECTORS = [
+  "#imageIntake",        // submittal - drop your plans
+  "#datasheetDrop",      // submittal - datasheet intake
+  "#contractorLogoDrop", // submittal - contractor logo
+  "#matcatDrop",         // material catalog - import
+  "#pdfcadDrop",         // convert pdf to cad
+  "#cadxDrop",           // explode cad blocks
+  "#dwgpdfDrop",         // dwg to pdf
+  "#pdfMergeDrop",       // merge / compress
+  "#pdfSlipDrop",        // slip-sheet tray
+  "#pdfSlipBaseGrid",    // slip-sheet page cards (internal drag, not files)
+  "#pdfRecentDrop",      // recent outputs tray
+  "#hydraulicDrop",      // hydraulic calc package
+  "#bidIntakeDrop",      // bid estimator plan intake
+  "#prPlansZone", "#prCalcsZone", "#prMaterialZone", // plan reviewer (inert in this build)
+];
+
+/**
+ * Where a dropped file can go. `zone` is the existing drop zone the synthetic
+ * drop is dispatched on; `accepts` gates which rows a given file can even see
+ * (offering "Explode blocks" for a PDF would be the dead end this feature
+ * exists to remove). `desktopOnly` rows hide in the web edition because their
+ * endpoints are not shimmed in web-backend.js.
+ */
+const DROP_DESTINATIONS = [
+  {
+    id: "plans", label: "Scan as plans", sub: "Read the title block for project info",
+    tool: "submittal", zone: "#imageIntake", accepts: ["pdf"], glyph: "▦",
+  },
+  {
+    id: "catalog", label: "Add to datasheet catalog", sub: "Keep it in the Material Catalog",
+    tool: "catalog", zone: "#matcatDrop", accepts: ["pdf"], glyph: "☷",
+  },
+  {
+    id: "submittalsheets", label: "Add to this submittal", sub: "Import and select for the current package",
+    tool: "submittal", zone: "#datasheetDrop", accepts: ["pdf"], glyph: "☰",
+  },
+  {
+    id: "hydraulic", label: "Add to calc package", sub: "Hydraulic Calculation Package",
+    tool: "hydraulic", zone: "#hydraulicDrop", accepts: ["pdf"], glyph: "≈",
+  },
+  {
+    id: "pdfmerge", label: "Merge / compress", sub: "PDF tools workspace",
+    tool: "pdf", zone: "#pdfMergeDrop", accepts: ["pdf"], glyph: "⧉",
+  },
+  {
+    id: "pdfcad", label: "Convert PDF to CAD", sub: "Trace vectors into DWG/DXF",
+    tool: "pdfcad", zone: "#pdfcadDrop", accepts: ["pdf"], glyph: "▱",
+    desktopOnly: true,
+  },
+  {
+    id: "bid", label: "Take off for a bid", sub: "Bid Estimator plan intake",
+    tool: "estimator", zone: "#bidIntakeDrop", accepts: ["pdf"], glyph: "¤",
+    desktopOnly: true,
+  },
+  {
+    id: "dwgpdf", label: "Convert to PDF", sub: "Plot the drawing to a PDF sheet",
+    tool: "dwgpdf", zone: "#dwgpdfDrop", accepts: ["dwg", "dxf"], glyph: "⎙",
+    desktopOnly: true,
+  },
+  {
+    id: "cadexplode", label: "Explode blocks", sub: "Flatten nested blocks to plain geometry",
+    tool: "cadexplode", zone: "#cadxDrop", accepts: ["dwg", "dxf"], glyph: "✧",
+  },
+  {
+    id: "logo", label: "Use as contractor logo", sub: "Saved on the active contractor",
+    tool: "submittal", zone: "#contractorLogoDrop", accepts: ["image"], glyph: "⚑",
+  },
+];
+
+/** Best-guess destination per detected kind, in preference order. The FIRST
+ *  entry that survives the accepts/desktop filters becomes the preselection. */
+const DROP_KIND_PREFERENCE = {
+  plans: ["plans", "bid", "pdfmerge"],
+  cutsheet: ["catalog", "submittalsheets", "pdfmerge"],
+  hydraulic: ["hydraulic", "pdfmerge"],
+  specs: ["submittalsheets", "catalog", "pdfmerge"],
+  cad: ["dwgpdf", "cadexplode"],
+  image: ["logo"],
+  unknown: [],
+};
+
+const DROP_KIND_LABEL = {
+  plans: "a plan set",
+  cutsheet: "a cut sheet",
+  hydraulic: "hydraulic calculations",
+  specs: "a project specification",
+  cad: "a CAD drawing",
+  image: "an image",
+  unknown: "something we do not recognise",
+};
+
+// --- Classification --------------------------------------------------------
+//
+// These regexes and size thresholds are lifted verbatim from the server's
+// classify_uploaded_project_pdf() (server.py ~3544) so the router's guess
+// agrees with what the intake pipeline would decide. Two rungs are NEW: cut
+// sheets, which the server classifier has never detected (its ladder bottoms
+// out at "plans", which is exactly why a stray datasheet dropped on the plans
+// zone gets scanned as a plan set today).
+
+const DROP_RE_HYDRAULIC = /\b(HYDRAULIC\s+(?:CALC|CALCULATION|CALCULATIONS|GRAPH|SUMMARY|OVERVIEW)|REMOTE\s+AREA|DESIGN\s+AREA|REPORT\s+DESCRIPTION|MEPCAD|WATER\s+SUPPLY\s+AT\s+NODE|MOST\s+DEMANDING\s+SPRINKLER)\b/i;
+const DROP_RE_PLAN = /\b(SPRINKLER\s+LEGEND|FIRE\s+SPRINKLER\s+PLANS?|SHEET\s+NO\.?|DRAWING\s+INDEX|PROJECT\s+DESIGN\s+DATA|GENERAL\s+NOTES)\b/i;
+const DROP_RE_SPEC_TEXT = /(SECTION\s+(\d{2}\s?\d{2}\s?\d{2}|\d{5})\b)|(\b(PROJECT\s+MANUAL|SPECIFICATIONS?\s+TABLE\s+OF\s+CONTENTS|MASTERFORMAT)\b)/i;
+const DROP_RE_CALC_NAME = /\b(calc|calcs|calculation|hydraulic|remote\s*area|ra\d*)\b/i;
+const DROP_RE_SPEC_NAME = /\b(spec|specs|specification|specifications|project\s*manual|div\s*21)\b/i;
+/** NEW: cut-sheet language. Manufacturer datasheets are letter-size product
+ *  pages and share a very stable vocabulary. */
+const DROP_RE_CUTSHEET_TEXT = /\b(TECHNICAL\s+DATA|DATA\s+SHEETS?|DATASHEETS?|PRODUCT\s+DESCRIPTION|ORDERING\s+INFORMATION|APPROVAL\s+ORGANIZATIONS?|LISTINGS?\s+AND\s+APPROVALS?|UL\s+LISTED|FM\s+APPROVED|NOMINAL\s+K-?FACTOR|K-?FACTOR|TEMPERATURE\s+RATING|INSTALLATION\s+INSTRUCTIONS|CARE\s+AND\s+MAINTENANCE|MAXIMUM\s+WORKING\s+PRESSURE)\b/i;
+/** NEW: filename hints. The category words are the same list web-backend.js
+ *  uses to guess a datasheet's category, plus the manufacturers the catalog
+ *  actually carries. */
+const DROP_RE_CUTSHEET_NAME = /\b(sprinkler|pendent|upright|sidewall|concealed|esfr|cmsa|attic|valve|check|butterfly|riser|backflow|prv|deluge|preaction|coupling|fitting|tee|elbow|grooved|flange|reducer|hanger|clevis|strut|clamp|brace|sway|seismic|restraint|flex|braided|cpvc|blazemaster|dyna|megaflow|tyco|viking|reliable|victaulic|globe|senju|nibco|potter|tolco|afcon|anvil|gruvlok)\b/i;
+
+/** Files above this never get a text sniff - reading a 200 MB plan set into
+ *  memory to guess at it is worse than guessing from its name and extension. */
+const DROP_SNIFF_MAX_BYTES = 80 * 1024 * 1024;
+const DROP_SNIFF_TIMEOUT_MS = 4000;
+
+function dropFileExtension(file) {
+  const match = /\.([a-z0-9]+)$/i.exec((file && file.name) || "");
+  return match ? match[1].toLowerCase() : "";
+}
+
+/** The coarse family a destination's `accepts` list is written against. */
+function dropFileFamily(file) {
+  const ext = dropFileExtension(file);
+  if (ext === "pdf") return "pdf";
+  if (ext === "dwg" || ext === "dxf") return ext;
+  const type = (file && file.type) || "";
+  if (/^image\//.test(type) || ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"].includes(ext)) return "image";
+  return ext || "file";
+}
+
+/**
+ * Read page geometry + first-page text with the bundled pdf.js. Returns null
+ * if pdf.js is missing, the file is too big to be worth it, or the read fails
+ * or stalls - every caller treats null as "sniff unavailable" and falls back
+ * to filename evidence rather than failing the drop.
+ */
+async function dropSniffPdf(file) {
+  if (!window.pdfjsLib || file.size > DROP_SNIFF_MAX_BYTES) return null;
+  try {
+    const read = (async () => {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const doc = await window.pdfjsLib.getDocument({ data: bytes }).promise;
+      const pageCount = doc.numPages;
+      const sizes = [];
+      const texts = [];
+      for (let index = 1; index <= Math.min(3, pageCount); index += 1) {
+        const page = await doc.getPage(index);
+        const viewport = page.getViewport({ scale: 1 });
+        sizes.push({ width: viewport.width / 72, height: viewport.height / 72 });
+        const content = await page.getTextContent();
+        texts.push((content.items || []).map((item) => item.str).join(" "));
+      }
+      try { await doc.destroy(); } catch (error) { /* nothing to clean up */ }
+      return { pageCount, sizes, text: texts.join("\n") };
+    })();
+    const timeout = new Promise((resolve) => setTimeout(() => resolve(null), DROP_SNIFF_TIMEOUT_MS));
+    return await Promise.race([read, timeout]);
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
+ * What does this file look like?
+ * @returns {Promise<{kind: string, reason: string, pageCount: number}>}
+ */
+async function sniffDroppedFile(file) {
+  const family = dropFileFamily(file);
+  const lowerName = ((file && file.name) || "").toLowerCase();
+
+  if (family === "dwg" || family === "dxf") {
+    return { kind: "cad", reason: "Recognised from the ." + family + " extension.", pageCount: 0 };
+  }
+  if (family === "image") {
+    return { kind: "image", reason: "Recognised from the file type.", pageCount: 0 };
+  }
+  if (family !== "pdf") {
+    return { kind: "unknown", reason: "Nothing here reads a ." + family + " file.", pageCount: 0 };
+  }
+
+  const sniff = await dropSniffPdf(file);
+  const fileSaysCalc = DROP_RE_CALC_NAME.test(lowerName);
+  const fileSaysSpec = DROP_RE_SPEC_NAME.test(lowerName);
+  const fileSaysCutsheet = DROP_RE_CUTSHEET_NAME.test(lowerName);
+
+  // No sniff available (huge file, pdf.js missing, or a stalled read): decide
+  // on the filename alone and say so, so the chip never over-claims.
+  if (!sniff) {
+    if (fileSaysCalc) return { kind: "hydraulic", reason: "Named like hydraulic calculations.", pageCount: 0 };
+    if (fileSaysSpec) return { kind: "specs", reason: "Named like a specification.", pageCount: 0 };
+    if (fileSaysCutsheet) return { kind: "cutsheet", reason: "Named like a product datasheet.", pageCount: 0 };
+    return { kind: "plans", reason: "PDF - could not read inside it, guessing from the name.", pageCount: 0 };
+  }
+
+  const pageCount = sniff.pageCount;
+  const sizes = sniff.sizes;
+  const text = sniff.text;
+  const first = sizes[0] || { width: 8.5, height: 11 };
+  const dims = [];
+  sizes.forEach((size) => { dims.push(size.width, size.height); });
+  dims.push(first.width, first.height);
+  const maxDim = Math.max.apply(null, dims);
+  const minDim = Math.min(first.width, first.height);
+  const letterish = maxDim <= 17.1 && minDim <= 11.2;
+  const largeFormat = maxDim >= 18 || minDim >= 12;
+
+  const hasHydraulic = DROP_RE_HYDRAULIC.test(text);
+  const hasPlan = DROP_RE_PLAN.test(text);
+  const hasSpec = DROP_RE_SPEC_TEXT.test(text);
+  const hasCutsheet = DROP_RE_CUTSHEET_TEXT.test(text);
+  const pageWord = pageCount === 1 ? "page" : "pages";
+  const sheetLabel = first.width.toFixed(1) + "×" + first.height.toFixed(1) + " in";
+
+  // Same ladder the server walks, with the two cut-sheet rungs added.
+  if (largeFormat) {
+    return { kind: "plans", reason: "Large-format sheet (" + sheetLabel + "), " + pageCount + " " + pageWord + ".", pageCount };
+  }
+  if (letterish && (hasSpec || (fileSaysSpec && pageCount >= 3)) && !hasHydraulic) {
+    return { kind: "specs", reason: "Reads like a project specification (CSI sections).", pageCount };
+  }
+  // Cut sheets are letter-size and short. Checked before the plan/calc rungs
+  // because a datasheet mentioning "general notes" is still a datasheet.
+  if (letterish && hasCutsheet && pageCount <= 12 && !hasHydraulic) {
+    return { kind: "cutsheet", reason: "Datasheet language on a " + sheetLabel + " page.", pageCount };
+  }
+  if (hasPlan && !fileSaysCalc) {
+    return { kind: "plans", reason: "Plan-sheet language in the text.", pageCount };
+  }
+  if (hasHydraulic) {
+    return { kind: "hydraulic", reason: "Hydraulic calculation language in the text.", pageCount };
+  }
+  if (letterish && fileSaysCalc) {
+    return { kind: "hydraulic", reason: "Letter-size and named like calcs.", pageCount };
+  }
+  if (letterish && !hasPlan && pageCount > 4) {
+    return { kind: "hydraulic", reason: "Letter-size, " + pageCount + " pages, no plan language.", pageCount };
+  }
+  // NEW bottom rung. The server falls through to "plans" here; for a short
+  // letter-size PDF a cut sheet is by far the likelier answer.
+  if (letterish && pageCount <= 4) {
+    return {
+      kind: "cutsheet",
+      reason: fileSaysCutsheet
+        ? "Short letter-size PDF named like a product sheet."
+        : "Short letter-size PDF (" + pageCount + " " + pageWord + ").",
+      pageCount,
+    };
+  }
+  return { kind: "plans", reason: "PDF, " + pageCount + " " + pageWord + ".", pageCount };
+}
+
+// --- Chooser UI ------------------------------------------------------------
+
+const dropRouterUi = { open: false, active: 0, rows: [], queue: [], group: null, lastFocus: null };
+
+function dropRouterEl(id) { return document.getElementById(id); }
+
+/** Destinations this batch could actually use, best guess first. */
+function dropDestinationsFor(family, kind) {
+  const isWeb = !!window.__SPRINKFLOW_WEB__;
+  const available = DROP_DESTINATIONS.filter((dest) => !(isWeb && dest.desktopOnly));
+  // When we cannot tell what the file is, offering nothing is the dead end
+  // this feature exists to remove — the user knows what it is even when we
+  // don't, so list every destination and let them say. Each pipeline still
+  // applies its own validation on the way in.
+  const usable = kind === "unknown"
+    ? available
+    : available.filter((dest) => dest.accepts.includes(family));
+  const preferred = DROP_KIND_PREFERENCE[kind] || [];
+  const best = preferred.find((id) => usable.some((dest) => dest.id === id)) || null;
+  const ordered = [];
+  if (best) ordered.push(usable.find((dest) => dest.id === best));
+  usable.forEach((dest) => { if (dest.id !== best) ordered.push(dest); });
+  return { ordered, bestId: best };
+}
+
+/** The one-line "we could not offer X because" note, when there is one. */
+function dropRouterNoteFor(family, kind, ordered) {
+  if (family === "dwg" || family === "dxf") {
+    return "Convert PDF to CAD is for PDFs - these are the DWG/DXF tools.";
+  }
+  if (kind === "unknown") {
+    return "Not sure what this is. Pick a destination and it will be handled as usual.";
+  }
+  if (!ordered.length) return "No tool in this edition can take that file.";
+  if (window.__SPRINKFLOW_WEB__) return "Some desktop-only destinations are hidden in the web edition.";
+  return "";
+}
+
+function renderDropChooser() {
+  const group = dropRouterUi.group;
+  const list = dropRouterEl("dropChooserList");
+  if (!group || !list) return;
+  const files = group.files;
+  const count = files.length;
+  const title = count === 1 ? files[0].name : count + " files";
+  const eyebrow = dropRouterEl("dropChooserEyebrow");
+  const heading = dropRouterEl("dropChooserTitle");
+  const reason = dropRouterEl("dropChooserReason");
+  const note = dropRouterEl("dropChooserNote");
+
+  if (eyebrow) eyebrow.textContent = count === 1 ? "Dropped file" : "Dropped files";
+  if (heading) heading.textContent = title;
+  if (reason) {
+    const looks = DROP_KIND_LABEL[group.kind] || DROP_KIND_LABEL.unknown;
+    reason.textContent = count === 1
+      ? "Looks like " + looks + ". " + group.reason
+      : "These " + count + " files look like " + looks + ". " + group.reason;
+  }
+  if (note) note.textContent = dropRouterNoteFor(group.family, group.kind, group.ordered);
+
+  list.innerHTML = group.ordered.map((dest, index) => {
+    const badge = dest.id === group.bestId
+      ? '<span class="drop-chooser-badge">Best guess</span>'
+      : "";
+    return '<button class="drop-chooser-row' + (index === dropRouterUi.active ? " is-active" : "") + '"'
+      + ' type="button" role="option" aria-selected="' + (index === dropRouterUi.active) + '"'
+      + ' data-drop-dest="' + escapeHtml(dest.id) + '" data-drop-index="' + index + '">'
+      + '<span class="drop-chooser-glyph" aria-hidden="true">' + dest.glyph + "</span>"
+      + '<span class="drop-chooser-copy">'
+      + '<span class="drop-chooser-label">' + escapeHtml(dest.label) + "</span>"
+      + '<span class="drop-chooser-sub">' + escapeHtml(dest.sub) + "</span>"
+      + "</span>" + badge + "</button>";
+  }).join("");
+
+  if (!group.ordered.length) {
+    list.innerHTML = '<p class="drop-chooser-reason" style="padding: 0 var(--pad-card) 8px;">'
+      + "Nothing in this edition opens that kind of file.</p>";
+  }
+  dropRouterUi.rows = [...list.querySelectorAll("[data-drop-index]")];
+}
+
+function syncDropChooserActive() {
+  dropRouterUi.rows.forEach((row, index) => {
+    const on = index === dropRouterUi.active;
+    row.classList.toggle("is-active", on);
+    row.setAttribute("aria-selected", String(on));
+    if (on) row.scrollIntoView({ block: "nearest" });
+  });
+}
+
+function moveDropChooserActive(delta) {
+  if (!dropRouterUi.rows.length) return;
+  const next = dropRouterUi.active + delta;
+  dropRouterUi.active = Math.max(0, Math.min(dropRouterUi.rows.length - 1, next));
+  syncDropChooserActive();
+}
+
+function openDropChooser(group) {
+  const dialog = dropRouterEl("dropChooser");
+  if (!dialog) return;
+  dropRouterUi.group = group;
+  dropRouterUi.active = 0;
+  dropRouterUi.lastFocus = document.activeElement;
+  renderDropChooser();
+  if (!dialog.open) {
+    if (typeof dialog.showModal === "function") dialog.showModal();
+    else dialog.setAttribute("open", "");
+  }
+  dropRouterUi.open = true;
+  const first = dropRouterUi.rows[0];
+  if (first) first.focus();
+}
+
+function closeDropChooser() {
+  const dialog = dropRouterEl("dropChooser");
+  dropRouterUi.open = false;
+  dropRouterUi.group = null;
+  dropRouterUi.rows = [];
+  if (dialog && dialog.open) {
+    if (typeof dialog.close === "function") dialog.close();
+    else dialog.removeAttribute("open");
+  }
+  const back = dropRouterUi.lastFocus;
+  dropRouterUi.lastFocus = null;
+  if (back && typeof back.focus === "function" && document.contains(back)) back.focus();
+}
+
+/** Cancelling one group should not silently swallow the rest of the batch. */
+function cancelDropChooser() {
+  const remaining = dropRouterUi.queue.length;
+  closeDropChooser();
+  if (remaining) {
+    dropRouterUi.queue = [];
+    showToast("Drop cancelled. " + remaining + " other file group" + (remaining === 1 ? "" : "s") + " skipped too.");
+  }
+}
+
+// --- Routing ---------------------------------------------------------------
+
+/**
+ * Hand a batch to a destination by replaying it as a real drop on that tool's
+ * own zone. See the header comment for why this beats calling the pipeline
+ * entry points directly.
+ */
+function routeDroppedFiles(files, dest) {
+  const zone = document.querySelector(dest.zone);
+  if (!zone) {
+    showToast("Could not open " + dest.label + " - that tool is not available in this edition.", { tone: "error" });
+    return false;
+  }
+  if (typeof activateTool === "function") activateTool(dest.tool);
+
+  const transfer = new DataTransfer();
+  files.forEach((file) => transfer.items.add(file));
+  // Some zones only wake up on dragenter/dragover (they set state there), so
+  // replay the whole sequence rather than the drop alone.
+  ["dragenter", "dragover", "drop"].forEach((type) => {
+    zone.dispatchEvent(new DragEvent(type, { dataTransfer: transfer, bubbles: true, cancelable: true }));
+  });
+  zone.dispatchEvent(new DragEvent("dragleave", { dataTransfer: transfer, bubbles: true, cancelable: true }));
+
+  const what = files.length === 1 ? files[0].name : files.length + " files";
+  showToast("Sent " + what + " to " + dest.label + ".", { tone: "success", timeoutMs: 5000 });
+  return true;
+}
+
+function chooseDropDestination(destId) {
+  const group = dropRouterUi.group;
+  if (!group) return;
+  const dest = group.ordered.find((entry) => entry.id === destId);
+  if (!dest) return;
+  const files = group.files;
+  closeDropChooser();
+  routeDroppedFiles(files, dest);
+  dropRouterPumpQueue();
+}
+
+/** Show the next group's chooser, if the drop carried more than one kind. */
+function dropRouterPumpQueue() {
+  const next = dropRouterUi.queue.shift();
+  if (next) openDropChooser(next);
+}
+
+/**
+ * Classify a dropped batch, group it by kind, and queue a chooser per group.
+ * Grouping means a drop of eight cut sheets is one decision, not eight.
+ */
+async function handleGlobalDrop(files) {
+  const classified = [];
+  for (const file of files) {
+    let verdict;
+    try {
+      verdict = await sniffDroppedFile(file);
+    } catch (error) {
+      verdict = { kind: "unknown", reason: "Could not read this file.", pageCount: 0 };
+    }
+    classified.push({ file, verdict, family: dropFileFamily(file) });
+  }
+
+  const groups = new Map();
+  classified.forEach((entry) => {
+    const key = entry.family + ":" + entry.verdict.kind;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        kind: entry.verdict.kind,
+        family: entry.family,
+        reason: entry.verdict.reason,
+        files: [],
+      });
+    }
+    groups.get(key).files.push(entry.file);
+  });
+
+  const queue = [];
+  groups.forEach((group) => {
+    const picked = dropDestinationsFor(group.family, group.kind);
+    group.ordered = picked.ordered;
+    group.bestId = picked.bestId;
+    if (group.files.length > 1) {
+      group.reason = group.reason + " Routing all " + group.files.length + " together.";
+    }
+    queue.push(group);
+  });
+
+  dropRouterUi.queue = queue;
+  dropRouterPumpQueue();
+}
+
+// --- Wiring ----------------------------------------------------------------
+
+function dropRouterVeil() {
+  let veil = document.querySelector(".drop-router-veil");
+  if (!veil) {
+    veil = document.createElement("div");
+    veil.className = "drop-router-veil";
+    veil.setAttribute("aria-hidden", "true");
+    document.body.appendChild(veil);
+  }
+  return veil;
+}
+
+/** Is this drag carrying real files (as opposed to an internal card drag)? */
+function dropCarriesFiles(event) {
+  const types = event.dataTransfer && event.dataTransfer.types;
+  if (!types) return false;
+  return [...types].includes("Files");
+}
+
+/**
+ * Mark every existing per-tool zone so the "is this already handled?" test is
+ * one closest() call and the contract is inspectable in the DOM.
+ *
+ * Done lazily on the first drag rather than at wire time for two reasons: the
+ * router is wired from wireEvents(), which runs before this file's consts have
+ * initialised; and some zones belong to panels that are rendered later, so a
+ * one-shot pass at startup would miss them.
+ */
+function ensureDropZonesMarked() {
+  DROP_ZONE_SELECTORS.forEach((selector) => {
+    const el = document.querySelector(selector);
+    if (el && !el.hasAttribute("data-drop-zone")) {
+      el.setAttribute("data-drop-zone", selector.replace("#", ""));
+    }
+  });
+}
+
+/** Did this land inside a drop zone that already owns it? */
+function dropLandedInExistingZone(target) {
+  if (!target || typeof target.closest !== "function") return false;
+  ensureDropZonesMarked();
+  return !!target.closest("[data-drop-zone]");
+}
+
+function wireGlobalDropRouter() {
+  let dragDepth = 0;
+
+  window.addEventListener("dragenter", (event) => {
+    if (!dropCarriesFiles(event)) return;
+    dragDepth += 1;
+    if (!dropLandedInExistingZone(event.target)) document.body.classList.add("is-drop-routing");
+  });
+
+  window.addEventListener("dragover", (event) => {
+    if (!dropCarriesFiles(event)) return;
+    // Without this the browser navigates away from the app to open the file.
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+    if (dropLandedInExistingZone(event.target)) document.body.classList.remove("is-drop-routing");
+    else document.body.classList.add("is-drop-routing");
+  });
+
+  window.addEventListener("dragleave", (event) => {
+    if (!dropCarriesFiles(event)) return;
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (!dragDepth) document.body.classList.remove("is-drop-routing");
+  });
+
+  window.addEventListener("drop", (event) => {
+    dragDepth = 0;
+    document.body.classList.remove("is-drop-routing");
+    if (!dropCarriesFiles(event)) return;
+    // A per-tool zone owns this one. Leave it completely alone - it behaves
+    // exactly as it did before this router existed.
+    if (dropLandedInExistingZone(event.target)) return;
+    event.preventDefault();
+    const files = [...((event.dataTransfer && event.dataTransfer.files) || [])];
+    if (!files.length) return;
+    handleGlobalDrop(files);
+  });
+
+  const dialog = dropRouterEl("dropChooser");
+  if (!dialog) return;
+  dropRouterEl("dropChooserCancel")?.addEventListener("click", cancelDropChooser);
+  dialog.addEventListener("cancel", (event) => { event.preventDefault(); cancelDropChooser(); });
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) { cancelDropChooser(); return; }
+    const row = event.target.closest ? event.target.closest("[data-drop-dest]") : null;
+    if (row) chooseDropDestination(row.dataset.dropDest);
+  });
+  dialog.addEventListener("keydown", (event) => {
+    switch (event.key) {
+      case "ArrowDown": event.preventDefault(); moveDropChooserActive(1); break;
+      case "ArrowUp": event.preventDefault(); moveDropChooserActive(-1); break;
+      case "Enter": {
+        event.preventDefault();
+        const row = dropRouterUi.rows[dropRouterUi.active];
+        if (row) chooseDropDestination(row.dataset.dropDest);
+        break;
+      }
+      default: break;
+    }
+  });
+  dialog.addEventListener("mousemove", (event) => {
+    const row = event.target.closest ? event.target.closest("[data-drop-index]") : null;
+    if (!row) return;
+    const index = Number(row.dataset.dropIndex);
+    if (index === dropRouterUi.active) return;
+    dropRouterUi.active = index;
+    syncDropChooserActive();
+  });
 }

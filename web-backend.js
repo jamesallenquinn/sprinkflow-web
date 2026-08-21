@@ -25,7 +25,7 @@
   if (!WEB) return;                                 // desktop: do nothing
   window.__SPRINKFLOW_WEB__ = true;
   // stamped by packaging/build_web_edition.py at deploy time; "dev" locally
-  var WEB_BUILD = "b0820-2328-ba4e86d";
+  var WEB_BUILD = "b0821-1835-df8e2db";
   window.__SPRINKFLOW_WEB_BUILD__ = WEB_BUILD;
   console.log("[web-backend] SprinkFlow Web Edition active — build " + WEB_BUILD);
   // mobile layer: web-only stylesheet (media-query gated), never active on desktop
@@ -620,6 +620,186 @@
     });
   }
 
+  // ---- PDF -> CAD (the REAL pdf_to_cad.py via Pyodide) ---------------------
+  // Mirrors server.py's /api/pdf-to-cad/* contract exactly so app.js runs
+  // unchanged: analyze/convert reference an uploaded PDF by TOKEN, and the
+  // token store lives here in memory instead of USER_DATA_DIR/pdf-cad-temp.
+  // Differences from desktop: output is DXF only (DWG needs the ODA converter,
+  // a Windows program) and previews are rasterized by pdf.js instead of
+  // pypdfium2. Everything that decides the geometry — extraction, welding,
+  // text phrases, layer/colour grouping, the DXF writer — is the same Python.
+  var _pdfcadTokens = {};      // token -> { name, bytes, doc, pageCount }
+  var _pdfcadStaged = null;    // token currently written into the Pyodide FS
+  var _pdfcadThumbs = {};      // "token|page|w|360" -> { dataUrl, width, height }
+  var _pdfcadKeep = 2;         // whole PDFs live in memory; keep only the newest few
+
+  function pdfcadStore(name, bytes) {
+    var token = "pdfcad-" + Date.now().toString(36) + "-" + Math.floor(Math.random() * 1e6).toString(36);
+    _pdfcadTokens[token] = { name: name || "drawing.pdf", bytes: bytes, doc: null, pageCount: 0 };
+    var keys = Object.keys(_pdfcadTokens);
+    keys.slice(0, Math.max(0, keys.length - _pdfcadKeep)).forEach(function (k) {
+      delete _pdfcadTokens[k];
+      if (_pdfcadStaged === k) _pdfcadStaged = null;
+      Object.keys(_pdfcadThumbs).forEach(function (ck) {
+        if (ck.indexOf(k + "|") === 0) delete _pdfcadThumbs[ck];
+      });
+    });
+    return token;
+  }
+
+  // pdf.js TRANSFERS the buffer it is handed, so every call gets its own copy —
+  // the master bytes must survive for the Python side and for later renders.
+  function pdfcadDoc(entry) {
+    if (entry.doc) return entry.doc;
+    if (!window.pdfjsLib) return Promise.reject(new Error("The PDF reader has not loaded yet — try the import again."));
+    entry.doc = window.pdfjsLib.getDocument({ data: entry.bytes.slice() }).promise.then(function (pdf) {
+      entry.pageCount = pdf.numPages;
+      return pdf;
+    }, function (e) { entry.doc = null; throw new Error("That file could not be read as a PDF."); });
+    return entry.doc;
+  }
+
+  // pdfminer.six does the vector/text extraction; pypdf reads the /OCProperties
+  // catalog so PDF layers hidden in the source default to unchecked. ezdxf is
+  // NOT pulled here — only the optional R2000 writer needs it (see convert).
+  var _pdfcadReady = null;
+  function ensurePdfcadDeps(py) {
+    if (_pdfcadReady) return _pdfcadReady;
+    setBadge("Loading PDF-to-CAD converter (first use)…");
+    _pdfcadReady = py.loadPackage("micropip")
+      .then(function () { return py.runPythonAsync("import micropip\nawait micropip.install(['pypdf', 'pdfminer.six'])"); })
+      .then(function () {
+        _pypdfReady = Promise.resolve();   // same two wheels the plan scanner needs
+        setBadge(null);
+      }, function (e) { setBadge(null); _pdfcadReady = null; throw e; });
+    return _pdfcadReady;
+  }
+
+  function pdfcadStage(py, token, entry) {
+    if (_pdfcadStaged === token) return;
+    py.runPython("import shutil, pathlib\nshutil.rmtree('/pdfcad', ignore_errors=True)\npathlib.Path('/pdfcad').mkdir()");
+    py.FS.writeFile("/pdfcad/in.pdf", entry.bytes);
+    _pdfcadStaged = token;
+  }
+
+  function pdfcadEntry(token) {
+    var entry = _pdfcadTokens[token];
+    if (!entry) throw new Error("PDF is no longer available — re-import it.");
+    return entry;
+  }
+
+  function pdfcadFail(e) {
+    return jsonResp({ ok: false,
+      error: String((e && e.message) || e).split("\n").filter(Boolean).pop() || "PDF-to-CAD failed." }, 400);
+  }
+
+  function pdfcadAnalyzeWeb(body) {
+    var token = body.token;
+    var entry;
+    try {
+      if (body.file && body.file.dataUrl) {
+        token = pdfcadStore(body.file.name, dataUrlToBytes(body.file.dataUrl));
+      }
+      entry = pdfcadEntry(token);
+    } catch (e) { return Promise.resolve(pdfcadFail(e)); }
+    var page = Math.max(0, parseInt(body.page, 10) || 0);
+    return pdfcadDoc(entry).then(function (pdf) {
+      var pageCount = pdf.numPages || 1;
+      page = Math.max(0, Math.min(page, pageCount - 1));
+      return seismicEngine().then(function (py) {
+        return ensurePdfcadDeps(py).then(function () {
+          setBadge("Reading sheet " + (page + 1) + "…");
+          try {
+            pdfcadStage(py, token, entry);
+            py.globals.set("_pc_page", page);
+            var out = py.runPython(
+              "import json, pathlib\n" +
+              "import pdf_to_cad\n" +
+              "_r = pdf_to_cad.analyze(pathlib.Path('/pdfcad/in.pdf'), _pc_page)\n" +
+              "json.dumps(_r)");
+          } finally { setBadge(null); }
+          return jsonResp(Object.assign(
+            { ok: true, token: token, page: page, pageCount: pageCount,
+              fileName: entry.name, dwgCapable: false },
+            JSON.parse(out)));
+        });
+      });
+    }).catch(pdfcadFail);
+  }
+
+  function pdfcadPreviewWeb(body) {
+    var entry;
+    try { entry = pdfcadEntry(body.token); } catch (e) { return Promise.resolve(pdfcadFail(e)); }
+    var page = Math.max(0, parseInt(body.page, 10) || 0);
+    var width = body.width ? Math.max(80, Math.min(1600, parseInt(body.width, 10) || 360)) : 0;
+    var dpi = width ? 0 : Math.max(24, Math.min(200, parseInt(body.dpi, 10) || 110));
+    var ckey = body.token + "|" + page + "|" + (width ? "w" + width : "d" + dpi);
+    if (_pdfcadThumbs[ckey]) return Promise.resolve(jsonResp(Object.assign({ ok: true }, _pdfcadThumbs[ckey])));
+    return pdfcadDoc(entry).then(function (pdf) {
+      var idx = Math.max(1, Math.min(page + 1, pdf.numPages));
+      return pdf.getPage(idx).then(function (p) {
+        var base = p.getViewport({ scale: 1 });
+        var vp = p.getViewport({ scale: width ? (width / base.width) : (dpi / 72) });
+        var cv = document.createElement("canvas");
+        cv.width = Math.max(1, Math.round(vp.width));
+        cv.height = Math.max(1, Math.round(vp.height));
+        var ctx = cv.getContext("2d");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, cv.width, cv.height);   // JPEG has no alpha; paper is white
+        return p.render({ canvasContext: ctx, viewport: vp }).promise.then(function () {
+          var res = { dataUrl: cv.toDataURL("image/jpeg", 0.78), width: cv.width, height: cv.height };
+          _pdfcadThumbs[ckey] = res;
+          var keys = Object.keys(_pdfcadThumbs);
+          if (keys.length > 420) delete _pdfcadThumbs[keys[0]];
+          return jsonResp(Object.assign({ ok: true }, res));
+        });
+      });
+    }).catch(function () { return jsonResp({ ok: false, error: "Could not render that sheet." }, 400); });
+  }
+
+  function pdfcadConvertWeb(body) {
+    var gate = webRequireOutputs("convert a PDF to CAD");
+    if (gate) return Promise.resolve(gate);
+    var entry, token = body.token;
+    try { entry = pdfcadEntry(token); } catch (e) { return Promise.resolve(pdfcadFail(e)); }
+    var args = {
+      page: Math.max(0, parseInt(body.page, 10) || 0),
+      scale: Number(body.scale) || 96,
+      selected: body.selectedHexes || [],
+      includeText: body.includeText !== false,
+      includeFills: body.includeFills !== false,
+      dxfVersion: String(body.dxfVersion || "").toUpperCase() === "R2000" ? "R2000" : "R12",
+    };
+    return seismicEngine().then(function (py) {
+      return ensurePdfcadDeps(py).then(function () {
+        // R12 is written by hand (pure text); only the R2000 lineweight writer needs ezdxf
+        return args.dxfVersion === "R2000" ? ensureEzdxf(py) : null;
+      }).then(function () {
+        setBadge("Converting sheet " + (args.page + 1) + " to CAD…");
+        var out;
+        try {
+          pdfcadStage(py, token, entry);
+          py.globals.set("_pc_args", JSON.stringify(args));
+          out = py.runPython(
+            "import json, pathlib\n" +
+            "import pdf_to_cad\n" +
+            "_a = json.loads(_pc_args)\n" +
+            "_r = pdf_to_cad.convert(pathlib.Path('/pdfcad/in.pdf'), _a['page'], _a['selected'],\n" +
+            "                        _a['scale'], include_text=_a['includeText'],\n" +
+            "                        include_fills=_a['includeFills'], dxf_version=_a['dxfVersion'])\n" +
+            "json.dumps(_r)");
+        } finally { setBadge(null); }
+        var r = JSON.parse(out);
+        var dxf = r.dxf; delete r.dxf;
+        var base = String(body.defaultName || entry.name || "pdf-import").replace(/\.[A-Za-z0-9]{1,5}$/, "");
+        var fn = cleanName(base) + ".dxf";
+        download(new TextEncoder().encode(dxf), fn, "application/dxf");
+        return jsonResp(Object.assign({ ok: true, path: fn, format: "dxf", dwgFallback: false,
+                                       downloaded: true }, r));
+      });
+    }).catch(pdfcadFail);
+  }
+
   // ---- plans scan (the REAL plan_scan_core.py via Pyodide) -----------------
   // Identical code to the desktop scan minus the OCR fallback (that rasterizes
   // through desktop-only tooling); typed plan sets scan the same as desktop.
@@ -849,6 +1029,14 @@
       case "/api/cad-explode/analyze":  return cadxAnalyzeWeb(body);
       case "/api/cad-explode/convert":  return cadxConvertWeb(body);
       case "/api/cad-explode/pick":     return Promise.resolve(jsonResp({ ok: false, error: "The file picker is desktop-only here - drop the DXF on the drop zone instead (add its xref files too and they bind before exploding)." }));
+
+      // ---- PDF -> CAD (real pdf_to_cad.py in Pyodide; DXF out, no ODA here) ----
+      case "/api/pdf-to-cad/analyze":   return pdfcadAnalyzeWeb(body);
+      case "/api/pdf-to-cad/preview":   return pdfcadPreviewWeb(body);
+      case "/api/pdf-to-cad/convert":   return pdfcadConvertWeb(body);
+      case "/api/pdf-to-cad/pick":      return Promise.resolve(jsonResp({ ok: false, error: "The file picker is desktop-only here — drop the PDF on the drop zone or use Choose PDF instead." }, 400));
+      // no ODA File Converter in a browser, so DWG output is off everywhere in web
+      case "/api/oda-status":           return Promise.resolve(jsonResp({ ok: true, dwgCapable: false, odaUrl: "" }));
 
       // ---- intake classification (heuristic port of the desktop classifier - no AI) ----
       case "/api/classify-pdf-upload":  return classifyPdfWeb(body).then(jsonResp);
