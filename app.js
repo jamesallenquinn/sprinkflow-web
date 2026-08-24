@@ -15549,9 +15549,11 @@ function seismicAutoRun() {
   const mode = seismicAutoMode();
   const seq = ++seismicAuto.seq;
   seismicAutoRender("working");
+  const autoPayload = { ...seismicBuildPayload(), stretch, mode };
+  autoPayload.bracedPipe = seismicOptimizerBracedPipe(stretch, autoPayload.bracedPipe);
   readApiJson("./api/seismic/optimize", {
     method: "POST",
-    body: JSON.stringify({ ...seismicBuildPayload(), stretch, mode }),
+    body: JSON.stringify(autoPayload),
   }).then((r) => {
     if (seq !== seismicAuto.seq) return;      // a newer run already superseded this
     seismicAuto.last = r;
@@ -15644,6 +15646,21 @@ function seismicUpdateAutoLen() {
 }
 
 // ---- braced-pipe stress derivation from the main ---------------------------
+// Single source of truth for "which Table 18.5.5.2 stress table does this pipe
+// type use" - consumed by the Step 3 auto-derivation AND the spacing optimizer
+// (which must judge ITS OWN main, not whatever Step 3 happens to be set to).
+function seismicStressTableForSched(sched) {
+  const s = String(sched || "");
+  if (/Schedule\s*10/i.test(s)) return { tableId: "18.5.5.2(a)", note: "" };
+  if (/Schedule\s*40/i.test(s)) return { tableId: "18.5.5.2(c)", note: "" };
+  if (/Schedule\s*30/i.test(s)) return { tableId: "18.5.5.2(c)", note: "Schedule 30 has no dedicated stress table — using the Schedule 40 table. " };
+  if (/Schedule\s*7/i.test(s)) return { tableId: "18.5.5.2(e)", note: "Schedule 7 lightwall has no NFPA stress table — using the thinner-wall Schedule 5 table (conservative). " };
+  if (/CPVC/i.test(s)) return { tableId: "18.5.5.2(g)", note: "" };
+  if (/Mega-?Flow/i.test(s)) return { tableId: "MFR:WHEATLAND-MEGAFLOW", note: "" };
+  if (/Mega-?Thread/i.test(s)) return { tableId: "MFR:WHEATLAND-MEGAFLOW", note: "Mega-Thread has no published stress table — using Wheatland's thinner-wall Mega-Flow engineered table (conservative). " };
+  return { tableId: null, note: "" };
+}
+
 function seismicDeriveStress() {
   const autoBox = seismicEl("seismicStressAuto");
   if (!autoBox) return;
@@ -15651,14 +15668,8 @@ function seismicDeriveStress() {
   const sched = seismicEl("seismicMainSched")?.value || "";
   const note = seismicEl("seismicStressNote");
   const override = seismicEl("seismicStressOverride");
-  let tableId = null, noteTxt = "";
-  if (/Schedule\s*10/i.test(sched)) tableId = "18.5.5.2(a)";
-  else if (/Schedule\s*40/i.test(sched)) tableId = "18.5.5.2(c)";
-  else if (/Schedule\s*30/i.test(sched)) { tableId = "18.5.5.2(c)"; noteTxt = "Schedule 30 has no dedicated stress table — using the Schedule 40 table. "; }
-  else if (/Schedule\s*7/i.test(sched)) { tableId = "18.5.5.2(e)"; noteTxt = "Schedule 7 lightwall has no NFPA stress table — using the thinner-wall Schedule 5 table (conservative). "; }
-  else if (/CPVC/i.test(sched)) tableId = "18.5.5.2(g)";
-  else if (/Mega-?Flow/i.test(sched)) tableId = "MFR:WHEATLAND-MEGAFLOW";
-  else if (/Mega-?Thread/i.test(sched)) { tableId = "MFR:WHEATLAND-MEGAFLOW"; noteTxt = "Mega-Thread has no published stress table — using Wheatland's thinner-wall Mega-Flow engineered table (conservative). "; }
+  const derived = seismicStressTableForSched(sched);
+  let tableId = derived.tableId, noteTxt = derived.note;
   let imperfect = Boolean(noteTxt);
   if (!size) {
     autoBox.value = "pick the main size in this step";
@@ -16977,6 +16988,17 @@ async function seismicExportAll() {
   btn.disabled = false;
 }
 
+/** Braced-pipe stress basis for an optimizer run: derived from the STRETCH's
+ * own main so the optimizer is independent of whatever Step 3's Main Size is
+ * currently set to. Falls back to the Step 3 basis only when the stretch main
+ * has no mappable table (the engine then reports it as pending/governing). */
+function seismicOptimizerBracedPipe(stretch, fallback) {
+  const main = (stretch || []).find((p) => p.isMain);
+  if (!main) return fallback;
+  const { tableId } = seismicStressTableForSched(main.schedule);
+  return tableId ? { tableId, size: main.size } : fallback;
+}
+
 /** The stretch rows from the optimizer panel: main first, then the ZOI piping. */
 function seismicCollectStretch() {
   const mSize = seismicEl("seismicOptMainSize")?.value;
@@ -17008,6 +17030,7 @@ async function seismicRunOptimize() {
     return;
   }
   const payload = { ...seismicBuildPayload(), stretch };
+  payload.bracedPipe = seismicOptimizerBracedPipe(stretch, payload.bracedPipe);
   seismicEl("seismicOptimize").disabled = true;
   try {
     const r = await readApiJson("./api/seismic/optimize", { method: "POST", body: JSON.stringify(payload) });
