@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0824-2012-e9160c8" />
+    <link rel="stylesheet" href="./styles.css?v=b0825-1941-00dfe2f" />
   </head>
   <body>
     <div class="app-shell">
@@ -3092,6 +3092,50 @@
         </div>
       </section>
 
+      <!-- Studio Bug Reports (OWNER ONLY). The tab is rendered only for an admin
+           account (renderToolSidebar -> studioBugsAdmin()), and every call behind it is
+           enforced again by the cloud API's current_admin, so hiding the tab is a
+           convenience, not the security boundary. -->
+      <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="studiobugs" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">Owner Tools</p>
+            <h2>Studio Bug Reports</h2>
+          </div>
+          <button class="ghost-button" id="studioBugsRefresh" type="button" title="Reload the queue from the cloud">Refresh</button>
+        </div>
+        <section class="panel-section calculator-section studiobug-section">
+          <p class="hydreport-note">Bug reports testers filed from SprinkFlow Design Studio (Alpha) with F12 &mdash; newest first. Pick one to read the description, view the annotated screenshot, download the repro bundle, and set where it stands.</p>
+          <div class="studiobug-toolbar">
+            <select id="studioBugsStatusFilter" aria-label="Status filter">
+              <option value="open">Open (new + seen)</option>
+              <option value="new">New</option>
+              <option value="seen">Seen</option>
+              <option value="fixed">Fixed</option>
+              <option value="wont_fix">Won&rsquo;t fix</option>
+              <option value="all">All statuses</option>
+            </select>
+            <select id="studioBugsVersionFilter" aria-label="Version filter">
+              <option value="all">All versions</option>
+            </select>
+            <select id="studioBugsSeverityFilter" aria-label="Severity filter">
+              <option value="all">All severities</option>
+              <option value="blocker">Blocker</option>
+              <option value="normal">Normal</option>
+              <option value="low">Low</option>
+            </select>
+            <span class="studiobug-counts" id="studioBugsCounts"></span>
+          </div>
+          <p class="calculator-status" id="studioBugsStatusLine"></p>
+          <div class="studiobug-grid">
+            <div class="studiobug-listcol">
+              <div class="studiobug-list" id="studioBugsList"></div>
+            </div>
+            <div class="studiobug-detail" id="studioBugsDetail"></div>
+          </div>
+        </section>
+      </section>
+
       <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="settings" hidden>
         <div class="calculator-hero">
           <div>
@@ -3451,6 +3495,7 @@
           </div>
           <div class="plans-suggestion-list" id="plansReviewSuggestions"></div>
         </section>
+        <p class="dialog-note" id="plansReviewMergeNote" hidden></p>
         <div class="dialog-actions">
           <button class="ghost-button" id="plansReviewCancelButton" type="button">Cancel</button>
           <button class="secondary-button" id="plansReviewSelectAllButton" type="button">Add All Matches</button>
@@ -3511,6 +3556,38 @@
           <button class="ghost-button" id="loadoutEditorCancelButton" type="button">Cancel</button>
           <button class="secondary-button" id="loadoutEditorClearTriggersButton" type="button">Clear Triggers</button>
           <button class="primary-button" id="loadoutEditorSaveButton" type="button">Save Loadout</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Different-job guard: fires when a plan scan is about to be applied into
+         a submittal that already holds a DIFFERENT job's work. -->
+    <dialog class="review-dialog different-job-dialog" id="differentJobDialog">
+      <form method="dialog">
+        <div class="dialog-heading">
+          <p class="eyebrow">Scan review</p>
+          <h2>This looks like a different job</h2>
+        </div>
+        <p class="dialog-copy">The plans you just scanned don&rsquo;t match the submittal you already have open. Applying them would mix two jobs into one package.</p>
+        <div class="different-job-compare">
+          <div class="different-job-side">
+            <p class="eyebrow">Current submittal</p>
+            <p class="different-job-name" id="differentJobCurrentName">Untitled</p>
+            <p class="different-job-line" id="differentJobCurrentAddress" hidden></p>
+            <p class="different-job-meta" id="differentJobCurrentMeta">0 datasheets selected</p>
+          </div>
+          <div class="different-job-side">
+            <p class="eyebrow">Scanned plans</p>
+            <p class="different-job-name" id="differentJobScannedName">&mdash;</p>
+            <p class="different-job-line" id="differentJobScannedAddress" hidden></p>
+            <p class="different-job-meta">Detected from the plans you dropped</p>
+          </div>
+        </div>
+        <p class="dialog-note">&ldquo;Start a fresh submittal&rdquo; saves what you have now to Saved Projects first, then applies the scan to a clean package.</p>
+        <div class="dialog-actions">
+          <button class="ghost-button" id="differentJobCancelButton" type="button">Cancel</button>
+          <button class="secondary-button" id="differentJobMergeButton" type="button">Add to current submittal</button>
+          <button class="primary-button" id="differentJobFreshButton" type="button" autofocus>Start a fresh submittal</button>
         </div>
       </form>
     </dialog>
@@ -3985,11 +4062,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0824-2012-e9160c8"></script>
-    <script src="./app.js?v=b0824-2012-e9160c8"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0824-2012-e9160c8"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0824-2012-e9160c8"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0824-2012-e9160c8"></script>
-    <script src="./prelim-calc-desktop.js?v=b0824-2012-e9160c8"></script>
+    <script src="./web-backend.js?v=b0825-1941-00dfe2f"></script>
+    <script src="./app.js?v=b0825-1941-00dfe2f"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0825-1941-00dfe2f"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0825-1941-00dfe2f"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0825-1941-00dfe2f"></script>
+    <script src="./prelim-calc-desktop.js?v=b0825-1941-00dfe2f"></script>
   </body>
 </html>

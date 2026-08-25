@@ -426,10 +426,34 @@ const TOOL_REGISTRY = [
     keywords: ["merge", "combine", "compress", "shrink", "split", "slip sheet", "pdf tools", "file size", "stitch"],
   },
   {
+    // Owner-only. renderToolSidebar hides it unless the signed-in account is an admin
+    // (see studioBugsAdmin) — and the cloud API gates every call behind it regardless.
+    id: "studiobugs", label: "Studio Bug Reports", group: "Tools", adminOnly: true,
+    keywords: ["bug", "bugs", "bug report", "studio", "design studio", "tester", "triage", "feedback", "f12", "report queue"],
+  },
+  {
     id: "settings", label: "Settings", group: "Tools",
     keywords: ["settings", "preferences", "options", "output folder", "theme", "appearance", "density", "compact", "shortcuts", "config", "email template"],
   },
 ];
+
+/**
+ * Studio Bug Reports tab state. Declared HERE, next to the registry, because
+ * toolTabMarkup() reads `unread` for the sidebar badge and the sidebar is built at
+ * module scope (see renderToolSidebar's bootstrap below) — a `const` declared further
+ * down the file would still be in its temporal dead zone at that point.
+ */
+const studioBugsState = {
+  wired: false,
+  loading: false,
+  reports: [],
+  counts: {},
+  unread: 0,
+  selectedId: 0,
+  detail: null,
+  screenshotUrl: "",
+  filters: { status: "open", version: "all", severity: "all" },
+};
 
 const TOOL_BY_ID = new Map(TOOL_REGISTRY.map((tool) => [tool.id, tool]));
 /** Tool ids carrying the EXPERIMENTAL mark (was a hand-kept list near initEarlyAccess). */
@@ -447,7 +471,8 @@ function toolLabel(id) {
 function pinnedToolIds() {
   const raw = Array.isArray(state.pinnedTools) ? state.pinnedTools : [];
   const seen = new Set();
-  return raw.filter((id) => TOOL_BY_ID.has(id) && id !== "home" && !seen.has(id) && seen.add(id));
+  return raw.filter((id) => TOOL_BY_ID.has(id) && id !== "home" && !seen.has(id) && seen.add(id)
+    && !(TOOL_BY_ID.get(id).adminOnly && !studioBugsAdmin()));
 }
 
 /**
@@ -476,6 +501,12 @@ function toolTabMarkup(tool, { active = false, pinned = false, inFavorites = fal
   // The star is absolutely positioned and transparent at rest, so an unpinned
   // sidebar is pixel-identical to the build before pinning existed. It is a
   // focusable role="button" inside the tab (a real <button> cannot nest).
+  // Unread badge (today: the owner's Studio Bug Reports queue). Sits between the label
+  // and the pin star so it never collides with the absolutely-positioned star.
+  const count = toolTabBadgeCount(tool.id);
+  const badge = count > 0
+    ? `<span class="tool-tab-badge" aria-label="${count} new">${count > 99 ? "99+" : count}</span>`
+    : "";
   const star = `<span class="tool-pin${pinned ? " is-pinned" : ""}" role="button" tabindex="0"`
     + ` data-tool-pin="${escapeHtml(tool.id)}"`
     + ` aria-pressed="${pinned ? "true" : "false"}"`
@@ -484,7 +515,23 @@ function toolTabMarkup(tool, { active = false, pinned = false, inFavorites = fal
   return `<button class="${classes.join(" ")}" type="button" data-tool-tab="${escapeHtml(tool.id)}"`
     + ` aria-pressed="${active ? "true" : "false"}"`
     + (inFavorites ? ' data-favorite="1"' : "")
-    + `>${escapeHtml(tool.label)}${pill}${star}</button>`;
+    + `>${escapeHtml(tool.label)}${pill}${badge}${star}</button>`;
+}
+
+/** Unread count for a sidebar tab, or 0 for tabs that don't carry one. */
+function toolTabBadgeCount(toolId) {
+  if (toolId === "studiobugs") return Number(studioBugsState.unread || 0);
+  return 0;
+}
+
+/**
+ * Is the signed-in account an owner/admin? The local server sets this from the
+ * admin email allow-list (app_config.ADMIN_EMAILS, mirroring the cloud's
+ * SPRINKFLOW_ADMIN_EMAILS); the web edition sets it from its own admin list. It only
+ * decides VISIBILITY — the cloud API re-checks admin on every /admin/studio call.
+ */
+function studioBugsAdmin() {
+  return Boolean(runtime.license?.studioBugAdmin);
 }
 
 /**
@@ -513,6 +560,7 @@ function renderToolSidebar() {
   let lastGroup = "";
   TOOL_REGISTRY.forEach((tool) => {
     if (tool.id === "home" && !homePanelEnabled()) return;
+    if (tool.adminOnly && !studioBugsAdmin()) return;
     if (tool.group !== lastGroup) {
       lastGroup = tool.group;
       html.push(`<div class="tool-tab-group">${escapeHtml(tool.group)}</div>`);
@@ -812,6 +860,16 @@ const dom = {
   startOverConfirmButton: document.querySelector("#startOverConfirmButton"),
   sessionContinueButton: document.querySelector("#sessionContinueButton"),
   sessionStartFreshButton: document.querySelector("#sessionStartFreshButton"),
+  differentJobDialog: document.querySelector("#differentJobDialog"),
+  differentJobCurrentName: document.querySelector("#differentJobCurrentName"),
+  differentJobCurrentAddress: document.querySelector("#differentJobCurrentAddress"),
+  differentJobCurrentMeta: document.querySelector("#differentJobCurrentMeta"),
+  differentJobScannedName: document.querySelector("#differentJobScannedName"),
+  differentJobScannedAddress: document.querySelector("#differentJobScannedAddress"),
+  differentJobFreshButton: document.querySelector("#differentJobFreshButton"),
+  differentJobMergeButton: document.querySelector("#differentJobMergeButton"),
+  differentJobCancelButton: document.querySelector("#differentJobCancelButton"),
+  plansReviewMergeNote: document.querySelector("#plansReviewMergeNote"),
   emailDraftDialog: document.querySelector("#emailDraftDialog"),
   emailDraftToInput: document.querySelector("#emailDraftToInput"),
   emailDraftNameInput: document.querySelector("#emailDraftNameInput"),
@@ -1651,6 +1709,7 @@ function renderLicenseUi() {
     dom.accountOverviewSignInButton.hidden = Boolean(license.authenticated) || !license.apiConfigured || !license.supabaseAuthConfigured;
   }
   renderBetaInvitePanel();
+  syncAdminOnlyTabs();
   // Last: the sign-in surfaces own the enabled/hidden state of their own
   // controls, so they run AFTER the generic per-button rules above (which would
   // otherwise re-enable the password path mid browser hand-off).
@@ -4171,10 +4230,12 @@ function maybeShowSessionBanner() {
   if (!banner) return;
   const items = (state.selectedIds || []).length;
   const plans = projectPlanFiles.length;
+  // Shown in BOTH modes: Advanced users mix jobs too. In Quick it stays scoped
+  // to the intake step (where a scan is dropped); Advanced has no steps.
+  const onScanSurface = state.viewMode !== "simple" || state.simpleStep === "intake";
   const show = !sessionBannerDismissed
-    && state.viewMode === "simple"
     && currentActiveTool() === "submittal"
-    && state.simpleStep === "intake"
+    && onScanSurface
     && (items > 0 || plans > 0);
   banner.hidden = !show;
   if (show) {
@@ -6678,9 +6739,15 @@ async function analyzePlansPdf(file, providedDataUrl = "") {
     tracker.update(100, "Scan complete. Opening review...", summarizePlanScan(project));
     await delay(220);
     const hadResults = hasPlansScanResults(project);
+    // The different-job guard may clear the builder before applying; tell it
+    // which dropped plan file belongs to THIS scan so it survives the reset.
+    activeScanPlanKeys = [projectPlanFileKey(file)];
+    scanApplyGuardCancelled = false;
     const accepted = await reviewPlansAnalysis(project);
     if (accepted) {
       setOcrStatus("Plans scan applied. Drop another fire sprinkler plans PDF here to scan again.");
+    } else if (scanApplyGuardCancelled) {
+      // applyScanWithJobGuard already wrote the "not applied" status line.
     } else if (hadResults) {
       setOcrStatus("Plans scan review closed without applying changes.");
     } else {
@@ -6693,6 +6760,7 @@ async function analyzePlansPdf(file, providedDataUrl = "") {
     setOcrStatus(`Could not scan that PDF: ${error.message}`);
   } finally {
     tracker.stopAnalysis();
+    activeScanPlanKeys = [];
     if (dom.plansPdfInput) dom.plansPdfInput.value = "";
     setTimeout(() => setPlanScanProgress(0, "", { hidden: true }), 1400);
   }
@@ -8135,6 +8203,17 @@ function populatePlansReviewDialog(review) {
 
   renderScanContractorChoice(plansContractorRefs(), review.contractorChoice);
 
+  // Even a same-job rescan merges into whatever is already loaded — say so, so
+  // "Apply Selected" never silently adds to someone else's package.
+  if (dom.plansReviewMergeNote) {
+    const merging = submittalHasMeaningfulContent();
+    const items = (state.selectedIds || []).length;
+    dom.plansReviewMergeNote.hidden = !merging;
+    dom.plansReviewMergeNote.textContent = merging
+      ? `Applying adds to the submittal you already have in progress (${items} datasheet${items === 1 ? "" : "s"}).`
+      : "";
+  }
+
   refreshPlansReviewSuggestionList(review);
 }
 
@@ -8564,11 +8643,19 @@ function showPlansReviewDialog(review) {
       closeDialogSafely(dom.plansReviewDialog);
       resolve(false);
     };
-    const onApply = () => {
-      applyPlansReviewSelections(review);
+    // Snapshot FIRST, then close, then guard: the guard may need to save and
+    // clear the whole builder before these selections are applied, so nothing
+    // may be read back out of this dialog after the user accepts.
+    const onApply = async () => {
+      const snapshot = capturePlansReviewApply(review);
       cleanup();
       closeDialogSafely(dom.plansReviewDialog);
-      resolve(true);
+      const applied = await applyScanWithJobGuard({
+        detectedName: snapshot.name,
+        detectedAddress: snapshot.address,
+        apply: () => applyPlansReviewSnapshot(snapshot),
+      });
+      resolve(applied);
     };
     const onImportAllMissing = async () => {
       if (!dom.plansReviewImportApplyButton) return;
@@ -8814,15 +8901,37 @@ async function importMissingPlanSuggestions(review, { selectImported = false, on
   return failures < missing.length;
 }
 
-function applyPlansReviewSelections(review) {
-  applyReviewedProjectInfo(dom.plansReviewProjectNameInput.value.trim(), dom.plansReviewProjectAddressInput.value.trim());
-  applyScanContractorChoice(review.contractorChoice);
-  const selected = new Set(state.selectedIds);
-  let added = 0;
+/**
+ * Freeze everything the apply needs OUT of the review dialog's DOM, so the
+ * different-job guard can close the review window, ask its question, and still
+ * apply the exact selections the user approved.
+ */
+function capturePlansReviewApply(review) {
+  const items = [];
   dom.plansReviewSuggestions.querySelectorAll("[data-plan-suggestion]:checked").forEach((input) => {
     const suggestion = review.suggestions[Number(input.dataset.planSuggestion)];
     const item = planSuggestionSelectedItem(suggestion);
     if (!item || isRemoteCatalogItem(item)) return;
+    items.push(item);
+  });
+  return {
+    name: dom.plansReviewProjectNameInput.value.trim(),
+    address: dom.plansReviewProjectAddressInput.value.trim(),
+    contractorChoice: review.contractorChoice,
+    items,
+  };
+}
+
+function applyPlansReviewSelections(review) {
+  applyPlansReviewSnapshot(capturePlansReviewApply(review));
+}
+
+function applyPlansReviewSnapshot(snapshot) {
+  applyReviewedProjectInfo(snapshot.name, snapshot.address);
+  applyScanContractorChoice(snapshot.contractorChoice);
+  const selected = new Set(state.selectedIds);
+  let added = 0;
+  snapshot.items.forEach((item) => {
     selected.add(item.id);
     if (!state.tocTitles[item.id]) state.tocTitles[item.id] = displayName(item);
     added += 1;
@@ -9055,9 +9164,14 @@ function reviewProjectInfo(projectInfo) {
 
   if (!dom.projectInfoReviewDialog?.showModal) {
     if (window.confirm(`Use detected project information?\n\nProject: ${name || "(blank)"}\nAddress: ${address || "(blank)"}`)) {
-      applyReviewedProjectInfo(name, address);
-      applyScanContractorChoice(contractorChoice);
-      return Promise.resolve(true);
+      return applyScanWithJobGuard({
+        detectedName: name,
+        detectedAddress: address,
+        apply: () => {
+          applyReviewedProjectInfo(name, address);
+          applyScanContractorChoice(contractorChoice);
+        },
+      });
     }
     return Promise.resolve(false);
   }
@@ -9103,14 +9217,20 @@ function reviewProjectInfo(projectInfo) {
       dom.reviewProjectAddressInput.removeEventListener("input", onAddressInput);
     };
     const onAddressInput = () => updateProjectAddressWarning();
-    const onApply = () => {
+    const onApply = async () => {
       const reviewedName = dom.reviewProjectNameInput.value.trim();
       const reviewedAddress = dom.reviewProjectAddressInput.value.trim();
-      applyReviewedProjectInfo(reviewedName, reviewedAddress);
-      applyScanContractorChoice(contractorChoice);
       cleanup();
       closeDialogSafely(dom.projectInfoReviewDialog);
-      resolve(true);
+      const applied = await applyScanWithJobGuard({
+        detectedName: reviewedName,
+        detectedAddress: reviewedAddress,
+        apply: () => {
+          applyReviewedProjectInfo(reviewedName, reviewedAddress);
+          applyScanContractorChoice(contractorChoice);
+        },
+      });
+      resolve(applied);
     };
     const onCancel = () => {
       cleanup();
@@ -10798,6 +10918,216 @@ function hasProjectWork() {
   );
 }
 
+/* ---------------------------------------------------------------------------
+ * Different-job guard (plan scan)
+ *
+ * Users have merged two jobs into one submittal by scanning plans for job B
+ * while job A was still loaded in the builder. The passive session banner only
+ * appears in Quick mode on step 1 and is dismissible, so it never blocked the
+ * mistake. These helpers are pure and top-level so they can be exercised from
+ * the console and from the headless harness.
+ * ------------------------------------------------------------------------- */
+
+// "Is there real work in the builder right now?" Deliberately narrower than
+// hasProjectWork() — a default cover template or a shop's default contractor is
+// not a reason to interrupt someone.
+function submittalHasMeaningfulContent() {
+  if ((state.selectedIds || []).length > 0) return true;
+  if (String(state.project?.name || "").trim()) return true;
+  if (String(state.project?.address || "").trim()) return true;
+  if ((projectPlanFiles || []).length > 0) return true;
+  return false;
+}
+
+// lowercase, strip punctuation, collapse whitespace — so "Alpha  Warehouse."
+// and "ALPHA WAREHOUSE" are the same job.
+function normalizeJobText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function jobTextTokens(value) {
+  return normalizeJobText(value).split(" ").filter(Boolean);
+}
+
+// Street-type words and unit noise carry no identity — "123 Main St" and
+// "123 MAIN STREET, SUITE 4" are the same address.
+const ADDRESS_NOISE_TOKENS = new Set([
+  "st", "street", "ave", "av", "avenue", "rd", "road", "blvd", "boulevard",
+  "dr", "drive", "ln", "lane", "way", "ct", "court", "cir", "circle", "pl",
+  "place", "pkwy", "parkway", "hwy", "highway", "ter", "terrace", "trl", "trail",
+  "n", "s", "e", "w", "ne", "nw", "se", "sw", "north", "south", "east", "west",
+  "suite", "ste", "unit", "apt", "bldg", "building", "floor", "fl", "no", "num",
+]);
+
+function addressStreetTokens(value) {
+  return jobTextTokens(value).filter((token) => !/^\d+$/.test(token) && !ADDRESS_NOISE_TOKENS.has(token));
+}
+
+function addressHouseNumber(value) {
+  const match = normalizeJobText(value).match(/\d+/);
+  return match ? match[0] : "";
+}
+
+// Only a *material* difference counts — a different street number or a street
+// name with nothing in common. Formatting drift must never fire the guard.
+function addressesMateriallyDiffer(current, detected) {
+  const a = normalizeJobText(current);
+  const b = normalizeJobText(detected);
+  if (!a || !b || a === b) return false;
+  const numA = addressHouseNumber(a);
+  const numB = addressHouseNumber(b);
+  if (numA && numB && numA !== numB) return true;
+  const streetA = addressStreetTokens(a);
+  const streetB = addressStreetTokens(b);
+  if (!streetA.length || !streetB.length) return false;
+  return !streetA.some((token) => streetB.includes(token));
+}
+
+/**
+ * True when the scan looks like a DIFFERENT job than the one already loaded.
+ * One side empty is never a conflict (nothing to compare). A name that is a
+ * token-subset of the other ("Alpha Warehouse" vs "Alpha Warehouse Phase 2")
+ * is the same job. Address is only consulted when the names cannot decide.
+ */
+function projectIdentityConflict(detectedName, detectedAddress) {
+  const currentName = normalizeJobText(state.project?.name);
+  const scannedName = normalizeJobText(detectedName);
+  if (currentName && scannedName) {
+    if (currentName === scannedName) return false;
+    const currentTokens = jobTextTokens(currentName);
+    const scannedTokens = jobTextTokens(scannedName);
+    const subset = (a, b) => a.length > 0 && a.every((token) => b.includes(token));
+    if (subset(currentTokens, scannedTokens) || subset(scannedTokens, currentTokens)) return false;
+    return true;
+  }
+  const currentAddress = String(state.project?.address || "").trim();
+  const scannedAddress = String(detectedAddress || "").trim();
+  if (!currentAddress || !scannedAddress) return false;
+  return addressesMateriallyDiffer(currentAddress, scannedAddress);
+}
+
+// Set by analyzePlansPdf so the "start fresh" branch can carry the plan PDF the
+// user just dropped over into the clean submittal (resetProject clears it).
+let activeScanPlanKeys = [];
+// analyzePlansPdf reads this to write an accurate status line when the guard,
+// not the review dialog, is what stopped the apply.
+let scanApplyGuardCancelled = false;
+
+/**
+ * The single choke point every scan-apply path runs through. `apply` performs
+ * the real mutation and is only ever called once, after the user has decided.
+ * Returns true when the scan was applied.
+ */
+async function applyScanWithJobGuard({ detectedName = "", detectedAddress = "", apply }) {
+  syncStateFromInputs();
+  if (!submittalHasMeaningfulContent() || !projectIdentityConflict(detectedName, detectedAddress)) {
+    apply();
+    return true;
+  }
+  const choice = await showDifferentJobDialog({ detectedName, detectedAddress });
+  if (choice === "fresh") {
+    const previousName = String(state.project?.name || "").trim() || "Untitled";
+    const carriedPlans = (projectPlanFiles || []).filter((record) => activeScanPlanKeys.includes(record.key));
+    saveCurrentProject();
+    resetProject();
+    if (carriedPlans.length) {
+      projectPlanFiles = carriedPlans.map((record) => ({ ...record }));
+      renderSubmittalCart();
+    }
+    apply();
+    showToast(`Saved "${previousName}" and started a fresh submittal.`, { tone: "success" });
+    return true;
+  }
+  if (choice === "merge") {
+    apply();
+    return true;
+  }
+  scanApplyGuardCancelled = true;
+  setOcrStatus("Scan not applied — those plans looked like a different job than the submittal you have in progress.");
+  setGenerateStatus("Scan not applied. Your submittal in progress was left untouched.", "info");
+  return false;
+}
+
+/** Resolves "fresh" | "merge" | "cancel". Escape and backdrop both cancel. */
+function showDifferentJobDialog({ detectedName = "", detectedAddress = "" }) {
+  const dialog = dom.differentJobDialog;
+  const currentName = String(state.project?.name || "").trim() || "Untitled";
+  const currentAddress = String(state.project?.address || "").trim();
+  const items = (state.selectedIds || []).length;
+  const plans = (projectPlanFiles || []).length;
+  const currentParts = [`${items} datasheet${items === 1 ? "" : "s"} selected`];
+  if (plans) currentParts.push(`${plans} plan file${plans === 1 ? "" : "s"}`);
+
+  if (!dialog?.showModal) {
+    const message = [
+      "This looks like a different job.",
+      "",
+      `Current submittal: ${currentName} — ${currentParts.join(", ")}`,
+      `Scanned plans: ${detectedName || detectedAddress || "(unnamed job)"}`,
+      "",
+      "OK = save the current submittal and start a fresh one.",
+      "Cancel = add the scan to the submittal you already have.",
+    ].join("\n");
+    return Promise.resolve(window.confirm(message) ? "fresh" : "merge");
+  }
+
+  if (dom.differentJobCurrentName) dom.differentJobCurrentName.textContent = currentName;
+  if (dom.differentJobCurrentMeta) dom.differentJobCurrentMeta.textContent = currentParts.join(" · ");
+  if (dom.differentJobCurrentAddress) {
+    dom.differentJobCurrentAddress.textContent = currentAddress;
+    dom.differentJobCurrentAddress.hidden = !currentAddress;
+  }
+  if (dom.differentJobScannedName) dom.differentJobScannedName.textContent = detectedName || "(no project name detected)";
+  if (dom.differentJobScannedAddress) {
+    dom.differentJobScannedAddress.textContent = detectedAddress || "";
+    dom.differentJobScannedAddress.hidden = !detectedAddress;
+  }
+
+  return new Promise((resolve) => {
+    const finish = (choice) => {
+      cleanup();
+      closeDialogSafely(dialog);
+      resolve(choice);
+    };
+    const onFresh = () => finish("fresh");
+    const onMerge = () => finish("merge");
+    const onCancel = () => finish("cancel");
+    // Same press-must-start-on-the-backdrop rule as the scan review dialog: a
+    // drag that begins inside must not read as a dismiss.
+    let pressedOnBackdrop = false;
+    const onBackdropPress = (event) => { pressedOnBackdrop = event.target === dialog; };
+    const onBackdropClick = (event) => {
+      if (event.target !== dialog || !pressedOnBackdrop) return;
+      pressedOnBackdrop = false;
+      finish("cancel");
+    };
+    const cleanup = () => {
+      dom.differentJobFreshButton?.removeEventListener("click", onFresh);
+      dom.differentJobMergeButton?.removeEventListener("click", onMerge);
+      dom.differentJobCancelButton?.removeEventListener("click", onCancel);
+      dialog.removeEventListener("cancel", onCancel);
+      dialog.removeEventListener("pointerdown", onBackdropPress);
+      dialog.removeEventListener("click", onBackdropClick);
+    };
+    dom.differentJobFreshButton?.addEventListener("click", onFresh);
+    dom.differentJobMergeButton?.addEventListener("click", onMerge);
+    dom.differentJobCancelButton?.addEventListener("click", onCancel);
+    dialog.addEventListener("cancel", onCancel);
+    dialog.addEventListener("pointerdown", onBackdropPress);
+    dialog.addEventListener("click", onBackdropClick);
+    const opened = openDialogSafely(dialog);
+    if (!opened) {
+      cleanup();
+      resolve("merge");
+      return;
+    }
+    requestAnimationFrame(() => dom.differentJobFreshButton?.focus());
+  });
+}
+
 function normalize(value) {
   return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
@@ -10953,6 +11283,7 @@ function activateTool(toolId) {
   if (activeTool === "home") { renderHome(); loadHomeRecentOutputs(); }
   if (activeTool === "hanger") updateEmbeddedToolThemes();
   if (activeTool === "catalog") { matcatWire(); renderMaterialCatalog(); }
+  if (activeTool === "studiobugs") { studioBugsWire(); studioBugsLoad(); }
   updateViewModeUI();
 }
 
@@ -24259,6 +24590,7 @@ function buildPaletteIndex() {
   const entries = [];
 
   TOOL_REGISTRY.forEach((tool) => {
+    if (tool.adminOnly && !studioBugsAdmin()) return;   // owner-only tools stay out of search
     entries.push(paletteEntry(
       "tool", `tool:${tool.id}`, tool.label,
       tool.group, "Tools", (tool.keywords || []).join(" "), "",
@@ -25356,4 +25688,291 @@ function wireGlobalDropRouter() {
     dropRouterUi.active = index;
     syncDropChooserActive();
   });
+}
+// ============================================================================
+//  Studio Bug Reports — the owner's review queue for bug reports filed from
+//  SprinkFlow Design Studio (Alpha) with F12.
+//
+//  The tab is only rendered for an admin account (studioBugsAdmin, fed by the local
+//  server's admin email allow-list). That is convenience, not security: every call below
+//  goes through the loopback API, which attaches the signed-in Supabase token and relays
+//  to /admin/studio/bug-reports/* — where the cloud re-checks admin and 403s anyone else.
+//  So a non-admin who forced the tab open would see the 403 message, never the data.
+// ============================================================================
+
+const STUDIO_BUG_STATUS_LABELS = { new: "New", seen: "Seen", fixed: "Fixed", wont_fix: "Won't fix" };
+
+function studioBugsEl(id) {
+  return document.getElementById(id);
+}
+
+/** Show/hide the admin-only tabs after a sign-in / sign-out changes who we are. */
+function syncAdminOnlyTabs() {
+  const isAdmin = studioBugsAdmin();
+  if (syncAdminOnlyTabs.last === isAdmin) return;
+  syncAdminOnlyTabs.last = isAdmin;
+  renderToolSidebar();
+  if (isAdmin) {
+    // Fill the sidebar badge without making the owner open the tab first.
+    studioBugsLoad({ silent: true });
+  } else {
+    studioBugsState.unread = 0;
+    if (document.querySelector('[data-tool-panel="studiobugs"]')?.classList.contains("active")) {
+      activateTool("submittal");
+    }
+  }
+}
+
+function studioBugsWire() {
+  if (studioBugsState.wired) return;
+  studioBugsState.wired = true;
+  studioBugsEl("studioBugsRefresh")?.addEventListener("click", () => studioBugsLoad());
+  ["studioBugsStatusFilter", "studioBugsVersionFilter", "studioBugsSeverityFilter"].forEach((id) => {
+    studioBugsEl(id)?.addEventListener("change", () => {
+      studioBugsState.filters = {
+        status: studioBugsEl("studioBugsStatusFilter")?.value || "open",
+        version: studioBugsEl("studioBugsVersionFilter")?.value || "all",
+        severity: studioBugsEl("studioBugsSeverityFilter")?.value || "all",
+      };
+      studioBugsLoad();
+    });
+  });
+  // One delegated listener each: both panes are re-rendered wholesale.
+  studioBugsEl("studioBugsList")?.addEventListener("click", (event) => {
+    const row = event.target.closest("[data-bug-id]");
+    if (row) studioBugsSelect(Number(row.dataset.bugId));
+  });
+  studioBugsEl("studioBugsDetail")?.addEventListener("click", (event) => {
+    const action = event.target.closest("[data-bug-action]");
+    if (!action) return;
+    const id = Number(action.dataset.bugTarget || studioBugsState.selectedId);
+    if (action.dataset.bugAction === "download") studioBugsDownloadBundle(id);
+    else if (action.dataset.bugAction === "note") studioBugsUpdate(id, { note: studioBugsEl("studioBugsNote")?.value || "" });
+    else studioBugsUpdate(id, { status: action.dataset.bugAction });
+  });
+}
+
+function setStudioBugsStatusLine(message, tone = "") {
+  const line = studioBugsEl("studioBugsStatusLine");
+  if (!line) return;
+  line.textContent = message || "";
+  line.dataset.tone = tone;
+}
+
+async function studioBugsLoad({ silent = false } = {}) {
+  if (!studioBugsAdmin() || studioBugsState.loading) return;
+  studioBugsState.loading = true;
+  if (!silent) setStudioBugsStatusLine("Loading bug reports...");
+  try {
+    const payload = await readApiJson("./api/admin/studio-bugs/list", {
+      method: "POST",
+      body: JSON.stringify({ ...studioBugsState.filters, limit: 200 }),
+    });
+    studioBugsState.reports = Array.isArray(payload.reports) ? payload.reports : [];
+    studioBugsState.counts = payload.counts || {};
+    studioBugsState.unread = Number(payload.unread || 0);
+    studioBugsSyncVersionOptions(payload.versions || []);
+    renderStudioBugsList();
+    renderToolSidebar();          // the badge count moved
+    if (!silent) setStudioBugsStatusLine("");
+  } catch (error) {
+    if (!silent) setStudioBugsStatusLine(error.message || "Could not load bug reports.", "error");
+  } finally {
+    studioBugsState.loading = false;
+  }
+}
+
+function studioBugsSyncVersionOptions(versions) {
+  const select = studioBugsEl("studioBugsVersionFilter");
+  if (!select) return;
+  const current = select.value || "all";
+  const options = ['<option value="all">All versions</option>'];
+  versions.forEach((entry) => {
+    const version = String(entry.version || "");
+    if (!version) return;
+    options.push(`<option value="${escapeHtml(version)}">${escapeHtml(version)} (${Number(entry.total || 0)})</option>`);
+  });
+  select.innerHTML = options.join("");
+  select.value = [...select.options].some((option) => option.value === current) ? current : "all";
+}
+
+function studioBugsWhen(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+function studioBugsChip(kind, value) {
+  const label = kind === "status" ? (STUDIO_BUG_STATUS_LABELS[value] || value) : value;
+  return `<span class="studiobug-chip" data-${kind}="${escapeHtml(value)}">${escapeHtml(label)}</span>`;
+}
+
+function renderStudioBugsList() {
+  const list = studioBugsEl("studioBugsList");
+  const counts = studioBugsEl("studioBugsCounts");
+  if (counts) {
+    const parts = Object.keys(STUDIO_BUG_STATUS_LABELS)
+      .filter((key) => Number(studioBugsState.counts[key] || 0) > 0)
+      .map((key) => `${Number(studioBugsState.counts[key])} ${STUDIO_BUG_STATUS_LABELS[key].toLowerCase()}`);
+    counts.textContent = parts.join(" · ");
+  }
+  if (!list) return;
+  if (!studioBugsState.reports.length) {
+    list.innerHTML = '<p class="studiobug-empty">No bug reports match this filter.</p>';
+    return;
+  }
+  list.innerHTML = studioBugsState.reports.map((report) => {
+    const active = Number(report.id) === Number(studioBugsState.selectedId);
+    const meta = [report.reporterEmail, report.appVersion, report.category].filter(Boolean).join(" · ");
+    return `<button class="studiobug-row${active ? " is-active" : ""}${report.status === "new" ? " is-unread" : ""}"`
+      + ` type="button" data-bug-id="${Number(report.id)}">`
+      + `<span class="studiobug-row-top">`
+      + `<span class="studiobug-id">#${Number(report.id)}</span>`
+      + studioBugsChip("severity", report.severity || "normal")
+      + studioBugsChip("status", report.status || "new")
+      + `<span class="studiobug-row-when">${escapeHtml(studioBugsWhen(report.createdAt))}</span>`
+      + `</span>`
+      + `<span class="studiobug-row-summary">${escapeHtml(report.summary || "(no description)")}</span>`
+      + `<span class="studiobug-row-meta">${escapeHtml(meta)}</span>`
+      + `</button>`;
+  }).join("");
+}
+
+async function studioBugsSelect(reportId) {
+  if (!reportId) return;
+  studioBugsState.selectedId = reportId;
+  renderStudioBugsList();
+  const detail = studioBugsEl("studioBugsDetail");
+  if (detail) detail.innerHTML = '<p class="studiobug-empty">Loading report...</p>';
+  try {
+    const payload = await readApiJson("./api/admin/studio-bugs/detail", {
+      method: "POST",
+      body: JSON.stringify({ id: reportId }),
+    });
+    studioBugsState.detail = payload.report || null;
+    renderStudioBugDetail();
+  } catch (error) {
+    if (detail) detail.innerHTML = `<p class="studiobug-empty">${escapeHtml(error.message || "Could not open that report.")}</p>`;
+  }
+}
+
+function renderStudioBugDetail() {
+  const host = studioBugsEl("studioBugsDetail");
+  if (!host) return;
+  const report = studioBugsState.detail;
+  if (!report) {
+    host.innerHTML = '<p class="studiobug-empty">Pick a report on the left to read it.</p>';
+    return;
+  }
+  const id = Number(report.id);
+  const rows = [
+    ["Reporter", report.reporterEmail || "-"],
+    ["Version", [report.appVersion, report.appChannel].filter(Boolean).join(" · ") || "-"],
+    ["Filed", studioBugsWhen(report.createdAt) || "-"],
+    ["Category", report.category || "-"],
+    ["Reviewed", report.reviewedAt ? `${studioBugsWhen(report.reviewedAt)} by ${report.reviewedBy || "-"}` : "Not yet"],
+  ];
+  if (report.duplicateOfId) rows.push(["Duplicate of", `#${Number(report.duplicateOfId)}`]);
+
+  const context = report.context && Object.keys(report.context).length
+    ? `<div><p class="eyebrow">Context</p><pre class="studiobug-context">${escapeHtml(JSON.stringify(report.context, null, 2))}</pre></div>`
+    : "";
+
+  host.innerHTML = `
+    <div class="studiobug-detail-head">
+      <h3>Report #${id}</h3>
+      ${studioBugsChip("severity", report.severity || "normal")}
+      ${studioBugsChip("status", report.status || "new")}
+    </div>
+    <dl class="studiobug-kv">
+      ${rows.map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(String(value))}</dd>`).join("")}
+    </dl>
+    <p class="studiobug-desc">${escapeHtml(report.description || "(no description)")}</p>
+    ${report.hasScreenshot ? '<div><p class="eyebrow">Screenshot</p><img class="studiobug-shot" id="studioBugsShot" alt="Annotated screenshot from the reporter" /></div>' : ""}
+    ${context}
+    <div class="studiobug-actions">
+      <button class="secondary-button compact-button" type="button" data-bug-action="seen" data-bug-target="${id}">Mark Seen</button>
+      <button class="secondary-button compact-button" type="button" data-bug-action="fixed" data-bug-target="${id}">Fixed</button>
+      <button class="ghost-button compact-button" type="button" data-bug-action="wont_fix" data-bug-target="${id}">Won&rsquo;t fix</button>
+      ${report.hasBundle ? `<button class="ghost-button compact-button" type="button" data-bug-action="download" data-bug-target="${id}">&#8681; Download repro bundle (${studioBugsSize(report.bundleBytes)})</button>` : ""}
+    </div>
+    <div>
+      <p class="eyebrow">Owner note</p>
+      <textarea class="studiobug-note" id="studioBugsNote" placeholder="What you found, what you changed, where it stands.">${escapeHtml(report.ownerNote || "")}</textarea>
+      <div class="studiobug-actions">
+        <button class="secondary-button compact-button" type="button" data-bug-action="note" data-bug-target="${id}">Save note</button>
+      </div>
+    </div>`;
+
+  if (report.hasScreenshot) studioBugsLoadScreenshot(id);
+}
+
+function studioBugsSize(bytes) {
+  const value = Number(bytes || 0);
+  if (value >= 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  if (value >= 1024) return `${Math.round(value / 1024)} KB`;
+  return `${value} B`;
+}
+
+/**
+ * Screenshots and bundles are FETCHED (not linked) so one code path serves both
+ * editions: on the desktop the request hits the loopback server, in the browser edition
+ * the fetch shim answers with the same bytes from the cloud. A plain <img src> would
+ * bypass the shim entirely (and, on the desktop, skip the admin token).
+ */
+async function studioBugsLoadScreenshot(reportId) {
+  const image = studioBugsEl("studioBugsShot");
+  if (!image) return;
+  try {
+    const response = await fetch(`./api/admin/studio-bugs/file?id=${reportId}&kind=screenshot`);
+    if (!response.ok) throw new Error(`Screenshot unavailable (${response.status}).`);
+    if (studioBugsState.screenshotUrl) URL.revokeObjectURL(studioBugsState.screenshotUrl);
+    studioBugsState.screenshotUrl = URL.createObjectURL(await response.blob());
+    image.src = studioBugsState.screenshotUrl;
+  } catch (error) {
+    image.replaceWith(Object.assign(document.createElement("p"), {
+      className: "studiobug-empty",
+      textContent: error.message || "Could not load the screenshot.",
+    }));
+  }
+}
+
+async function studioBugsDownloadBundle(reportId) {
+  try {
+    const response = await fetch(`./api/admin/studio-bugs/file?id=${reportId}&kind=bundle`);
+    if (!response.ok) throw new Error(`Repro bundle unavailable (${response.status}).`);
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = studioBugsState.detail?.bundleFilename || `studio-bug-${reportId}.zip`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  } catch (error) {
+    showToast(error.message || "Could not download the repro bundle.", { tone: "error" });
+  }
+}
+
+async function studioBugsUpdate(reportId, changes) {
+  if (!reportId) return;
+  try {
+    const payload = await readApiJson("./api/admin/studio-bugs/update", {
+      method: "POST",
+      body: JSON.stringify({ id: reportId, ...changes }),
+    });
+    const updated = payload.report || {};
+    studioBugsState.reports = studioBugsState.reports.map((report) =>
+      (Number(report.id) === Number(reportId) ? { ...report, ...updated } : report));
+    if (studioBugsState.detail && Number(studioBugsState.detail.id) === Number(reportId)) {
+      studioBugsState.detail = { ...studioBugsState.detail, ...updated };
+    }
+    // The status counts (and the sidebar badge) moved - reload the queue quietly.
+    await studioBugsLoad({ silent: true });
+    renderStudioBugDetail();
+    showToast(payload.message || "Bug report updated.", { tone: "success", timeoutMs: 3500 });
+  } catch (error) {
+    showToast(error.message || "Could not update that bug report.", { tone: "error" });
+  }
 }

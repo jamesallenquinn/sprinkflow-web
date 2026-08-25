@@ -25,7 +25,7 @@
   if (!WEB) return;                                 // desktop: do nothing
   window.__SPRINKFLOW_WEB__ = true;
   // stamped by packaging/build_web_edition.py at deploy time; "dev" locally
-  var WEB_BUILD = "b0824-2012-e9160c8";
+  var WEB_BUILD = "b0825-1941-00dfe2f";
   window.__SPRINKFLOW_WEB_BUILD__ = WEB_BUILD;
   console.log("[web-backend] SprinkFlow Web Edition active — build " + WEB_BUILD);
   // mobile layer: web-only stylesheet (media-query gated), never active on desktop
@@ -109,6 +109,7 @@
         enforcementRequired: true, commercialOutputsAllowed: false,
         outputAccessLabel: "Sign in to use the free tools",
         cloudConnected: false,
+        studioBugAdmin: false,
         message: "Sign in with your SprinkFlow account to use the free design tools in your browser.",
       };
     }
@@ -123,6 +124,8 @@
       enforcementRequired: true, commercialOutputsAllowed: outputs,
       outputAccessLabel: outputs ? "SprinkFlow tools enabled" : "Free tools available - subscribe to export",
       cloudConnected: s.statusConfirmed === true,
+      // Same admin list the version pill uses; the cloud still re-checks every call.
+      studioBugAdmin: webIsAdmin(),
       message: outputs ? "Signed in - all tools and exports enabled."
         : (s.statusConfirmed === true
             ? "Signed in on the free tier - every tool is usable; subscribe to export documents."
@@ -231,6 +234,84 @@
     }).catch(function (e) {
       return jsonResp({ ok: false, error: "Could not open billing from this site - subscribe from the desktop app (Account -> Billing), or at sprinkflow.studio/account.html. (" + ((e && e.message) || "blocked") + ")" });
     });
+  }
+
+  // ---- Studio Bug Reports (owner-only tab) -------------------------------
+  // The browser edition gets the SAME tab as the desktop, for the same reason it is
+  // cheap: this page already holds the signed-in Supabase token and the cloud API
+  // allows this origin. These shims call /admin/studio/bug-reports/* directly; the
+  // cloud re-checks admin on every one, so a non-admin who forced the tab open sees a
+  // 403, never data. Status updates use the POST alias, not PATCH, so the tab keeps
+  // working from any allowed origin regardless of the CORS method list.
+  function webStudioBugs(path, init) {
+    var s = webSession();
+    if (!s || !s.accessToken) return Promise.reject(new Error("Sign in first."));
+    var options = init || {};
+    options.headers = Object.assign({ "Authorization": "Bearer " + s.accessToken }, options.headers || {});
+    return orig(WEB_AUTH.apiBase + path, options).then(function (r) {
+      if (r.status === 403) throw new Error("This account is not a SprinkFlow admin.");
+      return r;
+    });
+  }
+
+  function webStudioBugsJson(path, init) {
+    return webStudioBugs(path, init).then(function (r) {
+      return r.json().then(function (j) {
+        if (!r.ok || j.ok === false) throw new Error(j.detail || j.message || ("Request failed (HTTP " + r.status + ")"));
+        return (j && typeof j.data === "object" && j.data) || j;
+      });
+    });
+  }
+
+  function webStudioBugsList(body) {
+    var query = [];
+    ["status", "version", "severity"].forEach(function (key) {
+      var value = String((body && body[key]) || "").trim();
+      if (value && value !== "all") query.push(key + "=" + encodeURIComponent(value));
+    });
+    query.push("limit=" + encodeURIComponent(String((body && body.limit) || 200)));
+    return webStudioBugsJson("/admin/studio/bug-reports?" + query.join("&")).then(function (data) {
+      return jsonResp({
+        ok: true, reports: data.reports || [], counts: data.counts || {},
+        unread: data.unread || 0, open: data.open || 0, versions: data.versions || [],
+      });
+    }).catch(function (e) { return jsonResp({ ok: false, error: (e && e.message) || "Could not load bug reports." }); });
+  }
+
+  function webStudioBugsDetail(body) {
+    var id = Number((body && body.id) || 0);
+    if (!id) return Promise.resolve(jsonResp({ ok: false, error: "Which bug report?" }));
+    return webStudioBugsJson("/admin/studio/bug-reports/" + id).then(function (data) {
+      return jsonResp({ ok: true, report: data.report || {} });
+    }).catch(function (e) { return jsonResp({ ok: false, error: (e && e.message) || "Could not open that report." }); });
+  }
+
+  function webStudioBugsUpdate(body) {
+    var id = Number((body && body.id) || 0);
+    if (!id) return Promise.resolve(jsonResp({ ok: false, error: "Which bug report?" }));
+    var payload = {};
+    if (body.status) payload.status = body.status;
+    if (body.note !== undefined && body.note !== null) payload.note = String(body.note);
+    return webStudioBugsJson("/admin/studio/bug-reports/" + id + "/status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).then(function (data) {
+      return jsonResp({ ok: true, report: data.report || {}, message: "Bug report #" + id + " updated." });
+    }).catch(function (e) { return jsonResp({ ok: false, error: (e && e.message) || "Could not update that report." }); });
+  }
+
+  function webStudioBugsFile(url) {
+    var params = new URLSearchParams(String(url).slice(String(url).indexOf("?") + 1));
+    var id = Number(params.get("id") || 0);
+    var kind = params.get("kind") === "bundle" ? "bundle" : "screenshot";
+    if (!id) return Promise.resolve(jsonResp({ ok: false, error: "Which bug report?" }, 400));
+    return webStudioBugs("/admin/studio/bug-reports/" + id + "/file/" + kind).then(function (r) {
+      if (!r.ok) throw new Error("File unavailable (HTTP " + r.status + ")");
+      return r.blob().then(function (blob) {
+        return new Response(blob, { status: 200, headers: { "Content-Type": blob.type || "application/octet-stream" } });
+      });
+    }).catch(function (e) { return jsonResp({ ok: false, error: (e && e.message) || "File unavailable." }, 502); });
   }
 
   // exports/generation gate — mirrors the desktop's _require_commercial_output.
@@ -971,6 +1052,10 @@
       case "/api/license/heartbeat": return webRefresh();
       case "/api/license/logout":    clearWebSession(); return Promise.resolve(jsonResp({ ok: true, license: webLicense() }));
       case "/api/license/mock-login":return Promise.resolve(jsonResp({ ok: false, error: "Mock login isn't available in the web edition - sign in with your SprinkFlow account." }));
+      case "/api/admin/studio-bugs/list":   return webStudioBugsList(body);
+      case "/api/admin/studio-bugs/detail": return webStudioBugsDetail(body);
+      case "/api/admin/studio-bugs/update": return webStudioBugsUpdate(body);
+      case "/api/admin/studio-bugs/file":   return webStudioBugsFile(url);
       case "/api/billing/checkout":  return webBilling("checkout");
       case "/api/billing/portal":    return webBilling("portal");
 

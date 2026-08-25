@@ -8017,6 +8017,72 @@ body[data-theme="plain-light"] .verified-source-badge {
   line-height: 1.45;
 }
 
+/* Quiet supporting line directly above a dialog's action bar. The action bar is
+   sticky with a -22px bottom margin, so it rides up over whatever precedes it;
+   the matching bottom margin here keeps this text out from under it. */
+.dialog-note {
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.4;
+  margin: 12px 0 22px;
+}
+
+/* Different-job guard: two side-by-side identity cards, current vs scanned.
+   Wider than a stock review dialog so its three actions share one row. */
+.different-job-dialog {
+  max-width: 660px;
+  width: min(660px, calc(100vw - 40px));
+}
+
+.different-job-compare {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 14px;
+}
+
+.different-job-side {
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+}
+
+.different-job-side + .different-job-side {
+  border-color: var(--accent);
+}
+
+.different-job-side .eyebrow {
+  margin: 0;
+}
+
+.different-job-name {
+  color: var(--ink);
+  font-size: 0.98rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.different-job-line,
+.different-job-meta {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .different-job-compare {
+    grid-template-columns: 1fr;
+  }
+}
+
 .debug-support-panel,
 .debug-danger-panel {
   align-items: center;
@@ -12152,4 +12218,159 @@ body.is-drop-routing .drop-router-veil { display: block; }
 
 @media (prefers-reduced-motion: reduce) {
   .drop-chooser-row { transition: none; }
+}
+
+/* ==========================================================================
+   Studio Bug Reports (owner-only tab)
+   Two columns in ONE grid row -> they share the top AND bottom rail by
+   stretching (PROJECT_CONFORMANCE.md 3 / 6a): the list column's scroll area is
+   the elastic element, so a short queue never leaves a void under the detail
+   card and a long queue never pushes the card taller than its neighbor.
+   ========================================================================== */
+.studiobug-toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+/* The app's base rule is `select { width: 100% }`, which would stack these three
+   filters one per row. They are a control group, so they share one row at equal
+   width (PROJECT_CONFORMANCE.md 6). */
+.studiobug-toolbar select { flex: 1 1 180px; width: auto; max-width: 260px; }
+.studiobug-counts { margin-left: auto; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.studiobug-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) 1fr;
+  gap: 16px;
+  align-items: stretch;
+  margin-top: 12px;
+  min-height: 520px;
+}
+.studiobug-listcol,
+.studiobug-detail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-soft);
+  overflow: hidden;
+}
+.studiobug-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+
+.studiobug-row {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.studiobug-row:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.studiobug-row.is-active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: inset 3px 0 0 var(--brand);
+}
+.studiobug-row.is-unread .studiobug-id { color: var(--brand); }
+.studiobug-row-top { display: flex; align-items: center; gap: 8px; }
+.studiobug-id { font-weight: 700; font-variant-numeric: tabular-nums; }
+.studiobug-row-when { margin-left: auto; font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.studiobug-row-summary {
+  margin: 4px 0 2px;
+  font-size: 13px;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.studiobug-row-meta {
+  font-size: 11.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studiobug-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.studiobug-chip[data-status="new"] { color: var(--brand); }
+.studiobug-chip[data-status="seen"] { color: var(--water); }
+.studiobug-chip[data-status="fixed"] { color: var(--ok); }
+.studiobug-chip[data-status="wont_fix"] { color: var(--muted); }
+.studiobug-chip[data-severity="blocker"] { color: var(--brand); }
+.studiobug-chip[data-severity="normal"] { color: var(--accent); }
+.studiobug-chip[data-severity="low"] { color: var(--muted); }
+
+.studiobug-detail { padding: 16px; overflow-y: auto; gap: 12px; }
+.studiobug-detail-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.studiobug-detail-head h3 { margin: 0; font-size: 16px; }
+.studiobug-kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 12.5px; }
+.studiobug-kv dt { color: var(--muted); text-transform: uppercase; font-size: 10.5px; letter-spacing: .4px; }
+.studiobug-kv dd { margin: 0; overflow-wrap: anywhere; }
+.studiobug-desc {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 13.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.studiobug-shot {
+  display: block;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.studiobug-context {
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+.studiobug-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.studiobug-note { width: 100%; min-height: 74px; resize: vertical; }
+.studiobug-empty { padding: 28px 16px; text-align: center; color: var(--muted); font-size: 13px; }
+.studiobug-section .calculator-status:empty { display: none; }
+
+/* The unread count on the sidebar tab. White on --brand-2 clears 4.5:1 in both themes. */
+.tool-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--brand-2);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 900px) {
+  .studiobug-grid { grid-template-columns: 1fr; min-height: 0; }
+  .studiobug-listcol { max-height: 320px; }
 }
