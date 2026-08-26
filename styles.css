@@ -9001,7 +9001,11 @@ button[data-busy="1"]::after {
   background:
     linear-gradient(180deg, transparent, rgba(23, 29, 36, 0.96) 28%),
     rgba(23, 29, 36, 0.96);
-  bottom: 0;
+  /* -22px, not 0: the scroller has 22px bottom padding, so pinning at 0 leaves
+     the bar floating a padding-strip above the dialog edge with content
+     showing through beneath it. This pins it flush with the true bottom. */
+  bottom: -22px;
+  border-radius: 0 0 8px 8px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
