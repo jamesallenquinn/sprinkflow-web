@@ -11328,6 +11328,10 @@ body[data-theme="plain-light"] .seismic-constraint.is-unavailable { border-left-
 .ifc-note { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 6px 0 0; }
 /* three options, one row - the base control is a two-column grid */
 .ifc-seg-3 { grid-template-columns: repeat(3, minmax(64px, 1fr)); }
+/* .ifc-note carries no bottom margin, which is right under the last control in
+   a group but leaves the output-mode note butted against the Title note label
+   below it. This is the one note that is followed by another field. */
+#ifcModeNote { margin-bottom: 12px; }
 /* Cap the layer list so it cannot out-grow the options column. Uncapped, nine
    layer rows made the RIGHT column the tallest, which left ~230px of dead card
    under the Flatten button on the left (§6a: the short column must be filled by

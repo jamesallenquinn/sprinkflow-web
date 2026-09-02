@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0902-1846-2b80b5c" />
+    <link rel="stylesheet" href="./styles.css?v=b0902-1931-02f2a51" />
   </head>
   <body>
     <div class="app-shell">
@@ -1908,7 +1908,7 @@
         <div class="calculator-hero">
           <div>
             <p class="eyebrow">CAD Prep</p>
-            <h2>Flatten IFC to 2D</h2>
+            <h2>Convert IFC to CAD</h2>
           </div>
           <button class="ghost-button" id="ifcClearButton" type="button">Clear</button>
         </div>
@@ -1917,7 +1917,7 @@
             <input id="ifcFileInput" type="file" accept=".ifc" class="hidden-input" />
             <div class="datasheet-drop" id="ifcDrop" tabindex="0" role="button" aria-label="Drop or click to choose an IFC model">
               <strong>Drop an IFC model here</strong>
-              <span>Structural IFC to a clean plan DWG/DXF &mdash; no Revit or Tekla needed. Every member is projected straight down to its true footprint, so a W-beam comes out as a rectangle at flange width, not a sliced line.</span>
+              <span>Structural IFC to a clean DWG/DXF &mdash; no Revit or Tekla needed. Take it as a 2D plan, where every member is projected straight down to its true footprint, or as a 3D model in real feature-edge linework.</span>
             </div>
             <div class="pdfcad-pick-row">
               <button class="secondary-button" id="ifcPickButton" type="button" title="Read the model where it sits instead of copying it in">&#128194; Choose file&hellip;</button>
@@ -1932,10 +1932,18 @@
             <div id="ifcSummary" class="pdfcad-summary hydreport-subhead"></div>
 
             <div class="section-heading hydreport-subhead"><p class="eyebrow">Drawing options</p></div>
+            <div class="prelim-seg-field">
+              <span class="prelim-seg-label">Output</span>
+              <div class="segmented-control" role="radiogroup" aria-label="Output mode">
+                <label><input type="radio" name="ifcOutputMode" value="2d" checked /><span>2D plan</span></label>
+                <label><input type="radio" name="ifcOutputMode" value="3d" /><span>3D model</span></label>
+              </div>
+            </div>
+            <p class="ifc-note" id="ifcModeNote">Every member is projected straight down to its true footprint &mdash; a flat plan background at world XY.</p>
             <label for="ifcTitleInput">Title note (job name)
               <input id="ifcTitleInput" type="text" placeholder="e.g. 8626 Extraction Platform" />
             </label>
-            <div class="prelim-seg-field">
+            <div class="prelim-seg-field" id="ifcLabelField">
               <span class="prelim-seg-label">Beam labels</span>
               <div class="segmented-control ifc-seg-3" role="radiogroup" aria-label="Beam label mode">
                 <label><input type="radio" name="ifcLabelMode" value="size" checked /><span>Size</span></label>
@@ -1944,8 +1952,12 @@
               </div>
             </div>
             <p class="ifc-note" id="ifcLabelNote">Every beam gets its section size on a centerline. Elevations are added only where a beam sits off the dominant top of steel &mdash; the title note carries the rest.</p>
+            <div id="ifcSurfaceField" hidden>
+              <label class="ifc-check"><input type="checkbox" id="ifcSurfacesToggle" /> <span>Include surfaces for shaded views</span></label>
+              <p class="ifc-note">Adds every member&rsquo;s mesh on parallel <strong>-SURF</strong> layers so the model can be shaded, not just wireframed. Off by default &mdash; it multiplies the file size, and the linework alone is what most layouts need.</p>
+            </div>
             <label class="ifc-check"><input type="checkbox" id="ifcRecenterToggle" /> <span>Move the drawing to the origin (0,0)</span></label>
-            <p class="ifc-note">Off by default so the plan lands on the same world coordinates as the rest of the job files.</p>
+            <p class="ifc-note" id="ifcRecenterNote">Off by default so the plan lands on the same world coordinates as the rest of the job files.</p>
 
             <button class="primary-button full-width-button" id="ifcConvertButton" type="button" disabled>Flatten &amp; Save DWG&hellip;</button>
             <p class="calculator-status" id="ifcStatus"></p>
@@ -4133,11 +4145,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0902-1846-2b80b5c"></script>
-    <script src="./app.js?v=b0902-1846-2b80b5c"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0902-1846-2b80b5c"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0902-1846-2b80b5c"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0902-1846-2b80b5c"></script>
-    <script src="./prelim-calc-desktop.js?v=b0902-1846-2b80b5c"></script>
+    <script src="./web-backend.js?v=b0902-1931-02f2a51"></script>
+    <script src="./app.js?v=b0902-1931-02f2a51"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0902-1931-02f2a51"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0902-1931-02f2a51"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0902-1931-02f2a51"></script>
+    <script src="./prelim-calc-desktop.js?v=b0902-1931-02f2a51"></script>
   </body>
 </html>

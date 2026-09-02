@@ -418,8 +418,8 @@ const TOOL_REGISTRY = [
     keywords: ["explode", "xplode", "blocks", "flatten", "dwg", "dxf", "burst", "nested blocks"],
   },
   {
-    id: "ifcflatten", label: "Flatten IFC to 2D", group: "Tools",
-    keywords: ["ifc", "bim", "tekla", "revit", "structural", "steel", "beam layout", "flatten", "3d to 2d", "plan from model", "ifc2x3", "ifc4", "background drawing"],
+    id: "ifcflatten", label: "Convert IFC to CAD", group: "Tools",
+    keywords: ["ifc", "bim", "tekla", "revit", "structural", "steel", "beam layout", "flatten", "3d to 2d", "3d model", "wireframe", "plan from model", "ifc2x3", "ifc4", "background drawing"],
   },
   {
     id: "dwgpdf", label: "DWG to PDF", group: "Tools",
@@ -18077,15 +18077,42 @@ const ifcState = {
   busy: false, job: "", poll: 0, layers: null,
 };
 
-/** Only the label on the button changes with DWG capability — the tool always
- *  produces the same drawing. */
+/** Which output the user picked. 2D is the default and the one most jobs want;
+ *  3D exists for anyone coordinating in the model rather than on a plan. */
+function ifcOutputMode() {
+  return (document.querySelector('input[name="ifcOutputMode"]:checked') || {}).value === "3d" ? "3d" : "2d";
+}
+
+/** The button label follows both the output mode and DWG capability, and the
+ *  plan-only controls (beam labels) give way to the 3D-only one (surfaces). */
 function ifcApplyOutputFormat() {
   const button = document.getElementById("ifcConvertButton");
   if (!button) return;
   const dwg = ifcState.dwgCapable !== false;
-  button.textContent = dwg ? "Flatten & Save DWG…" : "Flatten & Save DXF…";
+  const three = ifcOutputMode() === "3d";
+  const ext = dwg ? "DWG" : "DXF";
+  button.textContent = three ? `Build 3D & Save ${ext}…` : `Flatten & Save ${ext}…`;
   const note = document.getElementById("ifcOdaOutNote");
   if (note) note.hidden = dwg || !ifcState.token;
+
+  const labelField = document.getElementById("ifcLabelField");
+  const labelNote = document.getElementById("ifcLabelNote");
+  const surfaces = document.getElementById("ifcSurfaceField");
+  if (labelField) labelField.hidden = three;      // centerlines are a plan artifact
+  if (labelNote) labelNote.hidden = three;
+  if (surfaces) surfaces.hidden = !three;
+  const modeNote = document.getElementById("ifcModeNote");
+  if (modeNote) {
+    modeNote.textContent = three
+      ? "Feature-edge linework at true elevation — flange corners, web lines and cope cuts on the same layers as the plan, with the triangulation noise left out. No centerlines or size labels; those are plan artifacts."
+      : "Every member is projected straight down to its true footprint — a flat plan background at world XY.";
+  }
+  const recenterNote = document.getElementById("ifcRecenterNote");
+  if (recenterNote) {
+    recenterNote.textContent = three
+      ? "Off by default so the model lands on the same world coordinates as the rest of the job files. Only X and Y move — elevations stay true."
+      : "Off by default so the plan lands on the same world coordinates as the rest of the job files.";
+  }
 }
 
 function ifcSetProgress(percent, label) {
@@ -18265,21 +18292,26 @@ async function ifcConvert() {
   if (button) button.disabled = true;
   ifcState.busy = true;
   const wantFmt = ifcState.dwgCapable === false ? "dxf" : "dwg";
-  if (status) status.textContent = `Flattening… choose where to save the ${wantFmt.toUpperCase()}.`;
-  const job = ifcStartPolling("Flattening the model…");
+  const mode = ifcOutputMode();
+  const three = mode === "3d";
+  if (status) status.textContent = `${three ? "Building the 3D model" : "Flattening"}… choose where to save the ${wantFmt.toUpperCase()}.`;
+  const job = ifcStartPolling(three ? "Building the 3D model…" : "Flattening the model…");
   try {
     const base = (ifcState.fileName || "model").replace(/\.ifc$/i, "");
+    const suffix = three ? " - 3D Model" : " - Beam Layout 2D";
     const payload = await readApiJson("./api/ifc-flatten/convert", {
       method: "POST",
       body: JSON.stringify({
         token: ifcState.token,
         job,
+        mode,
         format: wantFmt,
         layers: ifcState.layers,
         labelMode: (document.querySelector('input[name="ifcLabelMode"]:checked') || {}).value || "size",
+        surfaces: three && !!document.getElementById("ifcSurfacesToggle")?.checked,
         recenter: !!document.getElementById("ifcRecenterToggle")?.checked,
         title: document.getElementById("ifcTitleInput")?.value || "",
-        defaultName: `${base}-2D.${wantFmt}`,
+        defaultName: `${base}${suffix}.${wantFmt}`,
       }),
     });
     let tail = "";
@@ -18289,9 +18321,13 @@ async function ifcConvert() {
       ifcApplyOutputFormat();
     }
     if (status) {
-      status.textContent = `Saved ${(payload.format || "dxf").toUpperCase()}: ${payload.path} — `
-        + `${(payload.polylines || 0).toLocaleString()} outlines, ${(payload.labels || 0).toLocaleString()} beam labels, `
-        + `${payload.sizeFt[0]} × ${payload.sizeFt[1]} ft.` + tail;
+      const body = payload.mode === "3d"
+        ? `${((payload.lines || 0) + (payload.polylines || 0)).toLocaleString()} edge entities`
+          + `${payload.meshes ? `, ${payload.meshes.toLocaleString()} shaded surfaces` : ""}, `
+          + `${payload.zRangeFt[0]}′ to ${payload.zRangeFt[1]}′ elevation.`
+        : `${(payload.polylines || 0).toLocaleString()} outlines, ${(payload.labels || 0).toLocaleString()} beam labels, `
+          + `${payload.sizeFt[0]} × ${payload.sizeFt[1]} ft.`;
+      status.textContent = `Saved ${(payload.format || "dxf").toUpperCase()}: ${payload.path} — ${body}${tail}`;
     }
   } catch (error) {
     if (status) status.textContent = (error.message === "Save cancelled." ? "Save cancelled." : (error.message || "Flatten failed."));
@@ -18338,6 +18374,10 @@ function initIfcFlatten() {
   }
   document.getElementById("ifcConvertButton")?.addEventListener("click", ifcConvert);
   document.getElementById("ifcOdaOutLink")?.addEventListener("click", () => window.open(ODA_DOWNLOAD_URL, "_blank", "noopener"));
+  document.querySelectorAll('input[name="ifcOutputMode"]').forEach((radio) => {
+    radio.addEventListener("change", ifcApplyOutputFormat);
+  });
+  ifcApplyOutputFormat();
   document.querySelectorAll('input[name="ifcLabelMode"]').forEach((radio) => {
     radio.addEventListener("change", () => {
       const note = document.getElementById("ifcLabelNote");
@@ -18353,6 +18393,10 @@ function initIfcFlatten() {
   document.getElementById("ifcClearButton")?.addEventListener("click", () => {
     ifcStopPolling();
     ifcState.token = null; ifcState.fileName = ""; ifcState.analysis = null; ifcState.layers = null;
+    const twoD = document.querySelector('input[name="ifcOutputMode"][value="2d"]');
+    if (twoD) twoD.checked = true;
+    const surfaces = document.getElementById("ifcSurfacesToggle");
+    if (surfaces) surfaces.checked = false;
     ifcApplyOutputFormat();
     document.getElementById("ifcConvertButton").disabled = true;
     document.getElementById("ifcFileStatus").textContent = "";
