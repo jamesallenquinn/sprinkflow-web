@@ -11311,6 +11311,31 @@ body[data-theme="plain-light"] .seismic-constraint.is-unavailable { border-left-
 .cadx-block-name { color: var(--ink); font: 600 0.85rem Inter; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cadx-block-count { color: var(--muted); font: 700 0.8rem Inter; flex: none; }
 .cadx-block-more { color: var(--muted); font: 600 0.8rem Inter; padding: 6px 2px 0; text-align: center; }
+/* flatten IFC to 2D: determinate progress + option checkbox. Tokens only, so
+   the track is visible in BOTH themes (the plan-scan bar's rgba(255,255,255)
+   track is dark-first and washes out on a light card). */
+.ifc-progress { display: grid; gap: 6px; margin: 8px 0 2px; }
+.ifc-progress[hidden] { display: none; }
+.ifc-progress-track { background: var(--surface-soft); border: 1px solid var(--line); border-radius: 999px; height: 8px; overflow: hidden; }
+.ifc-progress-track span { background: linear-gradient(90deg, var(--brand), var(--accent)); border-radius: inherit;
+  display: block; height: 100%; transition: width 180ms ease; width: 0%; }
+.ifc-progress small { color: var(--muted); font: 600 0.78rem Inter; }
+.ifc-check { align-items: center; color: var(--ink); display: flex; font: 600 0.88rem Inter; gap: 9px; margin: 4px 0 0; }
+.ifc-check input { height: 17px; width: 17px; }
+/* Helper text under a control. NOT .pdfcad-pick-note: that one carries
+   `flex: 1 1 220px` for its row layout, which as a direct child of the flex
+   COLUMN made it 220px tall and stranded the button 200px below (§2a). */
+.ifc-note { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 6px 0 0; }
+/* three options, one row - the base control is a two-column grid */
+.ifc-seg-3 { grid-template-columns: repeat(3, minmax(64px, 1fr)); }
+/* Cap the layer list so it cannot out-grow the options column. Uncapped, nine
+   layer rows made the RIGHT column the tallest, which left ~230px of dead card
+   under the Flatten button on the left (§6a: the short column must be filled by
+   a flexible element, and here that element is the roles list below). */
+#ifcLayers { flex: 0 1 auto; max-height: 300px; overflow-y: auto; }
+.ifc-row-source { color: var(--muted); font: 600 0.72rem Inter; }
+.ifc-row-source.is-type { color: var(--accent); }
+.ifc-row-source.is-unmapped { color: var(--danger, #c0392b); }
 .seismic-sheet-style { margin-top: 8px; }
 .seismic-sheet-style select { min-width: 210px; }
 .seismic-brace-bar { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; }

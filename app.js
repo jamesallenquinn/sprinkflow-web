@@ -418,6 +418,10 @@ const TOOL_REGISTRY = [
     keywords: ["explode", "xplode", "blocks", "flatten", "dwg", "dxf", "burst", "nested blocks"],
   },
   {
+    id: "ifcflatten", label: "Flatten IFC to 2D", group: "Tools",
+    keywords: ["ifc", "bim", "tekla", "revit", "structural", "steel", "beam layout", "flatten", "3d to 2d", "plan from model", "ifc2x3", "ifc4", "background drawing"],
+  },
+  {
     id: "dwgpdf", label: "DWG to PDF", group: "Tools",
     keywords: ["dwg to pdf", "plot", "print", "publish", "cad to pdf", "sheet set"],
   },
@@ -14913,7 +14917,9 @@ async function odaRecheck(button) {
       pdfcadApplyDwgCapable(true);
       cadxState.dwgCapable = true;
       if (typeof cadxApplyOutputFormat === "function") cadxApplyOutputFormat();
-      document.querySelectorAll("#pdfcadOdaNote, #cadxOdaNote, #cadxOdaOutNote, #dwgpdfOdaNote")
+      ifcState.dwgCapable = true;
+      if (typeof ifcApplyOutputFormat === "function") ifcApplyOutputFormat();
+      document.querySelectorAll("#pdfcadOdaNote, #cadxOdaNote, #cadxOdaOutNote, #dwgpdfOdaNote, #ifcOdaOutNote")
         .forEach((note) => { note.hidden = true; });
     } else {
       button.textContent = "Still not found — install it, then check again";
@@ -18053,6 +18059,313 @@ function initCadx() {
     const blocks = document.getElementById("cadxBlocks");
     if (blocks) blocks.innerHTML = '<div class="pdfcad-cards-empty">Drop or import a drawing and the blocks it contains are listed here, most-used first. Then hit Explode &amp; Save to flatten them all into a plain drawing.</div>';
     const hint = document.getElementById("cadxBlockHint"); if (hint) hint.textContent = "Import a DWG or DXF to see its blocks";
+  });
+}
+
+// ============================================================================
+//  FLATTEN IFC TO 2D
+//
+//  Mirrors the Explode CAD Blocks trio (pick / analyze / convert) with one
+//  addition: tessellating a structural model takes tens of seconds, so a
+//  separate GET is polled for real progress while the long POST is in flight.
+//  The server caches the tessellated meshes under the token, which makes a
+//  re-convert with different layers or a different label mode nearly free.
+// ============================================================================
+
+const ifcState = {
+  token: null, fileName: "", analysis: null, dwgCapable: undefined,
+  busy: false, job: "", poll: 0, layers: null,
+};
+
+/** Only the label on the button changes with DWG capability — the tool always
+ *  produces the same drawing. */
+function ifcApplyOutputFormat() {
+  const button = document.getElementById("ifcConvertButton");
+  if (!button) return;
+  const dwg = ifcState.dwgCapable !== false;
+  button.textContent = dwg ? "Flatten & Save DWG…" : "Flatten & Save DXF…";
+  const note = document.getElementById("ifcOdaOutNote");
+  if (note) note.hidden = dwg || !ifcState.token;
+}
+
+function ifcSetProgress(percent, label) {
+  const wrap = document.getElementById("ifcProgress");
+  const bar = document.getElementById("ifcProgressBar");
+  const text = document.getElementById("ifcProgressLabel");
+  if (!wrap) return;
+  if (percent === null) { wrap.hidden = true; return; }
+  wrap.hidden = false;
+  if (bar) bar.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+  if (text) text.textContent = label || "";
+}
+
+/** Poll the side channel while a long call runs. The bar shows what the server
+ *  is actually doing (element N of M), not a timer reciting a plausible story. */
+function ifcStartPolling(fallbackLabel) {
+  ifcState.job = `ifc${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  ifcSetProgress(2, fallbackLabel);
+  window.clearInterval(ifcState.poll);
+  ifcState.poll = window.setInterval(async () => {
+    try {
+      const r = await fetch(`./api/ifc-flatten/progress?job=${encodeURIComponent(ifcState.job)}`);
+      const data = await r.json();
+      if (data && data.label) ifcSetProgress(data.percent || 0, data.label);
+    } catch (error) { /* the browser edition never answers this; keep the label */ }
+  }, 400);
+  return ifcState.job;
+}
+
+function ifcStopPolling() {
+  window.clearInterval(ifcState.poll);
+  ifcState.poll = 0;
+  ifcSetProgress(null);
+}
+
+function ifcApplyAnalyze(payload, fileName) {
+  ifcState.token = payload.token;
+  ifcState.analysis = payload;
+  if (payload.dwgCapable !== undefined) ifcState.dwgCapable = !!payload.dwgCapable;
+  else if (window.__SPRINKFLOW_WEB__) ifcState.dwgCapable = false;
+  if (fileName) ifcState.fileName = fileName;
+  else if (payload.fileName) ifcState.fileName = payload.fileName;
+  // default: draw every layer that actually has geometry
+  ifcState.layers = (payload.layers || []).map((row) => row.layer);
+  ifcApplyOutputFormat();
+  renderIfcSummary(payload);
+  renderIfcLayers(payload);
+  renderIfcRows(payload);
+  const titleInput = document.getElementById("ifcTitleInput");
+  if (titleInput && !titleInput.value) titleInput.value = (ifcState.fileName || "").replace(/\.ifc$/i, "");
+  document.getElementById("ifcConvertButton").disabled = !(payload.elements > 0);
+  const status = document.getElementById("ifcFileStatus");
+  const unmapped = payload.unmapped || [];
+  let note = "";
+  if (unmapped.length) {
+    const dropped = unmapped.reduce((sum, row) => sum + row.count, 0);
+    note = ` ${dropped.toLocaleString()} part${dropped === 1 ? "" : "s"} in ${unmapped.length} unrecognised role${unmapped.length === 1 ? "" : "s"} could not be placed — see the list on the right.`;
+  }
+  if (status) {
+    status.textContent = `${ifcState.fileName} read in ${payload.seconds || 0}s — ${(payload.elements || 0).toLocaleString()} elements, `
+      + `${payload.sizeFt[0]} × ${payload.sizeFt[1]} ft.${note}`;
+  }
+}
+
+async function ifcPick() {
+  const status = document.getElementById("ifcFileStatus");
+  if (status) status.textContent = "Choose an IFC model in the dialog…";
+  try {
+    const picked = await readApiJson("./api/ifc-flatten/pick", { method: "POST", body: JSON.stringify({}) });
+    ifcState.token = picked.token;
+    ifcState.fileName = picked.fileName || "";
+    await ifcAnalyze(null, picked.fileName || "");
+  } catch (error) {
+    if (/cancel/i.test(error.message || "")) { if (status) status.textContent = ""; return; }
+    ifcShowError(error);
+  }
+}
+
+function ifcShowError(error) {
+  const message = error.message || "Could not read that IFC model.";
+  const status = document.getElementById("ifcFileStatus");
+  if (status) status.textContent = message;
+  const engine = document.getElementById("ifcEngineNote");
+  if (engine) engine.hidden = !/IFC engine/i.test(message);
+}
+
+async function ifcAnalyze(fileDataUrl, fileName) {
+  if (ifcState.busy) return;
+  const status = document.getElementById("ifcFileStatus");
+  const engine = document.getElementById("ifcEngineNote");
+  if (engine) engine.hidden = true;
+  if (status) status.textContent = `Reading ${fileName || "the model"}…`;
+  ifcState.busy = true;
+  const job = ifcStartPolling("Opening the IFC file…");
+  try {
+    const body = fileDataUrl
+      ? { file: { name: fileName, dataUrl: fileDataUrl }, job }
+      : { token: ifcState.token, job };
+    const payload = await readApiJson("./api/ifc-flatten/analyze", { method: "POST", body: JSON.stringify(body) });
+    ifcApplyAnalyze(payload, fileName);
+  } catch (error) {
+    ifcShowError(error);
+  }
+  ifcStopPolling();
+  ifcState.busy = false;
+}
+
+function renderIfcSummary(p) {
+  const box = document.getElementById("ifcSummary");
+  if (!box) return;
+  const line = (k, v) => `<div class="layout-result-line"><span>${k}</span><strong>${v}</strong></div>`;
+  const tos = p.dominantTosFt === null || p.dominantTosFt === undefined
+    ? "&mdash;" : `${p.dominantTosFt.toFixed(2)}&prime;`;
+  box.innerHTML =
+    line("IFC schema", escapeHtml(p.schema || "unknown")) +
+    line("Elements with geometry", (p.elements || 0).toLocaleString()) +
+    line("Plan size", `${p.sizeFt[0]} &times; ${p.sizeFt[1]} ft`) +
+    line("Elevation range", `${p.zRangeFt[0]}&prime; to ${p.zRangeFt[1]}&prime;`) +
+    line("Top of steel (most common)", tos);
+}
+
+function renderIfcLayers(p) {
+  const wrap = document.getElementById("ifcLayers");
+  const hint = document.getElementById("ifcLayerHint");
+  if (!wrap) return;
+  const layers = p.layers || [];
+  if (hint) hint.textContent = layers.length ? `${layers.length} layer${layers.length === 1 ? "" : "s"} with geometry` : "Nothing to draw";
+  if (!layers.length) {
+    wrap.innerHTML = '<div class="pdfcad-cards-empty">No drawable geometry in this model.</div>';
+    return;
+  }
+  wrap.innerHTML = layers.map((row) => `
+    <label class="pdfcad-group-row">
+      <input type="checkbox" data-ifc-layer="${escapeHtml(row.layer)}" checked />
+      <span class="pdfcad-group-label">${escapeHtml(row.layer)}</span>
+      <span class="pdfcad-group-count">${row.count.toLocaleString()} part${row.count === 1 ? "" : "s"}</span>
+    </label>`).join("");
+  wrap.querySelectorAll("[data-ifc-layer]").forEach((box) => {
+    box.addEventListener("change", () => {
+      ifcState.layers = [...wrap.querySelectorAll("[data-ifc-layer]")]
+        .filter((el) => el.checked).map((el) => el.dataset.ifcLayer);
+      document.getElementById("ifcConvertButton").disabled = !ifcState.layers.length;
+    });
+  });
+}
+
+function renderIfcRows(p) {
+  const wrap = document.getElementById("ifcRows");
+  const hint = document.getElementById("ifcRowHint");
+  if (!wrap) return;
+  const rows = p.rows || [];
+  if (!rows.length) {
+    wrap.innerHTML = '<div class="pdfcad-cards-empty">Drop or choose an IFC and every part role it contains is listed here with the layer it lands on.</div>';
+    if (hint) hint.textContent = "";
+    return;
+  }
+  const unmapped = rows.filter((r) => r.source === "unmapped").length;
+  if (hint) hint.textContent = `${rows.length} role${rows.length === 1 ? "" : "s"}${unmapped ? ` · ${unmapped} unplaced` : ""}`;
+  const badge = (row) => {
+    if (row.source === "role") return `<span class="ifc-row-source">&rarr; ${escapeHtml(row.layer)}</span>`;
+    if (row.source === "type") return `<span class="ifc-row-source is-type">&rarr; ${escapeHtml(row.layer)} (by IFC type)</span>`;
+    if (row.source === "skipped") return '<span class="ifc-row-source">skipped (bolts &amp; finishes)</span>';
+    return '<span class="ifc-row-source is-unmapped">not drawn &mdash; unrecognised role</span>';
+  };
+  wrap.innerHTML = '<div class="cadx-block-list">' + rows.map((row) => `
+    <div class="cadx-block-row">
+      <span class="cadx-block-name">${escapeHtml(row.name || row.type)} <span class="ifc-row-source">${escapeHtml(row.name ? row.type : "")}</span></span>
+      ${badge(row)}
+      <span class="cadx-block-count">${row.count.toLocaleString()}&times;</span>
+    </div>`).join("") + "</div>";
+}
+
+async function ifcConvert() {
+  if (!ifcState.token || ifcState.busy) return;
+  const status = document.getElementById("ifcStatus");
+  const button = document.getElementById("ifcConvertButton");
+  if (button) button.disabled = true;
+  ifcState.busy = true;
+  const wantFmt = ifcState.dwgCapable === false ? "dxf" : "dwg";
+  if (status) status.textContent = `Flattening… choose where to save the ${wantFmt.toUpperCase()}.`;
+  const job = ifcStartPolling("Flattening the model…");
+  try {
+    const base = (ifcState.fileName || "model").replace(/\.ifc$/i, "");
+    const payload = await readApiJson("./api/ifc-flatten/convert", {
+      method: "POST",
+      body: JSON.stringify({
+        token: ifcState.token,
+        job,
+        format: wantFmt,
+        layers: ifcState.layers,
+        labelMode: (document.querySelector('input[name="ifcLabelMode"]:checked') || {}).value || "size",
+        recenter: !!document.getElementById("ifcRecenterToggle")?.checked,
+        title: document.getElementById("ifcTitleInput")?.value || "",
+        defaultName: `${base}-2D.${wantFmt}`,
+      }),
+    });
+    let tail = "";
+    if (payload.dwgFallback) {
+      tail = " (DWG needs the free ODA File Converter — saved DXF instead.)";
+      ifcState.dwgCapable = false;
+      ifcApplyOutputFormat();
+    }
+    if (status) {
+      status.textContent = `Saved ${(payload.format || "dxf").toUpperCase()}: ${payload.path} — `
+        + `${(payload.polylines || 0).toLocaleString()} outlines, ${(payload.labels || 0).toLocaleString()} beam labels, `
+        + `${payload.sizeFt[0]} × ${payload.sizeFt[1]} ft.` + tail;
+    }
+  } catch (error) {
+    if (status) status.textContent = (error.message === "Save cancelled." ? "Save cancelled." : (error.message || "Flatten failed."));
+    if (/ODA File Converter/i.test(error.message || "")) { const oda = document.getElementById("ifcOdaOutNote"); if (oda) oda.hidden = false; }
+    if (/IFC engine/i.test(error.message || "")) { const engine = document.getElementById("ifcEngineNote"); if (engine) engine.hidden = false; }
+  }
+  ifcStopPolling();
+  ifcState.busy = false;
+  if (button) button.disabled = false;
+}
+
+function initIfcFlatten() {
+  const drop = document.getElementById("ifcDrop");
+  if (!drop) return;
+  const fileInput = document.getElementById("ifcFileInput");
+  const takeFile = async (file) => {
+    if (!file) return;
+    const status = document.getElementById("ifcFileStatus");
+    if (!/\.ifc$/i.test(file.name)) {
+      if (status) status.textContent = "Please choose an .ifc file.";
+      return;
+    }
+    // IFC models routinely run past what base64 through a JSON body can carry;
+    // point the user at the native picker rather than stalling the web view.
+    if (!window.__SPRINKFLOW_WEB__ && file.size > 120 * 1024 * 1024) {
+      if (status) status.textContent = `${file.name} is ${(file.size / 1048576).toFixed(0)} MB — use "Choose file…" so it is read straight off disk.`;
+      return;
+    }
+    const dataUrl = await readFileAsDataUrl(file);
+    await ifcAnalyze(dataUrl, file.name);
+  };
+  drop.addEventListener("click", () => fileInput?.click());
+  drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput?.click(); } });
+  fileInput?.addEventListener("change", (e) => { if (e.target.files[0]) takeFile(e.target.files[0]); e.target.value = ""; });
+  drop.addEventListener("dragenter", (e) => { e.preventDefault(); drop.classList.add("drag-over"); });
+  drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("drag-over"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("drag-over"));
+  drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("drag-over"); if (e.dataTransfer.files[0]) takeFile(e.dataTransfer.files[0]); });
+
+  const pickBtn = document.getElementById("ifcPickButton");
+  if (pickBtn) {
+    if (window.__SPRINKFLOW_WEB__) { pickBtn.closest(".pdfcad-pick-row").hidden = true; ifcState.dwgCapable = false; ifcApplyOutputFormat(); }
+    else pickBtn.addEventListener("click", ifcPick);
+  }
+  document.getElementById("ifcConvertButton")?.addEventListener("click", ifcConvert);
+  document.getElementById("ifcOdaOutLink")?.addEventListener("click", () => window.open(ODA_DOWNLOAD_URL, "_blank", "noopener"));
+  document.querySelectorAll('input[name="ifcLabelMode"]').forEach((radio) => {
+    radio.addEventListener("change", () => {
+      const note = document.getElementById("ifcLabelNote");
+      if (!note) return;
+      const mode = (document.querySelector('input[name="ifcLabelMode"]:checked') || {}).value;
+      note.textContent = mode === "size-tos"
+        ? "Every beam carries its size AND its top-of-steel elevation. Useful on a multi-level frame; on a single level it repeats the title note on every member."
+        : mode === "none"
+          ? "Centerlines only — no size text. Pick this when the plan is going under a sprinkler layout and the steel sizes would just be noise."
+          : "Every beam gets its section size on a centerline. Elevations are added only where a beam sits off the dominant top of steel — the title note carries the rest.";
+    });
+  });
+  document.getElementById("ifcClearButton")?.addEventListener("click", () => {
+    ifcStopPolling();
+    ifcState.token = null; ifcState.fileName = ""; ifcState.analysis = null; ifcState.layers = null;
+    ifcApplyOutputFormat();
+    document.getElementById("ifcConvertButton").disabled = true;
+    document.getElementById("ifcFileStatus").textContent = "";
+    document.getElementById("ifcStatus").textContent = "";
+    document.getElementById("ifcSummary").innerHTML = "";
+    document.getElementById("ifcTitleInput").value = "";
+    const engine = document.getElementById("ifcEngineNote"); if (engine) engine.hidden = true;
+    const oda = document.getElementById("ifcOdaOutNote"); if (oda) oda.hidden = true;
+    document.getElementById("ifcLayers").innerHTML =
+      '<p class="ifc-note">Beams, columns, angles, plates, guardrail, stairs and slabs each get their own layer. '
+      + 'Once a model is read you can switch any of them off before the drawing is written.</p>';
+    renderIfcRows({ rows: [] });
+    const hint = document.getElementById("ifcLayerHint"); if (hint) hint.textContent = "Import an IFC to see its layers";
   });
 }
 
@@ -21797,6 +22110,7 @@ function wireEvents() {
   wireHomePanel();
   initDemoStage();
   initCadx();
+  initIfcFlatten();
   dom.pdfMergeImportButton?.addEventListener("click", () => dom.pdfMergeInput?.click());
   dom.pdfMergeInput?.addEventListener("change", (event) => addPdfMergeFiles([...(event.target.files || [])]));
   dom.pdfMergeButton?.addEventListener("click", mergePdfWorkspace);
@@ -25100,6 +25414,7 @@ const DROP_ZONE_SELECTORS = [
   "#matcatDrop",         // material catalog - import
   "#pdfcadDrop",         // convert pdf to cad
   "#cadxDrop",           // explode cad blocks
+  "#ifcDrop",            // flatten ifc to 2d
   "#dwgpdfDrop",         // dwg to pdf
   "#pdfMergeDrop",       // merge / compress
   "#pdfSlipDrop",        // slip-sheet tray
@@ -25158,6 +25473,11 @@ const DROP_DESTINATIONS = [
     tool: "cadexplode", zone: "#cadxDrop", accepts: ["dwg", "dxf"], glyph: "✧",
   },
   {
+    id: "ifcflatten", label: "Flatten to a 2D plan", sub: "Structural IFC to a clean plan DWG/DXF",
+    tool: "ifcflatten", zone: "#ifcDrop", accepts: ["ifc"], glyph: "◫",
+    desktopOnly: true,
+  },
+  {
     id: "logo", label: "Use as contractor logo", sub: "Saved on the active contractor",
     tool: "submittal", zone: "#contractorLogoDrop", accepts: ["image"], glyph: "⚑",
   },
@@ -25171,6 +25491,7 @@ const DROP_KIND_PREFERENCE = {
   hydraulic: ["hydraulic", "pdfmerge"],
   specs: ["submittalsheets", "catalog", "pdfmerge"],
   cad: ["dwgpdf", "cadexplode"],
+  ifc: ["ifcflatten"],
   image: ["logo"],
   unknown: [],
 };
@@ -25181,6 +25502,7 @@ const DROP_KIND_LABEL = {
   hydraulic: "hydraulic calculations",
   specs: "a project specification",
   cad: "a CAD drawing",
+  ifc: "an IFC building model",
   image: "an image",
   unknown: "something we do not recognise",
 };
@@ -25222,6 +25544,7 @@ function dropFileFamily(file) {
   const ext = dropFileExtension(file);
   if (ext === "pdf") return "pdf";
   if (ext === "dwg" || ext === "dxf") return ext;
+  if (ext === "ifc") return "ifc";
   const type = (file && file.type) || "";
   if (/^image\//.test(type) || ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"].includes(ext)) return "image";
   return ext || "file";
@@ -25269,6 +25592,9 @@ async function sniffDroppedFile(file) {
 
   if (family === "dwg" || family === "dxf") {
     return { kind: "cad", reason: "Recognised from the ." + family + " extension.", pageCount: 0 };
+  }
+  if (family === "ifc") {
+    return { kind: "ifc", reason: "Recognised from the .ifc extension.", pageCount: 0 };
   }
   if (family === "image") {
     return { kind: "image", reason: "Recognised from the file type.", pageCount: 0 };
@@ -25377,6 +25703,9 @@ function dropDestinationsFor(family, kind) {
 function dropRouterNoteFor(family, kind, ordered) {
   if (family === "dwg" || family === "dxf") {
     return "Convert PDF to CAD is for PDFs - these are the DWG/DXF tools.";
+  }
+  if (family === "ifc") {
+    return "An IFC is a 3D building model - flattening it produces the 2D plan the other CAD tools work on.";
   }
   if (kind === "unknown") {
     return "Not sure what this is. Pick a destination and it will be handled as usual.";

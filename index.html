@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0826-1123-466c635" />
+    <link rel="stylesheet" href="./styles.css?v=b0902-1846-2b80b5c" />
   </head>
   <body>
     <div class="app-shell">
@@ -1899,6 +1899,77 @@
             </div>
             <div class="pdfcad-cards" id="cadxBlocks" style="display:block;">
               <div class="pdfcad-cards-empty" id="cadxBlocksEmpty">Drop or import a drawing and the blocks it contains are listed here, most-used first. Then hit Explode &amp; Save to flatten them all into a plain drawing.</div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="tool-panel sprinkler-calculator-panel" data-tool-panel="ifcflatten" hidden>
+        <div class="calculator-hero">
+          <div>
+            <p class="eyebrow">CAD Prep</p>
+            <h2>Flatten IFC to 2D</h2>
+          </div>
+          <button class="ghost-button" id="ifcClearButton" type="button">Clear</button>
+        </div>
+        <div class="pdfcad-grid">
+          <section class="panel-section calculator-section pdfcad-input-section">
+            <input id="ifcFileInput" type="file" accept=".ifc" class="hidden-input" />
+            <div class="datasheet-drop" id="ifcDrop" tabindex="0" role="button" aria-label="Drop or click to choose an IFC model">
+              <strong>Drop an IFC model here</strong>
+              <span>Structural IFC to a clean plan DWG/DXF &mdash; no Revit or Tekla needed. Every member is projected straight down to its true footprint, so a W-beam comes out as a rectangle at flange width, not a sliced line.</span>
+            </div>
+            <div class="pdfcad-pick-row">
+              <button class="secondary-button" id="ifcPickButton" type="button" title="Read the model where it sits instead of copying it in">&#128194; Choose file&hellip;</button>
+              <span class="pdfcad-pick-note">Big model? This opens it straight off disk &mdash; no upload step.</span>
+            </div>
+            <p class="calculator-status" id="ifcFileStatus"></p>
+            <div class="ifc-progress" id="ifcProgress" hidden>
+              <div class="ifc-progress-track"><span id="ifcProgressBar"></span></div>
+              <small id="ifcProgressLabel">Reading the model&hellip;</small>
+            </div>
+
+            <div id="ifcSummary" class="pdfcad-summary hydreport-subhead"></div>
+
+            <div class="section-heading hydreport-subhead"><p class="eyebrow">Drawing options</p></div>
+            <label for="ifcTitleInput">Title note (job name)
+              <input id="ifcTitleInput" type="text" placeholder="e.g. 8626 Extraction Platform" />
+            </label>
+            <div class="prelim-seg-field">
+              <span class="prelim-seg-label">Beam labels</span>
+              <div class="segmented-control ifc-seg-3" role="radiogroup" aria-label="Beam label mode">
+                <label><input type="radio" name="ifcLabelMode" value="size" checked /><span>Size</span></label>
+                <label><input type="radio" name="ifcLabelMode" value="size-tos" /><span>Size + TOS</span></label>
+                <label><input type="radio" name="ifcLabelMode" value="none" /><span>None</span></label>
+              </div>
+            </div>
+            <p class="ifc-note" id="ifcLabelNote">Every beam gets its section size on a centerline. Elevations are added only where a beam sits off the dominant top of steel &mdash; the title note carries the rest.</p>
+            <label class="ifc-check"><input type="checkbox" id="ifcRecenterToggle" /> <span>Move the drawing to the origin (0,0)</span></label>
+            <p class="ifc-note">Off by default so the plan lands on the same world coordinates as the rest of the job files.</p>
+
+            <button class="primary-button full-width-button" id="ifcConvertButton" type="button" disabled>Flatten &amp; Save DWG&hellip;</button>
+            <p class="calculator-status" id="ifcStatus"></p>
+            <p class="hydreport-note" id="ifcEngineNote" hidden>The <strong>IFC engine isn&rsquo;t installed in this build</strong>, so IFC models can&rsquo;t be read here. Every other CAD tool still works &mdash; convert the model to DWG/DXF in your BIM package, or ask for a build with IFC support.</p>
+            <div class="cadview-oda" id="ifcOdaOutNote" hidden>
+              Want a <strong>DWG</strong> back instead of DXF? Install the <strong>free ODA File Converter</strong> and the flattened plan saves straight to DWG.
+              <button class="link-button" id="ifcOdaOutLink" type="button">Download it here (free, opendesign.com)</button>
+              <button class="secondary-button compact-button oda-recheck" data-oda-recheck type="button">I&rsquo;ve installed it &mdash; check again</button>
+            </div>
+          </section>
+          <section class="panel-section calculator-section pdfcad-summary-section">
+            <div class="section-heading">
+              <p class="eyebrow">Layers to draw</p>
+              <span id="ifcLayerHint" class="pdfcad-sheet-hint">Import an IFC to see its layers</span>
+            </div>
+            <div class="pdfcad-groups" id="ifcLayers">
+              <p class="ifc-note">Beams, columns, angles, plates, guardrail, stairs and slabs each get their own layer. Once a model is read you can switch any of them off before the drawing is written.</p>
+            </div>
+            <div class="section-heading hydreport-subhead">
+              <p class="eyebrow">What&rsquo;s in this model</p>
+              <span id="ifcRowHint" class="pdfcad-sheet-hint"></span>
+            </div>
+            <div class="pdfcad-cards" id="ifcRows" style="display:block;">
+              <div class="pdfcad-cards-empty">Drop or choose an IFC and every part role it contains is listed here with the layer it lands on &mdash; including anything we could not place, so nothing disappears silently.</div>
             </div>
           </section>
         </div>
@@ -4062,11 +4133,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0826-1123-466c635"></script>
-    <script src="./app.js?v=b0826-1123-466c635"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0826-1123-466c635"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0826-1123-466c635"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0826-1123-466c635"></script>
-    <script src="./prelim-calc-desktop.js?v=b0826-1123-466c635"></script>
+    <script src="./web-backend.js?v=b0902-1846-2b80b5c"></script>
+    <script src="./app.js?v=b0902-1846-2b80b5c"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0902-1846-2b80b5c"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0902-1846-2b80b5c"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0902-1846-2b80b5c"></script>
+    <script src="./prelim-calc-desktop.js?v=b0902-1846-2b80b5c"></script>
   </body>
 </html>

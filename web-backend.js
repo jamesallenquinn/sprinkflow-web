@@ -25,7 +25,7 @@
   if (!WEB) return;                                 // desktop: do nothing
   window.__SPRINKFLOW_WEB__ = true;
   // stamped by packaging/build_web_edition.py at deploy time; "dev" locally
-  var WEB_BUILD = "b0826-1123-466c635";
+  var WEB_BUILD = "b0902-1846-2b80b5c";
   window.__SPRINKFLOW_WEB_BUILD__ = WEB_BUILD;
   console.log("[web-backend] SprinkFlow Web Edition active — build " + WEB_BUILD);
   // mobile layer: web-only stylesheet (media-query gated), never active on desktop
@@ -1114,6 +1114,15 @@
       case "/api/cad-explode/analyze":  return cadxAnalyzeWeb(body);
       case "/api/cad-explode/convert":  return cadxConvertWeb(body);
       case "/api/cad-explode/pick":     return Promise.resolve(jsonResp({ ok: false, error: "The file picker is desktop-only here - drop the DXF on the drop zone instead (add its xref files too and they bind before exploding)." }));
+
+      // ---- Flatten IFC to 2D: desktop-only. The IFC engine (ifcopenshell)
+      // ships OpenCASCADE as a native library and has no Pyodide build, so
+      // there is nothing to run here - say so instead of failing obscurely.
+      case "/api/ifc-flatten/pick":
+      case "/api/ifc-flatten/analyze":
+      case "/api/ifc-flatten/convert":
+      case "/api/ifc-flatten/progress":
+        return Promise.resolve(jsonResp({ ok: false, error: "Flatten IFC to 2D runs in the desktop app - reading an IFC model needs the local IFC engine. Download SprinkFlow for Windows at sprinkflow.studio." }));
 
       // ---- PDF -> CAD (real pdf_to_cad.py in Pyodide; DXF out, no ODA here) ----
       case "/api/pdf-to-cad/analyze":   return pdfcadAnalyzeWeb(body);
