@@ -1538,6 +1538,22 @@ body[data-view-mode="simple"] [data-submittal-generate-dock] .generate-dock-seco
   gap: 8px;
 }
 .generate-open-toggle input { height: 16px; width: 16px; }
+/* Compress-on-generate rides alongside "open the file once it's generated". In
+   the hydraulic tool's 2-column button grid it takes its own full-width row so
+   the buttons above stay a clean grid. */
+.generate-compress-toggle[hidden] { display: none; }
+.project-actions .generate-compress-toggle {
+  grid-column: 1 / -1;
+  justify-self: start;
+  margin-top: 2px;
+}
+/* Quick mode generates from the step nav, so the toggle rides there instead of
+   in the dock - and only on the step that actually has a Generate button. It
+   takes a full second row aligned to the Generate button above it; inline in
+   the right column it would squeeze the step chips into a wrapped stack. */
+.step-nav-compress { display: none; grid-column: 1 / -1; justify-self: end; }
+body[data-view-mode="simple"][data-simple-step="review"] .step-nav-compress { display: flex; }
+body[data-view-mode="simple"][data-simple-step="review"] .step-nav-compress[hidden] { display: none; }
 .generate-dock-button.is-generated {
   background: var(--surface-lift);
   border: 1px solid var(--line);
@@ -5159,6 +5175,65 @@ body[data-theme="plain-light"] .generate-dock {
 /* The shared .option-row adds a top margin for stacked rows; inside this grid
    the `gap` owns the spacing, so the margin would double it. */
 .settings-scan-grid .option-row { margin-top: 0; }
+
+/* Settings > Scanning > Preferred Manufacturers. Its own block under the
+   category checkboxes: a rule and one spacing unit, never a floating island. */
+.settings-maker-block {
+  border-top: 1px solid var(--line);
+  margin-top: 16px;
+  padding-top: 14px;
+}
+
+.settings-subheading {
+  color: var(--ink);
+  font-size: 0.92rem;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  margin: 0 0 8px;
+}
+
+.settings-maker-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settings-maker-row {
+  display: grid;
+  gap: 6px;
+  margin-top: 0;
+  min-width: 0;
+}
+
+/* The "everything" fallback owns the full width so it reads as the rule the
+   per-category rows are exceptions to, not just another category. */
+.settings-maker-row.is-fallback {
+  grid-column: 1 / -1;
+}
+
+.settings-maker-label {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.settings-maker-select {
+  min-height: 38px;
+  width: 100%;
+}
+
+.settings-maker-empty {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.45;
+  margin: 0;
+}
 
 .settings-helper {
   color: var(--muted);
@@ -12091,6 +12166,32 @@ body[data-theme="vellum"] .seismic-cond.is-acked { border-left-color: #3c6a37; }
 
 .plan-offer-controls { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .plan-offer-back { opacity: 0.75; }
+
+/* The shop's default manufacturer, pointed at but never auto-picked. Every
+   chip already has an accent border, so this one gets the "ok" ring AND a
+   spelled-out tag - the state must survive being read in greyscale. */
+.plan-offer-button.is-preferred {
+  border-color: var(--ok);
+  box-shadow: inset 0 0 0 1px var(--ok);
+}
+
+.plan-offer-default-tag {
+  color: var(--ok);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  margin-left: 7px;
+  text-transform: uppercase;
+}
+
+/* Teach-in-place: "Make Victaulic my default for Fittings." A link, not a
+   button, so it reads as an aside to the choice the user just made. */
+.plan-suggestion-teach {
+  display: inline-block;
+  font-size: 0.8rem;
+  margin-top: 8px;
+  text-align: left;
+}
 
 /* ===========================================================================
    Global drop chooser (Phase 4a). Shown when a file is dropped anywhere that

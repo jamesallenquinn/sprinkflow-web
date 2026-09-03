@@ -160,12 +160,20 @@ const DEFAULT_SETTINGS = {
   // --- Shop defaults ---
   outputFolder: "",
   openGeneratedPdf: true,
+  // Compress-on-generate, remembered per generator (a shop that emails
+  // submittals may still want full-resolution calc packages, and vice versa).
+  compressMaterialOutput: false,
+  compressHydraulicOutput: false,
   tocStyle: "standard",
   emailSubjectTemplate: DEFAULT_EMAIL_SUBJECT_TEMPLATE,
   emailBodyTemplate: DEFAULT_EMAIL_BODY_TEMPLATE,
   defaultContractorId: "",
   // --- Scanning ---
   scanCategories: Object.fromEntries(PLAN_SCAN_CATEGORIES.map((key) => [key, true])),
+  // The shop's preferred manufacturer per catalog category, plus an optional
+  // "*" (every category) fallback: { "Fittings": "Victaulic", "*": "Victaulic" }.
+  // Used only to break ties among datasheets a scan ALREADY matched.
+  scanPreferredManufacturers: {},
   // --- Appearance ---
   density: "comfortable",
   // --- General ---
@@ -770,6 +778,8 @@ const dom = {
   deleteProjectButton: document.querySelector("#deleteProjectButton"),
   printButton: document.querySelector("#printButton"),
   generateOpenAfterInput: document.querySelector("#generateOpenAfterInput"),
+  submittalCompressOutputInput: document.querySelector("#submittalCompressOutputInput"),
+  quickCompressOutputInput: document.querySelector("#quickCompressOutputInput"),
   goToHydraulicButton: document.querySelector("#goToHydraulicButton"),
   quickTocSummaryBody: document.querySelector("#quickTocSummaryBody"),
   plansPdfInput: document.querySelector("#plansPdfInput"),
@@ -989,6 +999,7 @@ const dom = {
   settingsDensitySelect: document.querySelector("#settingsDensitySelect"),
   settingsThemeSelect: document.querySelector("#settingsThemeSelect"),
   settingsScanCategoryInputs: [...document.querySelectorAll("[data-scan-category]")],
+  settingsScanManufacturers: document.querySelector("#settingsScanManufacturers"),
   settingsShortcutList: document.querySelector("#settingsShortcutList"),
   settingsSaveButton: document.querySelector("#settingsSaveButton"),
   settingsResetButton: document.querySelector("#settingsResetButton"),
@@ -1111,6 +1122,7 @@ const dom = {
   hydraulicImportButton: document.querySelector("#hydraulicImportButton"),
   hydraulicSortRemoteButton: document.querySelector("#hydraulicSortRemoteButton"),
   hydraulicGenerateButton: document.querySelector("#hydraulicGenerateButton"),
+  hydraulicCompressOutputInput: document.querySelector("#hydraulicCompressOutputInput"),
   hydraulicClearButton: document.querySelector("#hydraulicClearButton"),
   hydraulicStatus: document.querySelector("#hydraulicStatus"),
   hydraulicList: document.querySelector("#hydraulicList"),
@@ -1318,6 +1330,8 @@ function normalizeSettings(settings) {
     ...passthrough,
     outputFolder: String(parsed.outputFolder || "").trim(),
     openGeneratedPdf: parsed.openGeneratedPdf !== false,
+    compressMaterialOutput: parsed.compressMaterialOutput === true,
+    compressHydraulicOutput: parsed.compressHydraulicOutput === true,
     tocStyle,
     emailSubjectTemplate: String(parsed.emailSubjectTemplate || DEFAULT_EMAIL_SUBJECT_TEMPLATE),
     emailBodyTemplate: String(parsed.emailBodyTemplate || DEFAULT_EMAIL_BODY_TEMPLATE),
@@ -1325,10 +1339,28 @@ function normalizeSettings(settings) {
     scanCategories: Object.fromEntries(
       PLAN_SCAN_CATEGORIES.map((key) => [key, scanRaw[key] !== false]),
     ),
+    scanPreferredManufacturers: normalizeScanPreferredManufacturers(parsed.scanPreferredManufacturers),
     density: DENSITY_MODES.includes(parsed.density) ? parsed.density : "comfortable",
     homeOnLaunch: parsed.homeOnLaunch !== false,
     lastSignInEmail: String(parsed.lastSignInEmail || "").trim().toLowerCase(),
   };
+}
+
+/**
+ * `{ "<catalog category>": "<manufacturer>", "*": "<manufacturer>" }`.
+ * Blank values are dropped rather than stored, so "No preference" really does
+ * clear the key instead of leaving an empty string behind.
+ */
+function normalizeScanPreferredManufacturers(value) {
+  const raw = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const output = {};
+  for (const [rawCategory, rawManufacturer] of Object.entries(raw)) {
+    const category = String(rawCategory || "").trim();
+    const manufacturer = String(rawManufacturer || "").trim();
+    if (!category || !manufacturer) continue;
+    output[category] = manufacturer;
+  }
+  return output;
 }
 
 function normalizeCoverAdditionalInfo(value) {
@@ -4069,6 +4101,7 @@ function renderSettings() {
   if (dom.settingsOutputFolderInput) dom.settingsOutputFolderInput.value = settings.outputFolder;
   if (dom.settingsLegacyModeInput) dom.settingsLegacyModeInput.checked = state.viewMode === "standard";
   if (dom.settingsOpenGeneratedPdfInput) dom.settingsOpenGeneratedPdfInput.checked = settings.openGeneratedPdf;
+  syncCompressOnGenerateToggles();
   if (dom.settingsTocStyleSelect) dom.settingsTocStyleSelect.value = settings.tocStyle;
   if (dom.settingsEmailSubjectInput) dom.settingsEmailSubjectInput.value = settings.emailSubjectTemplate;
   if (dom.settingsEmailBodyInput) dom.settingsEmailBodyInput.value = settings.emailBodyTemplate;
@@ -4080,8 +4113,75 @@ function renderSettings() {
     if (input) input.checked = settings.scanCategories[key] !== false;
   });
   renderDefaultContractorSelect(settings);
+  renderScanPreferredManufacturers();
   renderShortcutList();
   applyDensity();
+}
+
+/**
+ * Settings > Scanning > Preferred manufacturers. One row per catalog category
+ * that actually has manufacturers in THIS shop's catalog, plus an "All
+ * categories" fallback. Nothing is hardcoded: the categories come from
+ * CATEGORIES (defaults + the user's own) and the manufacturer lists come from
+ * the live catalog, so a shop only ever sees makers it really has.
+ */
+function renderScanPreferredManufacturers() {
+  const host = dom.settingsScanManufacturers;
+  if (!host) return;
+  const prefs = scanPreferredManufacturers();
+  const byCategory = new Map();
+  const everyManufacturer = new Set();
+  for (const item of state.catalog) {
+    const category = String(item?.category || "").trim();
+    const manufacturer = catalogItemManufacturer(item);
+    if (!category || !manufacturer) continue;
+    if (!byCategory.has(category)) byCategory.set(category, new Set());
+    byCategory.get(category).add(manufacturer);
+    everyManufacturer.add(manufacturer);
+  }
+  if (!everyManufacturer.size) {
+    host.innerHTML = '<p class="settings-maker-empty">Add datasheets to your Material Catalog and the manufacturers you carry will show up here.</p>';
+    return;
+  }
+  const ordered = [...CATEGORIES, ...[...byCategory.keys()].filter((category) => !CATEGORIES.includes(category))];
+  const rows = [
+    { key: SCAN_PREFERRED_ALL_CATEGORIES, label: "All categories", manufacturers: [...everyManufacturer] },
+    ...ordered
+      .filter((category) => byCategory.has(category))
+      .map((category) => ({ key: category, label: category, manufacturers: [...byCategory.get(category)] })),
+  ];
+  host.innerHTML = rows.map((row) => {
+    const current = String(prefs[row.key] || "").trim();
+    const manufacturers = row.manufacturers.slice().sort((a, b) => a.localeCompare(b));
+    // A preference whose manufacturer has since left the catalog stays on the
+    // list instead of silently resetting itself the next time this renders.
+    if (current && !manufacturers.some((maker) => manufacturerKey(maker) === manufacturerKey(current))) {
+      manufacturers.unshift(current);
+    }
+    const options = ['<option value="">No preference</option>'].concat(
+      manufacturers.map((maker) => `<option value="${escapeHtml(maker)}"${manufacturerKey(maker) === manufacturerKey(current) ? " selected" : ""}>${escapeHtml(maker)}</option>`),
+    );
+    return `
+        <label class="settings-maker-row${row.key === SCAN_PREFERRED_ALL_CATEGORIES ? " is-fallback" : ""}">
+          <span class="settings-maker-label">${escapeHtml(row.label)}</span>
+          <select class="settings-maker-select" data-scan-manufacturer="${escapeHtml(row.key)}">${options.join("")}</select>
+        </label>`;
+  }).join("");
+}
+
+function handleScanPreferredManufacturerChange(event) {
+  const select = event.target.closest("[data-scan-manufacturer]");
+  if (!select) return;
+  const category = select.dataset.scanManufacturer;
+  const manufacturer = select.value;
+  setScanPreferredManufacturer(category, manufacturer);
+  const label = category === SCAN_PREFERRED_ALL_CATEGORIES ? "every category" : category;
+  setSettingsStatus(
+    manufacturer
+      ? `${manufacturer} is now your default for ${label}.`
+      : `Cleared the default manufacturer for ${label}.`,
+    "success",
+  );
 }
 
 /** Appearance > Density. One body attribute redefines the spacing tokens. */
@@ -4311,10 +4411,11 @@ function selectedMaterialItemsForGeneration() {
   return items;
 }
 
-function materialSubmittalPayload(items, openGeneratedPdf) {
+function materialSubmittalPayload(items, openGeneratedPdf, compressOutput) {
   return {
     project: { ...state.project, coverTemplate: state.coverTemplate, hideContractor: isNoContractorSelected() },
     contractor: formContractor(),
+    compressOutput: Boolean(compressOutput),
     settings: { ...normalizeSettings(state.settings), openGeneratedPdf },
     items: items.map((item) => ({
       ...item,
@@ -4330,7 +4431,10 @@ function materialSubmittalPayload(items, openGeneratedPdf) {
   };
 }
 
-async function createMaterialSubmittalOutput({ openGeneratedPdf = state.settings.openGeneratedPdf } = {}) {
+async function createMaterialSubmittalOutput({
+  openGeneratedPdf = state.settings.openGeneratedPdf,
+  compressOutput = compressOnGenerateEnabled("material"),
+} = {}) {
   syncStateFromInputs();
   if (!ensureLicensedToolAccess(setGenerateStatus)) throw new Error("SprinkFlow tools are locked.");
   const licenseBlock = commercialOutputBlockMessage();
@@ -4342,7 +4446,7 @@ async function createMaterialSubmittalOutput({ openGeneratedPdf = state.settings
   const response = await fetch("./api/generate-submittal", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(materialSubmittalPayload(items, openGeneratedPdf)),
+    body: JSON.stringify(materialSubmittalPayload(items, openGeneratedPdf, compressOutput)),
   });
   const result = await readJsonResponse(response);
   if (!response.ok || !result.ok) {
@@ -4353,7 +4457,7 @@ async function createMaterialSubmittalOutput({ openGeneratedPdf = state.settings
   return result;
 }
 
-function hydraulicPackagePayload(openGeneratedPdf) {
+function hydraulicPackagePayload(openGeneratedPdf, compressOutput) {
   if (!hydraulicCalcFiles.length) {
     throw new Error("Add at least one hydraulic calc PDF before generating.");
   }
@@ -4374,6 +4478,7 @@ function hydraulicPackagePayload(openGeneratedPdf) {
       hideContractor: Boolean(dom.hydraulicHideContractorInput?.checked),
     },
     contractor: formContractor(),
+    compressOutput: Boolean(compressOutput),
     settings: { ...normalizeSettings(state.settings), openGeneratedPdf },
     files: hydraulicCalcFiles.map((file) => ({
       id: file.id,
@@ -4391,7 +4496,10 @@ function hydraulicPackagePayload(openGeneratedPdf) {
   };
 }
 
-async function createHydraulicPackageOutput({ openGeneratedPdf = state.settings.openGeneratedPdf } = {}) {
+async function createHydraulicPackageOutput({
+  openGeneratedPdf = state.settings.openGeneratedPdf,
+  compressOutput = compressOnGenerateEnabled("hydraulic"),
+} = {}) {
   if (!ensureLicensedToolAccess(setHydraulicStatus)) throw new Error("SprinkFlow tools are locked.");
   const licenseBlock = commercialOutputBlockMessage();
   if (licenseBlock) {
@@ -4401,7 +4509,7 @@ async function createHydraulicPackageOutput({ openGeneratedPdf = state.settings.
   const response = await fetch("./api/generate-hydraulic-package", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(hydraulicPackagePayload(openGeneratedPdf)),
+    body: JSON.stringify(hydraulicPackagePayload(openGeneratedPdf, compressOutput)),
   });
   const result = await readJsonResponse(response);
   if (!response.ok || !result.ok) throw new Error(result.error || `Hydraulic package generation failed with server status ${response.status}.`);
@@ -4410,16 +4518,82 @@ async function createHydraulicPackageOutput({ openGeneratedPdf = state.settings.
   return result;
 }
 
+// Compress-on-generate is a desktop-only trick: the web edition builds its PDFs
+// in the browser with pdf-lib and has no compression engine to call, so the
+// toggle is hidden there rather than shown dead.
+function compressOnGenerateSupported() {
+  return !window.__SPRINKFLOW_WEB_BUILD__;
+}
+
+// Quick mode generates the submittal from the step nav, Advanced from the
+// bottom dock - two buttons, one setting, so both boxes mirror each other.
+const COMPRESS_TOGGLE_SETTINGS = [
+  ["submittalCompressOutputInput", "compressMaterialOutput"],
+  ["quickCompressOutputInput", "compressMaterialOutput"],
+  ["hydraulicCompressOutputInput", "compressHydraulicOutput"],
+];
+
+function bindCompressOnGenerateToggles() {
+  for (const [domKey, settingKey] of COMPRESS_TOGGLE_SETTINGS) {
+    const input = dom[domKey];
+    if (!input || !compressOnGenerateSupported()) continue;
+    input.addEventListener("change", () => {
+      state.settings[settingKey] = input.checked;
+      saveState();
+      syncCompressOnGenerateToggles();
+    });
+  }
+  syncCompressOnGenerateToggles();
+}
+
+function syncCompressOnGenerateToggles() {
+  const supported = compressOnGenerateSupported();
+  for (const [domKey, settingKey] of COMPRESS_TOGGLE_SETTINGS) {
+    const input = dom[domKey];
+    if (!input) continue;
+    const row = input.closest("[data-compress-toggle]");
+    // Web edition: no compression engine behind the button, so no control.
+    if (row) row.hidden = !supported;
+    input.checked = supported && state.settings[settingKey] === true;
+  }
+}
+
+function compressOnGenerateEnabled(scope) {
+  if (!compressOnGenerateSupported()) return false;
+  return scope === "hydraulic"
+    ? state.settings.compressHydraulicOutput === true
+    : state.settings.compressMaterialOutput === true;
+}
+
+// "Compressed 48.2 MB -> 12.7 MB." - the squeeze the owner asked to see, or the
+// reason there wasn't one. Empty when compression was never requested.
+function compressionSummary(result) {
+  if (result?.compressed) {
+    const before = formatBytesForCompression(result.originalBytes);
+    const after = formatBytesForCompression(result.finalBytes);
+    return ` Compressed ${before} → ${after}.`;
+  }
+  if (result?.compressionWarning) return ` ${result.compressionWarning}`;
+  return "";
+}
+
+function formatBytesForCompression(bytes) {
+  const value = Number(bytes) || 0;
+  const mb = value / (1024 * 1024);
+  return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.max(1, Math.round(value / 1024))} KB`;
+}
+
 // Status line for a generated PDF that reflects what ACTUALLY happened -
 // the server reports whether the viewer launched, the folder was revealed
 // as a fallback, or nothing could be opened.
 function generatedOutputMessage(result, label) {
   const path = result.path || "";
+  const squeeze = compressionSummary(result);
   switch (result.opened) {
-    case "pdf": return `${label} generated and opened: ${path}`;
-    case "folder": return `${label} generated. Your PDF viewer didn't launch, so its folder is open with the file selected: ${path}`;
-    case "none": return `${label} generated but couldn't be opened automatically. Use Open PDF / Open Folder below. Saved to: ${path}`;
-    default: return `${label} generated: ${path}`;
+    case "pdf": return `${label} generated and opened: ${path}${squeeze}`;
+    case "folder": return `${label} generated. Your PDF viewer didn't launch, so its folder is open with the file selected: ${path}${squeeze}`;
+    case "none": return `${label} generated but couldn't be opened automatically. Use Open PDF / Open Folder below. Saved to: ${path}${squeeze}`;
+    default: return `${label} generated: ${path}${squeeze}`;
   }
 }
 
@@ -6004,7 +6178,13 @@ async function generateMaterialDataSubmittal() {
   materialSubmittalGenerating = true;
   syncStateFromInputs();
   const openAfter = dom.generateOpenAfterInput ? dom.generateOpenAfterInput.checked : state.settings.openGeneratedPdf;
-  setGenerateStatus(openAfter ? "Generating the submittal and opening it..." : "Generating the submittal...", "info");
+  const compressAfter = compressOnGenerateEnabled("material");
+  setGenerateStatus(
+    compressAfter
+      ? "Generating the submittal, then compressing it (this takes a bit longer)..."
+      : (openAfter ? "Generating the submittal and opening it..." : "Generating the submittal..."),
+    "info",
+  );
   dom.printButton.disabled = true;
   dom.printButton.textContent = "Generating...";
   if (dom.simpleContinueButton) {
@@ -6013,9 +6193,11 @@ async function generateMaterialDataSubmittal() {
   }
 
   let generated = false;
+  let squeeze = "";
   try {
-    const result = await createMaterialSubmittalOutput({ openGeneratedPdf: openAfter });
+    const result = await createMaterialSubmittalOutput({ openGeneratedPdf: openAfter, compressOutput: compressAfter });
     generated = true;
+    squeeze = compressionSummary(result);
     setGenerateStatus(generatedOutputMessage(result, "Submittal"), result.opened === "none" ? "info" : "success");
   } catch (error) {
     setGenerateStatus(`Could not generate submittal: ${error.message || "PDF generation failed. Check that the selected PDFs still exist, then try Refresh Database."}`, "error");
@@ -6029,7 +6211,8 @@ async function generateMaterialDataSubmittal() {
     syncGenerateDockState();
     if (generated && state.viewMode === "simple") {
       // Quick-mode handoff: the submittal is now in the package — make the calc package the obvious next step.
-      setGenerateStatus("Material Data Submittal added to your package. Next, confirm and generate your Hydraulic Calc Package.", "success");
+      // The squeeze rides along; this line replaces the one that reported it.
+      setGenerateStatus(`Material Data Submittal added to your package.${squeeze} Next, confirm and generate your Hydraulic Calc Package.`, "success");
     }
   }
 }
@@ -7233,6 +7416,100 @@ function applyScanContractorChoice(choice) {
   return selectSavedContractor(choice.match.id);
 }
 
+// ===========================================================================
+//  Preferred manufacturers (Settings > Scanning)
+//
+//  The shop says "our grooved couplings are Victaulic" once, and every later
+//  scan pre-selects the Victaulic option out of the candidates the matcher
+//  already found. This is a TIE-BREAK AT PRESENTATION TIME ONLY: it never adds,
+//  removes, or re-scores a match, so which datasheets a scan finds - and the
+//  plan-scan bench that measures it - are untouched.
+// ===========================================================================
+const SCAN_PREFERRED_ALL_CATEGORIES = "*";
+
+function scanPreferredManufacturers() {
+  return normalizeSettings(state.settings).scanPreferredManufacturers || {};
+}
+
+/** Exact category preference first, then the "every category" fallback. */
+function scanPreferredManufacturerChain(category) {
+  const prefs = scanPreferredManufacturers();
+  const chain = [];
+  const exact = String(prefs[String(category || "").trim()] || "").trim();
+  if (exact) chain.push(exact);
+  const fallback = String(prefs[SCAN_PREFERRED_ALL_CATEGORIES] || "").trim();
+  if (fallback && manufacturerKey(fallback) !== manufacturerKey(exact)) chain.push(fallback);
+  return chain;
+}
+
+function manufacturerKey(value) {
+  return normalize(value);
+}
+
+function catalogItemManufacturer(item) {
+  return String(item?.manufacturer || "").trim();
+}
+
+/** The preference actually in force for a category, or "" when there is none. */
+function scanPreferredManufacturerFor(category) {
+  return scanPreferredManufacturerChain(category)[0] || "";
+}
+
+/**
+ * Pick the preferred-manufacturer item out of candidates the matcher ALREADY
+ * produced. Returns null when there is no preference, no candidate from that
+ * manufacturer, or nothing to choose between - callers then keep their own
+ * default, so behavior with no preference set is bit-for-bit unchanged.
+ */
+function pickPreferredCatalogItem(items, category) {
+  const list = (Array.isArray(items) ? items : []).filter(Boolean);
+  if (list.length < 2) return null;
+  const wanted = String(category || list[0]?.category || "").trim();
+  for (const manufacturer of scanPreferredManufacturerChain(wanted)) {
+    const key = manufacturerKey(manufacturer);
+    if (!key) continue;
+    const hit = list.find((item) => manufacturerKey(item.manufacturer) === key);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/**
+ * The same tie-break for the single-match path. Only items tied at the WINNING
+ * score are eligible, so a preference can never promote a weaker match over a
+ * stronger one - it only decides a coin flip the sort was making arbitrarily.
+ */
+function preferScoredCatalogMatch(scored, category) {
+  const entries = (Array.isArray(scored) ? scored : []).filter((entry) => entry?.item);
+  if (!entries.length) return null;
+  const best = entries[0].score;
+  const tied = entries.filter((entry) => entry.score === best).map((entry) => entry.item);
+  return pickPreferredCatalogItem(tied, category) || entries[0].item;
+}
+
+/** Which preference key a review row teaches / reads. */
+function planSuggestionPreferenceCategory(suggestion) {
+  const item = planSuggestionSelectedItem(suggestion);
+  return String(suggestion?.category || item?.category || suggestion?.detected?.category || "").trim();
+}
+
+/**
+ * Write one preference and persist it the way every other setting persists.
+ * Deliberately re-renders only its own Settings block: a full renderSettings()
+ * here would stomp on any other settings field the user is mid-edit.
+ */
+function setScanPreferredManufacturer(category, manufacturer) {
+  const key = String(category || "").trim();
+  if (!key) return;
+  const prefs = { ...scanPreferredManufacturers() };
+  const value = String(manufacturer || "").trim();
+  if (value) prefs[key] = value;
+  else delete prefs[key];
+  state.settings = normalizeSettings({ ...state.settings, scanPreferredManufacturers: prefs });
+  renderScanPreferredManufacturers();
+  saveState();
+}
+
 function buildPlanCatalogSuggestions(projectInfo) {
   const suggestions = [];
   const seen = new Set();
@@ -7252,16 +7529,17 @@ function buildPlanCatalogSuggestions(projectInfo) {
   const addChoiceSuggestion = (kind, detected, category, terms, label = "", config = {}) => {
     const choiceOptions = findCatalogChoiceOptions(category, terms, new Set(), config.excludeTerms || [], config.preferred || []);
     if (!choiceOptions.length) return;
+    const defaultOption = pickPreferredCatalogItem(choiceOptions, category) || choiceOptions[0];
     suggestions.push({
       kind,
       detected,
       category,
       label: label || detected.term || detected.sourceText || category,
       options: choiceOptions,
-      selectedId: choiceOptions[0]?.id || "",
+      selectedId: defaultOption?.id || "",
       selectable: true,
       checked: config.checked ?? false,
-      status: isRemoteCatalogItem(choiceOptions[0]) ? "import" : "choice",
+      status: isRemoteCatalogItem(defaultOption) ? "import" : "choice",
     });
   };
   for (const sprinkler of Array.isArray(projectInfo.sprinklers) ? projectInfo.sprinklers : []) {
@@ -7273,16 +7551,17 @@ function buildPlanCatalogSuggestions(projectInfo) {
   for (const pipe of Array.isArray(projectInfo.pipeTypes) ? projectInfo.pipeTypes : []) {
     const pipeOptions = matchPipeOptionsFromPlan(pipe);
     if (pipeOptions.length > 1) {
+      const defaultPipe = pickPreferredCatalogItem(pipeOptions, "Pipe") || pipeOptions[0];
       suggestions.push({
         kind: "pipe-choice",
         detected: pipe,
         category: "Pipe",
         label: pipe.pipeType || pipe.sourceText || "Pipe",
         options: pipeOptions,
-        selectedId: pipeOptions[0].id || "",
+        selectedId: defaultPipe.id || "",
         selectable: true,
         checked: false,
-        status: isRemoteCatalogItem(pipeOptions[0]) ? "import" : "choice",
+        status: isRemoteCatalogItem(defaultPipe) ? "import" : "choice",
       });
     } else {
       addSuggestion("pipe", pipe, matchPipeFromPlan(pipe));
@@ -7311,6 +7590,7 @@ function buildPlanCatalogSuggestions(projectInfo) {
       suggestions.push({
         kind: "offer",
         offerKey: "cpvc-hangers",
+        category: "Hangers",
         label: "CPVC pipe detected — add CPVC hangers?",
         offerOptions: cpvcHangers,
         selectable: false,
@@ -7386,7 +7666,12 @@ function consolidatePlanChoiceSuggestions(suggestions) {
     ]).sort(compareCatalogItems);
     if (options.length < 2) continue;
     group.suggestions.forEach((suggestion) => groupedSuggestions.add(suggestion));
-    const preferred = group.suggestions.find((suggestion) => suggestion.checked === true)?.item || group.suggestions[0]?.item || options[0];
+    // Preferred manufacturer first: the whole point of consolidation is that
+    // these options are interchangeable answers to the same detection.
+    const preferred = pickPreferredCatalogItem(options, group.category)
+      || group.suggestions.find((suggestion) => suggestion.checked === true)?.item
+      || group.suggestions[0]?.item
+      || options[0];
     choiceByFirstSuggestion.set(group.suggestions[0], {
       kind: `${group.category.toLowerCase()}-choice`,
       detected,
@@ -7429,7 +7714,12 @@ function dedupePlanChoiceRows(suggestions) {
     }
     const selectedItem = planSuggestionSelectedItem(existing) || planSuggestionSelectedItem(suggestion);
     existing.options = uniqueCatalogItems([...existing.options, ...suggestion.options]).sort(compareCatalogItems);
-    existing.selectedId = selectedItem?.id || existing.selectedId || existing.options[0]?.id || "";
+    // A merge widens the option list, so the preference gets another look - but
+    // never over a pick the user made by hand in this dialog.
+    const preferredItem = existing.userPicked
+      ? null
+      : pickPreferredCatalogItem(existing.options, existing.category);
+    existing.selectedId = preferredItem?.id || selectedItem?.id || existing.selectedId || existing.options[0]?.id || "";
     existing.checked = Boolean(existing.checked || suggestion.checked);
     existing.status = isRemoteCatalogItem(planSuggestionSelectedItem(existing)) ? "import" : "choice";
   }
@@ -8071,8 +8361,9 @@ function matchPipeFromPlan(record) {
   const scored = pipes
     .map((item) => ({ item, score: scorePipeMatch(item, label) }))
     .filter((entry) => entry.score > 0)
-    .sort((a, b) => b.score - a.score)[0];
-  return scored ? { item: scored.item, status: isRemoteCatalogItem(scored.item) ? "import" : "exact" } : null;
+    .sort((a, b) => b.score - a.score);
+  const item = preferScoredCatalogMatch(scored, "Pipe");
+  return item ? { item, status: isRemoteCatalogItem(item) ? "import" : "exact" } : null;
 }
 
 // Every pipe that scores for the detected type, best match first (score, then
@@ -8099,8 +8390,9 @@ function matchCatalogTermFromPlan(record, category) {
     .filter((item) => item.category === category)
     .map((item) => ({ item, score: scoreCatalogTermMatch(item, terms) }))
     .filter((entry) => entry.score > 0)
-    .sort((a, b) => b.score - a.score)[0];
-  return scored ? { item: scored.item, status: isRemoteCatalogItem(scored.item) ? "import" : "exact" } : null;
+    .sort((a, b) => b.score - a.score);
+  const item = preferScoredCatalogMatch(scored, category);
+  return item ? { item, status: isRemoteCatalogItem(item) ? "import" : "exact" } : null;
 }
 
 function planCatalogSearchTerms(record) {
@@ -8546,9 +8838,20 @@ function renderPlansReviewSuggestions(suggestions) {
       const makers = [...new Set(suggestion.offerOptions.map((item) => item.manufacturer || "Other"))];
       let controls = "";
       if (!suggestion.offerMaker) {
+        // The shop's default maker is highlighted, not auto-picked: this step
+        // stays a decision, it just points at the usual answer.
+        const preferredMaker = scanPreferredManufacturerFor(suggestion.category || "Hangers");
         controls = makers.map((maker) => {
           const count = suggestion.offerOptions.filter((item) => (item.manufacturer || "Other") === maker).length;
-          return `<button class="small-button plan-offer-button" type="button" data-plan-offer-maker="${escapeHtml(maker)}" data-plan-offer-index="${index}">${escapeHtml(maker)} (${count})</button>`;
+          const isPreferred = Boolean(preferredMaker) && manufacturerKey(maker) === manufacturerKey(preferredMaker);
+          // The marker is a word, not just a color: the chips already carry an
+          // accent border, so a recolored border alone would not read as "this
+          // one is yours" - and would say nothing to a colorblind user.
+          const label = `${escapeHtml(maker)} (${count})${isPreferred ? '<span class="plan-offer-default-tag">your default</span>' : ""}`;
+          const aria = isPreferred
+            ? ` aria-label="${escapeHtml(maker)}, ${count} hangers — your default manufacturer" title="Your default manufacturer"`
+            : "";
+          return `<button class="small-button plan-offer-button${isPreferred ? " is-preferred" : ""}" type="button" data-plan-offer-maker="${escapeHtml(maker)}" data-plan-offer-index="${index}"${aria}>${label}</button>`;
         }).join("");
       } else {
         const count = suggestion.offerOptions.filter((item) => (item.manufacturer || "Other") === suggestion.offerMaker).length;
@@ -8567,6 +8870,7 @@ function renderPlansReviewSuggestions(suggestions) {
             <span class="plan-suggestion-title">${escapeHtml(suggestion.label)}</span>
             <span class="plan-suggestion-meta">${meta}</span>
             <span class="plan-offer-controls">${controls}</span>
+            ${planTeachDefaultHtml(suggestion, index)}
           </span>
         </article>
       `;
@@ -8592,6 +8896,7 @@ function renderPlansReviewSuggestions(suggestions) {
             </select>
             ${selectedItem?.includesFittings && !/includes fittings/i.test(displayName(selectedItem))
               ? '<span class="plan-suggestion-note">This datasheet also covers the matching fittings.</span>' : ""}
+            ${planTeachDefaultHtml(suggestion, index)}
           </span>
           ${action}
         </article>
@@ -8627,6 +8932,22 @@ function planSuggestionSelectedItem(suggestion) {
   if (suggestion.item) return suggestion.item;
   if (!Array.isArray(suggestion.options) || !suggestion.options.length) return null;
   return suggestion.options.find((item) => item.id === suggestion.selectedId) || suggestion.options[0] || null;
+}
+
+/**
+ * Teach-in-place. The moment a user overrides a row onto a different
+ * manufacturer, the row offers to remember it: "Make Victaulic my default for
+ * Fittings." Nothing is written until they click - and the offer disappears
+ * once that manufacturer already IS the default for the category.
+ */
+function planTeachDefaultHtml(suggestion, index) {
+  const manufacturer = String(suggestion?.teachManufacturer || "").trim();
+  if (!manufacturer) return "";
+  const category = planSuggestionPreferenceCategory(suggestion);
+  if (!category) return "";
+  if (manufacturerKey(scanPreferredManufacturerFor(category)) === manufacturerKey(manufacturer)) return "";
+  return `<button class="link-button plan-suggestion-teach" type="button" data-plan-teach="${index}">`
+    + `Make ${escapeHtml(manufacturer)} my default for ${escapeHtml(category)}</button>`;
 }
 
 function planDetectedSummary(detected) {
@@ -8692,12 +9013,16 @@ function showPlansReviewDialog(review) {
       if (!offer?.offerOptions?.length) return;
       if (makerButton) {
         offer.offerMaker = makerButton.dataset.planOfferMaker;
+        // Picking a maker here is exactly the "I want this brand" signal the
+        // dropdown rows give, so the same teach-in-place offer follows it.
+        offer.teachManufacturer = offer.offerMaker && offer.offerMaker !== "Other" ? offer.offerMaker : "";
         refreshPlansReviewSuggestionList(review);
         return;
       }
       const mode = modeButton.dataset.planOfferMode;
       if (mode === "back") {
         offer.offerMaker = "";
+        offer.teachManufacturer = "";
         refreshPlansReviewSuggestionList(review);
         return;
       }
@@ -8750,6 +9075,9 @@ function showPlansReviewDialog(review) {
       if (Array.isArray(suggestion.options)) {
         suggestion.options = suggestion.options.map((option) => option.id === item.id ? updated : option);
         suggestion.selectedId = updated.id;
+        // An imported sheet is a decision about THIS row: a later merge that
+        // widens the option list must not swing it onto a preferred maker.
+        suggestion.userPicked = true;
       }
       suggestion.status = "exact";
       suggestion.selectable = true;
@@ -8770,8 +9098,31 @@ function showPlansReviewDialog(review) {
       if (!select) return;
       const suggestion = review.suggestions[Number(select.dataset.planChoice)];
       if (!suggestion) return;
+      const previousManufacturer = catalogItemManufacturer(planSuggestionSelectedItem(suggestion));
       suggestion.selectedId = select.value;
+      // A hand pick outranks the preference for the rest of this dialog, so a
+      // later row merge cannot quietly swing the choice back.
+      suggestion.userPicked = true;
       suggestion.checked = true;
+      const nextManufacturer = catalogItemManufacturer(planSuggestionSelectedItem(suggestion));
+      suggestion.teachManufacturer = nextManufacturer
+        && manufacturerKey(nextManufacturer) !== manufacturerKey(previousManufacturer)
+        ? nextManufacturer
+        : "";
+      refreshPlansReviewSuggestionList(review);
+    };
+    const onTeachDefault = (event) => {
+      const button = event.target.closest("[data-plan-teach]");
+      if (!button) return;
+      event.preventDefault();
+      const suggestion = review.suggestions[Number(button.dataset.planTeach)];
+      if (!suggestion) return;
+      const manufacturer = String(suggestion.teachManufacturer || "").trim();
+      const category = planSuggestionPreferenceCategory(suggestion);
+      if (!manufacturer || !category) return;
+      setScanPreferredManufacturer(category, manufacturer);
+      suggestion.teachManufacturer = "";
+      showToast(`${manufacturer} is now your default for ${category} — change it any time in Settings > Scanning.`, { tone: "success" });
       refreshPlansReviewSuggestionList(review);
     };
     // Dismiss-on-backdrop must require the PRESS to start on the backdrop, not
@@ -8801,6 +9152,8 @@ function showPlansReviewDialog(review) {
       dom.plansReviewImportApplyButton?.removeEventListener("click", onImportAllMissing);
       dom.plansReviewApplyButton.removeEventListener("click", onApply);
       dom.plansReviewSuggestions.removeEventListener("click", onImport);
+      dom.plansReviewSuggestions.removeEventListener("click", onOfferExpand);
+      dom.plansReviewSuggestions.removeEventListener("click", onTeachDefault);
       dom.plansReviewSuggestions.removeEventListener("change", onChoiceChange);
       dom.plansReviewDialog.removeEventListener("cancel", onCancel);
       dom.plansReviewDialog.removeEventListener("pointerdown", onBackdropPress);
@@ -8810,7 +9163,9 @@ function showPlansReviewDialog(review) {
     dom.plansReviewSelectAllButton?.addEventListener("click", onSelectAll);
     dom.plansReviewImportApplyButton?.addEventListener("click", onImportAllMissing);
     dom.plansReviewApplyButton.addEventListener("click", onApply);
-    dom.plansReviewSuggestions.addEventListener("click", onImport); dom.plansReviewSuggestions.addEventListener("click", onOfferExpand);
+    dom.plansReviewSuggestions.addEventListener("click", onImport);
+    dom.plansReviewSuggestions.addEventListener("click", onOfferExpand);
+    dom.plansReviewSuggestions.addEventListener("click", onTeachDefault);
     dom.plansReviewSuggestions.addEventListener("change", onChoiceChange);
     dom.plansReviewDialog.addEventListener("cancel", onCancel);
     dom.plansReviewDialog.addEventListener("pointerdown", onBackdropPress);
@@ -8895,6 +9250,7 @@ async function importMissingPlanSuggestions(review, { selectImported = false, on
     if (Array.isArray(suggestion.options)) {
       suggestion.options = suggestion.options.map((option) => option.id === item.id ? updated : option);
       suggestion.selectedId = updated.id;
+      suggestion.userPicked = true;
     }
     suggestion.status = "exact";
     suggestion.selectable = true;
@@ -19796,13 +20152,19 @@ let hydraulicPackageGenerating = false;
 async function generateHydraulicPackage() {
   if (hydraulicPackageGenerating) return;
   hydraulicPackageGenerating = true;
-  setHydraulicStatus("Generating hydraulic calc package and opening it in your default viewer...", "info");
+  const compressAfter = compressOnGenerateEnabled("hydraulic");
+  setHydraulicStatus(
+    compressAfter
+      ? "Generating hydraulic calc package, then compressing it (this takes a bit longer)..."
+      : "Generating hydraulic calc package and opening it in your default viewer...",
+    "info",
+  );
   if (dom.hydraulicGenerateButton) {
     dom.hydraulicGenerateButton.disabled = true;
     dom.hydraulicGenerateButton.textContent = "Generating...";
   }
   try {
-    const result = await createHydraulicPackageOutput({ openGeneratedPdf: state.settings.openGeneratedPdf });
+    const result = await createHydraulicPackageOutput({ openGeneratedPdf: state.settings.openGeneratedPdf, compressOutput: compressAfter });
     setHydraulicStatus(generatedOutputMessage(result, "Calc package"), result.opened === "none" ? "info" : "success");
   } catch (error) {
     setHydraulicStatus(`Could not generate hydraulic calc package: ${error.message || "PDF generation failed."}`, "error");
@@ -22709,10 +23071,14 @@ function wireEvents() {
       saveState();
     });
   }
+  bindCompressOnGenerateToggles();
   dom.emailDraftCancelButton?.addEventListener("click", () => closeDialogSafely(dom.emailDraftDialog));
   dom.emailDraftCreateButton?.addEventListener("click", createPackageEmailDraft);
   dom.emailDraftNameInput?.addEventListener("input", refreshEmailDraftTemplate);
   dom.settingsSaveButton?.addEventListener("click", saveSettingsFromInputs);
+  // Preferred manufacturers persist the moment they change - there is nothing
+  // to "compose" here, and a Save button would be a trap next to a dropdown.
+  dom.settingsScanManufacturers?.addEventListener("change", handleScanPreferredManufacturerChange);
   dom.settingsResetButton?.addEventListener("click", resetSettings);
   dom.settingsLegacyModeInput?.addEventListener("change", () => {
     state.viewMode = dom.settingsLegacyModeInput.checked ? "standard" : "simple";
@@ -24841,7 +25207,7 @@ const PALETTE_SETTINGS_SECTIONS = [
   { id: "appearance", label: "Theme & Density", keywords: "theme dark light blueprint vellum graphite density compact comfortable legacy mode" },
   { id: "shortcuts", label: "Keyboard", keywords: "shortcuts keys hotkeys palette bindings" },
   { id: "shop", label: "Output, Documents & Email", keywords: "output folder toc table of contents default contractor email subject body template open generated pdf" },
-  { id: "scanning", label: "What the Plan Scan Looks For", keywords: "scan categories sprinklers piping hangers bracing valves miscellaneous" },
+  { id: "scanning", label: "What the Plan Scan Looks For", keywords: "scan categories sprinklers piping hangers bracing valves miscellaneous preferred manufacturer default brand victaulic anvil tolco" },
 ];
 
 function paletteOpenSettingsSection(sectionId) {

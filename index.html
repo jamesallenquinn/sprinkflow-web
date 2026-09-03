@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0903-1805-f03c959" />
+    <link rel="stylesheet" href="./styles.css?v=b0903-1834-9bb453a" />
   </head>
   <body>
     <div class="app-shell">
@@ -110,6 +110,7 @@
             <button class="secondary-button" id="simpleSaveProjectButton" type="button" title="Save this project so you can reload it later (Ctrl+S)">&#128190; Save Project</button>
             <button class="primary-button" id="simpleContinueButton" type="button">Continue</button>
           </div>
+          <label class="generate-open-toggle generate-compress-toggle step-nav-compress" data-compress-toggle><input type="checkbox" id="quickCompressOutputInput" /> Compress the finished PDF &mdash; smaller file for email, takes a bit longer</label>
         </nav>
         <section class="builder-panel" aria-label="Submittal inputs">
           <div class="session-banner" id="sessionBanner" hidden role="status">
@@ -2241,6 +2242,7 @@
               <button class="ghost-button" id="hydraulicSortRemoteButton" type="button" disabled>Sort by Area #</button>
               <button class="primary-button" id="hydraulicGenerateButton" type="button" disabled>Generate Calc Package</button>
               <button class="ghost-button" id="hydraulicEmailDraftButton" type="button" hidden>Add Calc Package to Email</button>
+              <label class="generate-open-toggle generate-compress-toggle" data-compress-toggle><input type="checkbox" id="hydraulicCompressOutputInput" /> Compress the finished PDF &mdash; smaller file for email, takes a bit longer</label>
             </div>
             <p class="calculator-status" id="hydraulicStatus"></p>
             <div class="output-actions" id="hydraulicOutputActions" hidden>
@@ -3364,6 +3366,11 @@
                 <label class="option-row"><input type="checkbox" data-scan-category="valves" checked /><span>Valves &amp; Risers</span></label>
                 <label class="option-row"><input type="checkbox" data-scan-category="miscellaneous" checked /><span>Miscellaneous</span></label>
               </div>
+              <div class="settings-maker-block">
+                <h4 class="settings-subheading">Preferred Manufacturers</h4>
+                <p class="settings-helper">When a scan finds more than one datasheet for the same detected item, SprinkFlow pre-selects this manufacturer. Set <strong>All categories</strong> once if you buy one brand across the board, or pick per category. This only chooses between matches &mdash; it never changes what the scan finds.</p>
+                <div class="settings-maker-grid" id="settingsScanManufacturers"></div>
+              </div>
             </section>
           </div>
         </div>
@@ -3372,6 +3379,7 @@
       <div class="generate-dock" data-submittal-generate-dock>
         <button class="primary-button generate-dock-button" id="printButton" type="button">Generate Material Data Submittal</button>
         <label class="generate-open-toggle"><input type="checkbox" id="generateOpenAfterInput" checked /> Open the file once it's generated</label>
+        <label class="generate-open-toggle generate-compress-toggle" data-compress-toggle><input type="checkbox" id="submittalCompressOutputInput" /> Compress the finished PDF &mdash; smaller file for email, takes a bit longer</label>
         <button class="secondary-button generate-dock-secondary" id="submittalEmailDraftButton" type="button">Generate + Email Full Submittal</button>
         <button class="primary-button generate-dock-next" id="goToHydraulicButton" type="button" hidden>Next: build your Hydraulic Calc Package &rarr;</button>
       </div>
@@ -4148,11 +4156,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0903-1805-f03c959"></script>
-    <script src="./app.js?v=b0903-1805-f03c959"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0903-1805-f03c959"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0903-1805-f03c959"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0903-1805-f03c959"></script>
-    <script src="./prelim-calc-desktop.js?v=b0903-1805-f03c959"></script>
+    <script src="./web-backend.js?v=b0903-1834-9bb453a"></script>
+    <script src="./app.js?v=b0903-1834-9bb453a"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0903-1834-9bb453a"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0903-1834-9bb453a"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0903-1834-9bb453a"></script>
+    <script src="./prelim-calc-desktop.js?v=b0903-1834-9bb453a"></script>
   </body>
 </html>
