@@ -6464,6 +6464,7 @@ async function processProjectIntakeFiles(files) {
       id: localId("hydraulic"),
       name: file.name,
       size: file.size,
+      importedAt: Date.now(),
       dataUrl,
       label: defaultHydraulicLabel(file.name, hydraulicCalcFiles.length + index),
       remoteAreaNumber: "",
@@ -19560,7 +19561,7 @@ function renderHydraulicWorkspace() {
             <input type="text" data-hydraulic-meta-id="${escapeHtml(file.id)}" data-hydraulic-meta-field="hazard" value="${escapeHtml(file.hazard || "")}" placeholder="Optional" />
           </label>
         </div>
-        <span>${escapeHtml(file.name)} - ${escapeHtml(formatFileSize(file.size))} - ${escapeHtml(formatPdfPageCount(file.pageCount, file.thumbnailStatus))}</span>
+        <span>${escapeHtml(file.name)} - ${escapeHtml(formatFileSize(file.size))} - ${escapeHtml(formatPdfPageCount(file.pageCount, file.thumbnailStatus))}${file.importedAt ? ` - Imported ${escapeHtml(formatImportedTimestamp(file.importedAt))}` : ""}</span>
         ${file.startPage && file.endPage ? `<small>Source pages ${escapeHtml(String(file.startPage))}-${escapeHtml(String(file.endPage))}</small>` : ""}
         <small>${escapeHtml(hydraulicDetectionSummary(file))}</small>
       </div>
@@ -19651,6 +19652,7 @@ async function addHydraulicCalcFiles(files) {
         id: localId("hydraulic"),
         name: file.name,
         size: file.size,
+        importedAt: Date.now(),
         dataUrl: await readFileAsDataUrl(file),
         label: defaultHydraulicLabel(file.name, hydraulicCalcFiles.length + index),
         remoteAreaNumber: "",
@@ -19670,6 +19672,15 @@ async function addHydraulicCalcFiles(files) {
   } finally {
     if (dom.hydraulicInput) dom.hydraulicInput.value = "";
   }
+}
+
+function formatImportedTimestamp(ts) {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return "";
+  const today = new Date();
+  const sameDay = d.toDateString() === today.toDateString();
+  const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return sameDay ? `today ${time}` : `${d.toLocaleDateString([], { month: "short", day: "numeric", year: d.getFullYear() === today.getFullYear() ? undefined : "numeric" })} ${time}`;
 }
 
 async function addHydraulicCalcDataFiles(nextFiles) {
