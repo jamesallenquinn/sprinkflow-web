@@ -10398,6 +10398,12 @@ body[data-theme="plain-light"] .update-pill {
   background: var(--surface-soft);
 }
 
+.section-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .account-updates-card .update-check-result {
   flex-basis: 100%;
   margin: 0;

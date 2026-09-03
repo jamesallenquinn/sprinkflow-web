@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0902-1931-02f2a51" />
+    <link rel="stylesheet" href="./styles.css?v=b0903-1756-7c88026" />
   </head>
   <body>
     <div class="app-shell">
@@ -214,7 +214,10 @@
                 </span>
                 <p class="eyebrow">Project intake</p>
               </div>
-              <span class="privacy-tip" tabindex="0" role="note" aria-label="How your plans are handled">Privacy<span class="privacy-pop">Your plans stay on this computer. SprinkFlow reads them locally to auto-fill project details &mdash; they're not uploaded anywhere and are never used to train AI. (The optional AI cut-sheet reader does send documents to a secure AI to read them &mdash; never to train it.)</span></span>
+              <div class="section-heading-actions">
+                <button class="ghost-button compact-button" id="startFreshIntakeButton" type="button" title="Clear the current submittal and start a new one. You'll be offered a save first if there are unsaved changes.">Start Fresh</button>
+                <span class="privacy-tip" tabindex="0" role="note" aria-label="How your plans are handled">Privacy<span class="privacy-pop">Your plans stay on this computer. SprinkFlow reads them locally to auto-fill project details &mdash; they're not uploaded anywhere and are never used to train AI. (The optional AI cut-sheet reader does send documents to a secure AI to read them &mdash; never to train it.)</span></span>
+              </div>
             </div>
             <input id="plansPdfInput" class="hidden-input" type="file" accept=".pdf,application/pdf,image/*" multiple />
             <div class="datasheet-drop project-info-drop" id="imageIntake" tabindex="0">
@@ -4145,11 +4148,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0902-1931-02f2a51"></script>
-    <script src="./app.js?v=b0902-1931-02f2a51"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0902-1931-02f2a51"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0902-1931-02f2a51"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0902-1931-02f2a51"></script>
-    <script src="./prelim-calc-desktop.js?v=b0902-1931-02f2a51"></script>
+    <script src="./web-backend.js?v=b0903-1756-7c88026"></script>
+    <script src="./app.js?v=b0903-1756-7c88026"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0903-1756-7c88026"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0903-1756-7c88026"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0903-1756-7c88026"></script>
+    <script src="./prelim-calc-desktop.js?v=b0903-1756-7c88026"></script>
   </body>
 </html>

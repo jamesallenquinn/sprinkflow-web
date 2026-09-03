@@ -738,6 +738,7 @@ const dom = {
   betaInviteGmailButton: document.querySelector("#betaInviteGmailButton"),
   betaInviteResults: document.querySelector("#betaInviteResults"),
   resetProjectButton: document.querySelector("#resetProjectButton"),
+  startFreshIntakeButton: document.querySelector("#startFreshIntakeButton"),
   themeSelect: document.querySelector("#themeSelect"),
   storageHazardFrame: document.querySelector("#storageHazardFrame"),
   hangerDetailFrame: document.querySelector("#hangerDetailFrame"),
@@ -22745,6 +22746,7 @@ function wireEvents() {
   // setTheme path, no second source of truth.
   dom.settingsThemeSelect?.addEventListener("change", () => setTheme(dom.settingsThemeSelect.value));
   dom.resetProjectButton.addEventListener("click", requestNewProject);
+  dom.startFreshIntakeButton?.addEventListener("click", requestNewProject);
   dom.newProjectCancelButton?.addEventListener("click", () => dom.newProjectDialog.close());
   dom.newProjectDiscardButton?.addEventListener("click", () => {
     dom.newProjectDialog.close();
