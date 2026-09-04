@@ -15623,35 +15623,67 @@ function pdfcadSelectedHexes() {
 // Custom scale accepts the forms a designer actually writes:
 //   3/32" = 1'-0"  |  3/32  |  1:50  |  128  (raw real-inches per paper inch)
 // Returns { scale, label, error }.
+// One side of a scale expression -> inches. Accepts 3/32, 1-1/2, 0.5, 20,
+// with an optional unit: " / in / inch(es) or ' / ft / feet / foot, and the
+// feet-inches compound (1'-0", 20'-6"). defaultUnit applies when none is given.
+function pdfcadScaleSideInches(part, defaultUnit) {
+  const text = String(part || "").trim();
+  if (!text) return { inches: null, pretty: "" };
+  const compound = text.match(/^(\d+(?:\.\d+)?)\s*(?:'|ft\b|feet\b|foot\b)\s*(?:-?\s*(\d+(?:\.\d+)?)\s*(?:"|in\b|inch(?:es)?\b)?)?\s*$/i);
+  if (compound) {
+    const feet = Number(compound[1]);
+    const extraIn = Number(compound[2] || 0);
+    const inches = feet * 12 + extraIn;
+    return { inches, pretty: extraIn ? `${feet}'-${extraIn}"` : `${feet} ft` };
+  }
+  const m = text.match(/^(?:(\d+)\s*-\s*)?(\d+)\s*\/\s*(\d+)\s*(?:"|in\b|inch(?:es)?\b)?\s*$/i)   // 3/32, 1-1/2
+    || null;
+  if (m) {
+    const whole = Number(m[1] || 0);
+    const inches = whole + Number(m[2]) / Number(m[3]);
+    return { inches, pretty: `${m[1] ? `${m[1]}-` : ""}${m[2]}/${m[3]}"` };
+  }
+  const dec = text.match(/^(\d+(?:\.\d+)?)\s*("|in\b|inch(?:es)?\b|'|ft\b|feet\b|foot\b)?\s*$/i);
+  if (dec) {
+    const value = Number(dec[1]);
+    const unit = (dec[2] || defaultUnit || "in").toLowerCase();
+    const isFeet = unit === "'" || unit.startsWith("f");
+    return { inches: isFeet ? value * 12 : value, pretty: isFeet ? `${value} ft` : `${value}"` };
+  }
+  return { inches: null, pretty: "" };
+}
+
 function parsePdfcadCustomScale(raw) {
   const text = String(raw || "").trim().replace(/[“”]/g, '"').replace(/[’]/g, "'");
   if (!text) return { scale: null, label: "", error: "" };
+  const fail = { scale: null, label: "", error: `Could not read "${text}". Try 1 in = 20 ft, 3/32" = 1'-0", 1:50, or a number like 128.` };
   // Colon only: "1/8" is an eighth of an inch to a foot, never a 1:8 ratio.
   const ratio = text.match(/^1\s*:\s*(\d+(?:\.\d+)?)$/);
   if (ratio) {
     const denom = Number(ratio[1]);
     if (denom > 0) return { scale: denom, label: `1:${denom}`, error: "" };
+    return fail;
   }
-  // "<drawn> = 1'-0"" or a bare fraction/decimal of an inch
-  const drawn = text.replace(/\s*=.*$/, "").replace(/"/g, "").trim();
-  const mixed = drawn.match(/^(\d+)\s*-\s*(\d+)\s*\/\s*(\d+)$/);   // 1-1/2
-  const frac = drawn.match(/^(\d+)\s*\/\s*(\d+)$/);                // 3/32
-  const dec = drawn.match(/^\d+(?:\.\d+)?$/);                      // 0.09375 or 128
-  let inches = null;
-  if (mixed) inches = Number(mixed[1]) + Number(mixed[2]) / Number(mixed[3]);
-  else if (frac) inches = Number(frac[1]) / Number(frac[2]);
-  else if (dec) {
-    const value = Number(drawn);
-    // a bare number with no "= 1'-0"" is the raw factor; with it, it's inches
-    if (!/=/.test(text) && value >= 1) return { scale: value, label: `1" = ${(value / 12).toFixed(2)} ft`, error: "" };
-    inches = value;
+  const sides = text.split("=");
+  if (sides.length === 2) {
+    // Both sides are real: "1 in = 20 ft", '1" = 20'', "3/32\" = 1'-0\"".
+    // Left defaults to inches (drawn size); right defaults to feet (real size) -
+    // nobody writes a custom scale where one paper inch is N real INCHES.
+    const left = pdfcadScaleSideInches(sides[0], "in");
+    const right = pdfcadScaleSideInches(sides[1], "ft");
+    if (!left.inches || !right.inches || left.inches <= 0 || right.inches <= 0) return fail;
+    const scale = right.inches / left.inches;
+    return { scale, label: `${left.pretty} = ${right.pretty}`, error: "" };
   }
-  if (!Number.isFinite(inches) || inches <= 0) {
-    return { scale: null, label: "", error: `Could not read "${text}". Try 3/32" = 1'-0", 1:50, or a number like 128.` };
+  if (sides.length > 2) return fail;
+  // No "=": a bare fraction/mixed number is inches-to-a-foot (3/32 -> 3/32" = 1'-0");
+  // a bare number >= 1 is the raw scale factor (128 -> 1" = 10.67 ft).
+  const single = pdfcadScaleSideInches(text, "in");
+  if (!single.inches || single.inches <= 0) return fail;
+  if (/^\d+(?:\.\d+)?$/.test(text) && single.inches >= 1) {
+    return { scale: single.inches, label: `1" = ${(single.inches / 12).toFixed(2)} ft`, error: "" };
   }
-  const scale = 12 / inches;
-  const pretty = (mixed ? `${mixed[1]}-${mixed[2]}/${mixed[3]}` : frac ? `${frac[1]}/${frac[2]}` : String(inches));
-  return { scale, label: `${pretty}" = 1'-0"`, error: "" };
+  return { scale: 12 / single.inches, label: `${single.pretty} = 1'-0"`, error: "" };
 }
 
 function pdfcadScale() {
