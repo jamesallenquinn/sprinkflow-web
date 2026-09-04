@@ -9051,7 +9051,7 @@ function showPlansReviewDialog(review) {
       if (!item) return;
       button.disabled = true;
       button.textContent = "Importing...";
-      const updated = await downloadCatalogItem(item.id);
+      const updated = await downloadCatalogItem(item.id, { select: false });
       if (!updated) {
         const fallbackUrl = item.sourceUrl || item.datasheetUrl || item.productPage || "";
         if (window.__SPRINKFLOW_WEB__ && fallbackUrl) {
@@ -9244,7 +9244,7 @@ async function importMissingPlanSuggestions(review, { selectImported = false, on
   let failures = 0;
   for (const suggestion of missing) {
     const item = planSuggestionSelectedItem(suggestion);
-    const updated = await downloadCatalogItem(item.id);
+    const updated = await downloadCatalogItem(item.id, { select: false });
     if (!updated) { failures += 1; continue; }   // one bad sheet must not kill the batch
     if (suggestion.item) suggestion.item = updated;
     if (Array.isArray(suggestion.options)) {
@@ -10161,7 +10161,10 @@ function previewCatalogItem(id) {
   }
 }
 
-async function downloadCatalogItem(id) {
+async function downloadCatalogItem(id, { select = true } = {}) {
+  // select:false = "make it locally available, but do NOT put it in the
+  // submittal" — the plans-review dialog imports this way, because there
+  // nothing may touch the submittal until Apply Selected.
   if (!ensureLicensedToolAccess(setGenerateStatus)) return null;
   const item = state.catalog.find((entry) => entry.id === id);
   if (!item) return null;
@@ -10181,14 +10184,16 @@ async function downloadCatalogItem(id) {
     if (!updated?.id) throw new Error("The server did not return the downloaded catalog item.");
     const tocName = state.tocTitles[item.id] || displayName(updated) || name;
     replaceCatalogItemId(item.id, updated.id, tocName);
-    if (!state.selectedIds.includes(updated.id)) {
+    if (select && !state.selectedIds.includes(updated.id)) {
       state.selectedIds.push(updated.id);
     }
     state.tocTitles[updated.id] = tocName;
     state.catalog = state.catalog.filter((entry) => entry.id !== item.id && entry.id !== updated.id);
     state.catalog.push({ ...updated, source: "database" });
     await refreshCatalog({ preserveScroll: true });
-    setGenerateStatus(`Imported datasheet and added it to this submittal: ${displayName(updated) || name}`, "success");
+    setGenerateStatus(select
+      ? `Imported datasheet and added it to this submittal: ${displayName(updated) || name}`
+      : `Imported datasheet: ${displayName(updated) || name}`, "success");
     return updated;
   } catch (error) {
     setGenerateStatus(`Could not import datasheet: ${error.message || "Import failed."}`, "error");
