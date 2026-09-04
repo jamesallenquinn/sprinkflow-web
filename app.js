@@ -5545,10 +5545,45 @@ function baseCategoryItems(category, queryTokens) {
     .filter((item) => itemMatchesSearch(item, queryTokens));
 }
 
+// The manufacturer facet must never split one real company into several rows
+// because of casing or product-line prefixes ("Sammys" / "SAMMYS" / "Wood
+// Sammys" once produced four dropdown entries). Rows keep their stored value;
+// grouping, filtering, and the dropdown all go through this.
+const MANUFACTURER_ALIASES = {
+  "sammys": "SAMMYS",
+  "sammy": "SAMMYS",
+  "sammys fastening systems": "SAMMYS",
+  "sammys by dewalt": "SAMMYS",
+  "wood sammys": "SAMMYS",
+  "steel sammys": "SAMMYS",
+};
+
+function canonicalManufacturer(name) {
+  const raw = String(name || "").trim().replace(/\s+/g, " ");
+  if (!raw) return "";
+  return MANUFACTURER_ALIASES[raw.toLowerCase()] || raw;
+}
+
+// Case-insensitive facet labels: alias casing wins; otherwise the most common
+// casing among the rows (so ANVIL/Anvil collapse to whichever the catalog uses).
+function manufacturerFacetLabels(items) {
+  const groups = new Map();
+  for (const item of items) {
+    const canonical = canonicalManufacturer(item.manufacturer) || "Unknown Manufacturer";
+    const key = canonical.toLowerCase();
+    const group = groups.get(key) || new Map();
+    group.set(canonical, (group.get(canonical) || 0) + 1);
+    groups.set(key, group);
+  }
+  return [...groups.values()].map((casings) =>
+    [...casings.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0]
+  ).sort((a, b) => a.localeCompare(b));
+}
+
 function renderCategoryFilters(category, items) {
   const filters = categoryFilterState(category);
   normalizeCategoryFilters(category, items);
-  const manufacturers = uniqueSorted(filterItemsForOptionList(category, items, "manufacturer").map((item) => item.manufacturer || "Unknown Manufacturer").filter(Boolean));
+  const manufacturers = manufacturerFacetLabels(filterItemsForOptionList(category, items, "manufacturer"));
   const manufacturerSelect = renderFilterSelect("manufacturer", "Manufacturer", filters.manufacturer || "", manufacturers.map((manufacturer) => ({ value: manufacturer, label: manufacturer })));
   // "In my database" = a datasheet PDF is already saved locally, so the row can
   // go straight into a package without fetching anything.
@@ -5672,7 +5707,8 @@ function applyCategoryFilters(category, items) {
 function applyCategoryFiltersExcept(category, items, exceptKey = "") {
   const filters = categoryFilterState(category);
   return items.filter((item) => {
-    if (exceptKey !== "manufacturer" && filters.manufacturer && (item.manufacturer || "Unknown Manufacturer") !== filters.manufacturer) return false;
+    if (exceptKey !== "manufacturer" && filters.manufacturer
+        && (canonicalManufacturer(item.manufacturer) || "Unknown Manufacturer").toLowerCase() !== filters.manufacturer.toLowerCase()) return false;
     if (exceptKey !== "saved" && filters.saved) {
       const mine = isLocalCatalogItem(item);
       if (filters.saved === "local" && !mine) return false;
@@ -5692,8 +5728,9 @@ function filterItemsForOptionList(category, items, key) {
 
 function normalizeCategoryFilters(category, items) {
   const filters = categoryFilterState(category);
-  const validManufacturers = new Set(filterItemsForOptionList(category, items, "manufacturer").map((item) => item.manufacturer || "Unknown Manufacturer"));
-  if (filters.manufacturer && !validManufacturers.has(filters.manufacturer)) filters.manufacturer = "";
+  const validManufacturers = new Set(filterItemsForOptionList(category, items, "manufacturer")
+    .map((item) => (canonicalManufacturer(item.manufacturer) || "Unknown Manufacturer").toLowerCase()));
+  if (filters.manufacturer && !validManufacturers.has(filters.manufacturer.toLowerCase())) filters.manufacturer = "";
   if (category !== "Sprinklers") return;
 
   const validKFactors = new Set(filterItemsForOptionList(category, items, "kFactor").flatMap(itemKFactors));
