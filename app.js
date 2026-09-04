@@ -11646,6 +11646,10 @@ function activateTool(toolId) {
   if (activeTool === "hanger") updateEmbeddedToolThemes();
   if (activeTool === "catalog") { matcatWire(); renderMaterialCatalog(); }
   if (activeTool === "studiobugs") { studioBugsWire(); studioBugsLoad(); }
+  // Symbols must lazy-load here, not via a listener on the sidebar button -
+  // the registry renders the sidebar after initSymbols ran, so a
+  // querySelector-bound click listener attaches to nothing (the 0-symbols bug).
+  if (activeTool === "symbols") symbolsEnsureLoaded();
   updateViewModeUI();
 }
 
