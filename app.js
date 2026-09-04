@@ -5567,9 +5567,10 @@ function canonicalManufacturer(name) {
 // Case-insensitive facet labels: alias casing wins; otherwise the most common
 // casing among the rows (so ANVIL/Anvil collapse to whichever the catalog uses).
 function manufacturerFacetLabels(items) {
+  _knownManufacturersCache = null;   // catalog may have changed since last render
   const groups = new Map();
   for (const item of items) {
-    const canonical = canonicalManufacturer(item.manufacturer) || "Unknown Manufacturer";
+    const canonical = displayManufacturer(item) || "Unknown Manufacturer";
     const key = canonical.toLowerCase();
     const group = groups.get(key) || new Map();
     group.set(canonical, (group.get(canonical) || 0) + 1);
@@ -5708,7 +5709,7 @@ function applyCategoryFiltersExcept(category, items, exceptKey = "") {
   const filters = categoryFilterState(category);
   return items.filter((item) => {
     if (exceptKey !== "manufacturer" && filters.manufacturer
-        && (canonicalManufacturer(item.manufacturer) || "Unknown Manufacturer").toLowerCase() !== filters.manufacturer.toLowerCase()) return false;
+        && (displayManufacturer(item) || "Unknown Manufacturer").toLowerCase() !== filters.manufacturer.toLowerCase()) return false;
     if (exceptKey !== "saved" && filters.saved) {
       const mine = isLocalCatalogItem(item);
       if (filters.saved === "local" && !mine) return false;
@@ -5729,7 +5730,7 @@ function filterItemsForOptionList(category, items, key) {
 function normalizeCategoryFilters(category, items) {
   const filters = categoryFilterState(category);
   const validManufacturers = new Set(filterItemsForOptionList(category, items, "manufacturer")
-    .map((item) => (canonicalManufacturer(item.manufacturer) || "Unknown Manufacturer").toLowerCase()));
+    .map((item) => (displayManufacturer(item) || "Unknown Manufacturer").toLowerCase()));
   if (filters.manufacturer && !validManufacturers.has(filters.manufacturer.toLowerCase())) filters.manufacturer = "";
   if (category !== "Sprinklers") return;
 
@@ -5890,6 +5891,30 @@ function groupByManufacturer(items) {
   );
 }
 
+// A row's manufacturer for everything the user sees. When the stored field is
+// blank (older imports sometimes lost it) heal it from the title's trailing
+// parenthetical — "Grooved Flexible Couplings - Standard (Victaulic)" — but
+// only when that name is a manufacturer the catalog actually knows.
+let _knownManufacturersCache = null;
+function knownManufacturerSet() {
+  if (_knownManufacturersCache) return _knownManufacturersCache;
+  _knownManufacturersCache = new Set(
+    state.catalog.map((row) => canonicalManufacturer(row.manufacturer).toLowerCase()).filter(Boolean)
+  );
+  return _knownManufacturersCache;
+}
+
+function displayManufacturer(item) {
+  const stored = canonicalManufacturer(item?.manufacturer);
+  if (stored) return stored;
+  const suffix = String(displayName(item) || "").match(/\(([^()]+)\)\s*$/);
+  if (suffix) {
+    const candidate = canonicalManufacturer(suffix[1]);
+    if (candidate && knownManufacturerSet().has(candidate.toLowerCase())) return candidate;
+  }
+  return "";
+}
+
 function catalogProductLabel(item) {
   const name = tocDisplayName(item);
   const mfr = (item.manufacturer || "").trim();
@@ -5920,7 +5945,7 @@ function renderCatalogItem(item, selected) {
   const checked = selected.has(item.id);
   const verified = isVerifiedSourceItem(item);
   const id = escapeHtml(item.id);
-  const mfr = (item.manufacturer || "").trim();
+  const mfr = displayManufacturer(item);
   const details = escapeHtml(catalogRowDetails(item));
   const verifiedIcon = verified ? '<span class="row-verified-icon" title="Verified manufacturer source" aria-label="Verified source">✓</span>' : "";
   const productCell = checked && localPdf
