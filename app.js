@@ -1714,7 +1714,7 @@ function renderLicenseUi() {
   if (dom.licenseBillingHelperText) {
     let billingCopy;
     if (!license.authenticated) {
-      billingCopy = "Sign in to manage your subscription. Subscribing unlocks exports and document generation - the free design tools stay free.";
+      billingCopy = "Sign in to manage your subscription. A new account starts a free trial automatically - no credit card. Subscribing unlocks exports and document generation after that; the free design tools stay free.";
     } else if (licenseStatusKey === "active") {
       billingCopy = "Your subscription is active - exports and document generation are unlocked. Manage Billing opens the secure Stripe portal to update your payment method, view invoices, or change your plan.";
     } else if (licenseStatusKey === "trial") {
