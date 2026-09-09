@@ -30986,5 +30986,47 @@
       "riserpack instructions",
       "agf riser install"
     ]
+  },
+  {
+    "category": "Valves",
+    "manufacturer": "National Fire Products",
+    "model": "Resi-Riser",
+    "product": "Pre-Assembled Compact Residential Sprinkler Riser (1\" - 2\")",
+    "datasheetTitle": "",
+    "response": "",
+    "kFactor": "",
+    "orientation": "",
+    "sinNumbers": "",
+    "id": "fcf2148d22a36161",
+    "fileName": "National Fire Products Resi-Riser - Pre-Assembled Compact Residential Sprinkler Riser (1\" - 2\").pdf",
+    "pages": 4,
+    "metadataVersion": 2,
+    "datasheetStatus": "remote",
+    "statusNote": "Needs download/import",
+    "displayTitle": "National Fire Products Resi-Riser - Pre-Assembled Compact Residential Sprinkler Riser (1\" - 2\")",
+    "customTitle": "National Fire Products Resi-Riser - Pre-Assembled Compact Residential Sprinkler Riser (1\" - 2\")",
+    "sourceUrl": "https://fergusonprod.a.bigcontent.io/v1/static/4203953_7296332_specification",
+    "datasheetUrl": "https://fergusonprod.a.bigcontent.io/v1/static/4203953_7296332_specification",
+    "verifiedSource": "National Fire Products",
+    "sourceMethod": "Official National Fire Products spec sheet (distributor-hosted copy)",
+    "linkStatus": "Verified source",
+    "sourceLabel": "National Fire Products Resi-Riser spec",
+    "tags": [
+      "Valves",
+      "National Fire Products",
+      "Resi-Riser"
+    ],
+    "source": "manufacturer-link",
+    "remoteId": "fcf2148d22a36161",
+    "searchText": "National Fire Products Resi-Riser resi riser pre-assembled compact residential fire sprinkler riser unit NFPA 13 13R 13D one-piece cast brass manifold inline check valve swing check flow switch retard drain valve pressure relief pressure gauge 1 1-1/4 1-1/2 2 inch 2x4 frame",
+    "aliases": [
+      "resi riser",
+      "resi-riser",
+      "resiriser",
+      "national fire riser",
+      "nfp riser",
+      "residential riser",
+      "13d riser"
+    ]
   }
 ]
