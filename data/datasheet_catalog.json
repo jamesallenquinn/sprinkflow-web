@@ -5199,8 +5199,8 @@
     "fileName": "Tyco - TFP591 - Quick Response - Pendent, Upright, Horizontal Sidewall, Concealed, Dry - Pendent Upright Horizontal Sidewall Concealed Dry Quick Response Sprinkler.pdf",
     "pages": 4,
     "metadataVersion": 2,
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp591",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp591",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/pvSAsdSvB_r_LQQ_TSQl4A/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/pvSAsdSvB_r_LQQ_TSQl4A/content",
     "verifiedSource": "Tyco",
     "sourceMethod": "Existing local PDF catalog plus official latest-link convention",
     "linkStatus": "Derived from local PDF",
@@ -5239,8 +5239,8 @@
     "kFactor": "",
     "orientation": "Upright, Pendent",
     "type": "Special Application",
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp610",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp610",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/tPgaIloWc0Jx627F0J5F1Q/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/tPgaIloWc0Jx627F0J5F1Q/content",
     "productPage": "",
     "verifiedSource": "Tyco",
     "sourceMethod": "Tyco public product-page index and docs.jci.com latest-link convention",
@@ -5278,7 +5278,8 @@
       "Intermediate"
     ],
     "temperatureStatus": "extracted",
-    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/tPgaIloWc0Jx627F0J5F1Q/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29"
+    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/tPgaIloWc0Jx627F0J5F1Q/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29",
+    "pages": 28
   },
   {
     "id": "c3e28a90c672b795",
@@ -5291,8 +5292,8 @@
     "kFactor": "K5.6",
     "orientation": "Pendent, Horizontal Sidewall",
     "type": "Extended Coverage",
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp560",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp560",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/fTMKpBQ0TyJmkhRubqt8tQ/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/fTMKpBQ0TyJmkhRubqt8tQ/content",
     "productPage": "",
     "verifiedSource": "Tyco",
     "sourceMethod": "Tyco public product-page index and docs.jci.com latest-link convention",
@@ -5342,7 +5343,8 @@
       "Extra High"
     ],
     "temperatureStatus": "extracted",
-    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/fTMKpBQ0TyJmkhRubqt8tQ/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29"
+    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/fTMKpBQ0TyJmkhRubqt8tQ/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29",
+    "pages": 10
   },
   {
     "id": "6d0eabdafc8c98eb",
@@ -5355,8 +5357,8 @@
     "kFactor": "K5.6",
     "orientation": "Pendent, Upright, Horizontal Sidewall",
     "type": "",
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp500",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp500",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/lkiOaD2fyhNnstSpBHpeEQ/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/lkiOaD2fyhNnstSpBHpeEQ/content",
     "productPage": "",
     "verifiedSource": "Tyco",
     "sourceMethod": "Tyco public product-page index and docs.jci.com latest-link convention",
@@ -5405,7 +5407,8 @@
       "Extra High"
     ],
     "temperatureStatus": "extracted",
-    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/lkiOaD2fyhNnstSpBHpeEQ/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29"
+    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/lkiOaD2fyhNnstSpBHpeEQ/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29",
+    "pages": 8
   },
   {
     "id": "eb74c135845ba5eb",
@@ -5418,8 +5421,8 @@
     "kFactor": "K5.6",
     "orientation": "Pendent, Upright, Horizontal Sidewall",
     "type": "",
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp510",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp510",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/mIFen3j91zL9p4VMp0dnnQ/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/mIFen3j91zL9p4VMp0dnnQ/content",
     "productPage": "",
     "verifiedSource": "Tyco",
     "sourceMethod": "Tyco public product-page index and docs.jci.com latest-link convention",
@@ -5465,7 +5468,8 @@
       "High"
     ],
     "temperatureStatus": "extracted",
-    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/mIFen3j91zL9p4VMp0dnnQ/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29"
+    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/mIFen3j91zL9p4VMp0dnnQ/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29",
+    "pages": 8
   },
   {
     "id": "bcf5c22369365eb7",
@@ -5478,8 +5482,8 @@
     "kFactor": "K5.6",
     "orientation": "Horizontal Sidewall",
     "type": "Residential",
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp415",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp415",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/UD5rrkkOtoP1QewBhtPeKw/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/UD5rrkkOtoP1QewBhtPeKw/content",
     "productPage": "",
     "verifiedSource": "Tyco",
     "sourceMethod": "Tyco public product-page index and docs.jci.com latest-link convention",
@@ -5520,7 +5524,8 @@
       "Intermediate"
     ],
     "temperatureStatus": "extracted",
-    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/UD5rrkkOtoP1QewBhtPeKw/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29"
+    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/UD5rrkkOtoP1QewBhtPeKw/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29",
+    "pages": 6
   },
   {
     "id": "fddd9ccccc07fb49",
@@ -5533,8 +5538,8 @@
     "kFactor": "K5.8",
     "orientation": "Horizontal Sidewall",
     "type": "Residential",
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp417",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp417",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/GHLF400UMxhd_tUooevYQQ/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/GHLF400UMxhd_tUooevYQQ/content",
     "productPage": "",
     "verifiedSource": "Tyco",
     "sourceMethod": "Tyco public product-page index and docs.jci.com latest-link convention",
@@ -5575,7 +5580,8 @@
       "Intermediate"
     ],
     "temperatureStatus": "extracted",
-    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/GHLF400UMxhd_tUooevYQQ/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29"
+    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/GHLF400UMxhd_tUooevYQQ/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29",
+    "pages": 6
   },
   {
     "id": "9ecddd452d95d390",
@@ -5588,8 +5594,8 @@
     "kFactor": "K4.4",
     "orientation": "Horizontal Sidewall",
     "type": "Residential",
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp412",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp412",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/Hs4hN4jSw0yWMPm5VmnS6A/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/Hs4hN4jSw0yWMPm5VmnS6A/content",
     "productPage": "",
     "verifiedSource": "Tyco",
     "sourceMethod": "Tyco public product-page index and docs.jci.com latest-link convention",
@@ -5630,7 +5636,8 @@
       "Intermediate"
     ],
     "temperatureStatus": "extracted",
-    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/Hs4hN4jSw0yWMPm5VmnS6A/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29"
+    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/Hs4hN4jSw0yWMPm5VmnS6A/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29",
+    "pages": 6
   },
   {
     "id": "0b65900ed66d0bc5",
@@ -5643,8 +5650,8 @@
     "kFactor": "K4.2",
     "orientation": "Horizontal Sidewall",
     "type": "Residential",
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp410",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp410",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/Uv2qnjazl4YLAR6WMtva5Q/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/Uv2qnjazl4YLAR6WMtva5Q/content",
     "productPage": "",
     "verifiedSource": "Tyco",
     "sourceMethod": "Tyco public product-page index and docs.jci.com latest-link convention",
@@ -5685,7 +5692,8 @@
       "Intermediate"
     ],
     "temperatureStatus": "extracted",
-    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/Uv2qnjazl4YLAR6WMtva5Q/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29"
+    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/Uv2qnjazl4YLAR6WMtva5Q/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29",
+    "pages": 6
   },
   {
     "id": "ba625ae96e5cb8eb",
@@ -5698,8 +5706,8 @@
     "kFactor": "K2.8",
     "orientation": "Upright",
     "type": "Special Application",
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp630",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp630",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/k_F7hrD1oZSLGGVNHzQa7w/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/k_F7hrD1oZSLGGVNHzQa7w/content",
     "productPage": "",
     "verifiedSource": "Tyco",
     "sourceMethod": "Tyco public product-page index and docs.jci.com latest-link convention",
@@ -5737,7 +5745,8 @@
       "Intermediate"
     ],
     "temperatureStatus": "extracted",
-    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/k_F7hrD1oZSLGGVNHzQa7w/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29"
+    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/k_F7hrD1oZSLGGVNHzQa7w/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29",
+    "pages": 8
   },
   {
     "id": "7371e74d88238593",
@@ -5750,8 +5759,8 @@
     "kFactor": "K4.2, K5.6",
     "orientation": "Upright",
     "type": "Special Application",
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp632",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp632",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/Vr99mgvtJzWdlL~4ox0Mog/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/Vr99mgvtJzWdlL~4ox0Mog/content",
     "productPage": "",
     "verifiedSource": "Tyco",
     "sourceMethod": "Tyco public product-page index and docs.jci.com latest-link convention",
@@ -5789,7 +5798,8 @@
       "Intermediate"
     ],
     "temperatureStatus": "extracted",
-    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/Vr99mgvtJzWdlL~4ox0Mog/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29"
+    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/Vr99mgvtJzWdlL~4ox0Mog/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29",
+    "pages": 8
   },
   {
     "id": "f7df3dabe0ef5c4a",
@@ -5802,8 +5812,8 @@
     "kFactor": "K4.2, K5.6",
     "orientation": "Upright",
     "type": "Special Application",
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp633",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp633",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/XwwAdLYdL4LLbfabAKnWgw/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/XwwAdLYdL4LLbfabAKnWgw/content",
     "productPage": "",
     "verifiedSource": "Tyco",
     "sourceMethod": "Tyco public product-page index and docs.jci.com latest-link convention",
@@ -5841,7 +5851,8 @@
       "Intermediate"
     ],
     "temperatureStatus": "extracted",
-    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/XwwAdLYdL4LLbfabAKnWgw/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29"
+    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/XwwAdLYdL4LLbfabAKnWgw/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29",
+    "pages": 8
   },
   {
     "id": "caec9e8c86b76b44",
@@ -5854,8 +5865,8 @@
     "kFactor": "K11.2",
     "orientation": "Upright",
     "type": "Special Application",
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp335",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp335",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/eFpdCMtCnidESYVR7j5rHg/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/eFpdCMtCnidESYVR7j5rHg/content",
     "productPage": "",
     "verifiedSource": "Tyco",
     "sourceMethod": "Tyco public product-page index and docs.jci.com latest-link convention",
@@ -5899,7 +5910,8 @@
       "High"
     ],
     "temperatureStatus": "extracted",
-    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/eFpdCMtCnidESYVR7j5rHg/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29"
+    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/eFpdCMtCnidESYVR7j5rHg/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29",
+    "pages": 4
   },
   {
     "category": "Sprinklers",
@@ -5913,10 +5925,10 @@
     "sinNumbers": "TY2534",
     "id": "3bd909d3051ab451",
     "fileName": "Tyco - TY2534 - Quick Response - Pendent, Concealed - Cover Plate.pdf",
-    "pages": 6,
+    "pages": 4,
     "metadataVersion": 2,
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp446",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp446",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/_BRrIMp5gF8GcQWM2epj5w/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/_BRrIMp5gF8GcQWM2epj5w/content",
     "verifiedSource": "Tyco",
     "sourceMethod": "Existing local PDF catalog plus official latest-link convention",
     "linkStatus": "Derived from local PDF",
@@ -5969,8 +5981,8 @@
     "fileName": "Tyco - TY3596 - Residential - Pendent, Concealed, Dry - Cover Plate.pdf",
     "pages": 6,
     "metadataVersion": 2,
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp442",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp442",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/jSgJLn5TCFag8o7Osy_cEg/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/jSgJLn5TCFag8o7Osy_cEg/content",
     "verifiedSource": "Tyco",
     "sourceMethod": "Existing local PDF catalog plus official latest-link convention",
     "linkStatus": "Derived from local PDF",
@@ -6023,8 +6035,8 @@
     "fileName": "Tyco - TY2234 - Residential - Pendent, Concealed, Dry - Cover Plate.pdf",
     "pages": 6,
     "metadataVersion": 2,
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp450",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp450",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/cRacJP71E0PsmYRZ0VQtjQ/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/cRacJP71E0PsmYRZ0VQtjQ/content",
     "verifiedSource": "Tyco",
     "sourceMethod": "Existing local PDF catalog plus official latest-link convention",
     "linkStatus": "Derived from local PDF",
@@ -6072,10 +6084,10 @@
     "sinNumbers": "TY3255, TY3155, TY3355",
     "id": "ac6e1c382fb3d68b",
     "fileName": "Tyco - TY3255 - Quick Response - K5.6 - Pendent, Upright, Horizontal Sidewall, Sidewall, Dry - Pendent Upright Horizontal Sidewall Sidewall Dry Quick Response Sprinkler.pdf",
-    "pages": 8,
+    "pages": 6,
     "metadataVersion": 2,
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp520",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp520",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/rrPH_~RVtqqb5d2X4bVDSA/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/rrPH_~RVtqqb5d2X4bVDSA/content",
     "verifiedSource": "Tyco",
     "sourceMethod": "Tyco public product-page index and docs.jci.com latest-link convention",
     "linkStatus": "Derived official docs.jci.com link",
@@ -6122,8 +6134,8 @@
     "kFactor": "K5.6",
     "orientation": "Pendent, Upright, Horizontal Sidewall, Sidewall, Dry",
     "type": "Standard Coverage",
-    "sourceUrl": "https://docs.jci.com/tycofire/series-ds-1",
-    "datasheetUrl": "https://docs.jci.com/tycofire/series-ds-1",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/lkiOaD2fyhNnstSpBHpeEQ/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/lkiOaD2fyhNnstSpBHpeEQ/content",
     "productPage": "",
     "verifiedSource": "Tyco",
     "sourceMethod": "Existing local PDF catalog plus official latest-link convention",
@@ -6157,7 +6169,8 @@
     "temperatureRatingsC": null,
     "temperatureClasses": null,
     "temperatureStatus": "unreadable",
-    "temperatureSource": "https://docs.jci.com/tycofire/series-ds-1"
+    "temperatureSource": "https://docs.jci.com/tycofire/series-ds-1",
+    "pages": 8
   },
   {
     "category": "Sprinklers",
@@ -6173,8 +6186,8 @@
     "fileName": "Tyco - EC11 - Quick Response - Pendent, Upright - Pendent Upright Quick Response Sprinkler.pdf",
     "pages": 8,
     "metadataVersion": 2,
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp220",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp220",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/8XmQFTD92iLUWv0fYnvyQQ/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/8XmQFTD92iLUWv0fYnvyQQ/content",
     "verifiedSource": "Tyco",
     "sourceMethod": "Existing local PDF catalog plus official latest-link convention",
     "linkStatus": "Derived from local PDF",
@@ -6230,10 +6243,10 @@
     "sinNumbers": "TY2236, TY2234, TY2236CLOSURE",
     "id": "0f2dd55d1df6720e",
     "fileName": "Tyco - TY2236 - Quick Response - Pendent, Recessed - Pendent Recessed Quick Response Sprinkler.pdf",
-    "pages": 5,
+    "pages": 4,
     "metadataVersion": 2,
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp403",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp403",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/mGMzFXO3HmGVGr4QHWMTNA/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/mGMzFXO3HmGVGr4QHWMTNA/content",
     "verifiedSource": "Tyco",
     "sourceMethod": "Existing local PDF catalog plus official latest-link convention",
     "linkStatus": "Derived from local PDF",
@@ -6285,8 +6298,8 @@
     "fileName": "Tyco - TY3531 - Quick Response - Pendent, Concealed - Cover Plate.pdf",
     "pages": 4,
     "metadataVersion": 2,
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp181",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp181",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/xmJhVJHLJCO77YuktCNBQg/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/xmJhVJHLJCO77YuktCNBQg/content",
     "verifiedSource": "Tyco",
     "sourceMethod": "Existing local PDF catalog plus official latest-link convention",
     "linkStatus": "Derived from local PDF",
@@ -6337,10 +6350,10 @@
     "sinNumbers": "TY3530, TY3550",
     "id": "fcda8d6bad9bd6b3",
     "fileName": "Tyco - TFP182 - Quick Response - Pendent, Concealed - Pendent Concealed Quick Response Sprinkler.pdf",
-    "pages": 5,
+    "pages": 4,
     "metadataVersion": 2,
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp182",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp182",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/vyO7YR4i5VnZlBtIXVK7kw/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/vyO7YR4i5VnZlBtIXVK7kw/content",
     "verifiedSource": "Tyco",
     "sourceMethod": "Existing local PDF catalog plus official latest-link convention",
     "linkStatus": "Derived from local PDF",
@@ -6393,8 +6406,8 @@
     "fileName": "Tyco - TY3537 - Quick Response - Pendent, Concealed - Cover Plate.pdf",
     "pages": 4,
     "metadataVersion": 2,
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp262",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp262",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/6d3P2_fw16tOwi_dTWlxXQ/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/6d3P2_fw16tOwi_dTWlxXQ/content",
     "verifiedSource": "Tyco",
     "sourceMethod": "Existing local PDF catalog plus official latest-link convention",
     "linkStatus": "Derived from local PDF",
@@ -6445,8 +6458,8 @@
     "kFactor": "K8.0, K2.8, K5.6",
     "orientation": "Pendent, Upright, Recessed, Upright, Pendent, Recessed Pendent",
     "type": "Standard Coverage",
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp151",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp151",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/Y5s5g2HZNr6Um_t5iOK7dw/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/Y5s5g2HZNr6Um_t5iOK7dw/content",
     "productPage": "",
     "verifiedSource": "Tyco",
     "sourceMethod": "Existing local PDF catalog plus official latest-link convention",
@@ -6497,7 +6510,8 @@
       "Extra High"
     ],
     "temperatureStatus": "extracted",
-    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/Y5s5g2HZNr6Um_t5iOK7dw/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29"
+    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/Y5s5g2HZNr6Um_t5iOK7dw/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29",
+    "pages": 8
   },
   {
     "id": "0d7afc62ca4fb522",
@@ -6510,8 +6524,8 @@
     "kFactor": "K8.0, K2.8, K4.2, K5.6",
     "orientation": "Pendent, Upright, Recessed, Upright, Pendent, Recessed Pendent",
     "type": "Standard Coverage",
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp171",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp171",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/JXGj~rL_f_FBVCY52uMTJw/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/JXGj~rL_f_FBVCY52uMTJw/content",
     "productPage": "",
     "verifiedSource": "Tyco",
     "sourceMethod": "Existing local PDF catalog plus official latest-link convention",
@@ -6559,7 +6573,8 @@
       "High"
     ],
     "temperatureStatus": "extracted",
-    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/JXGj~rL_f_FBVCY52uMTJw/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29"
+    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/JXGj~rL_f_FBVCY52uMTJw/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29",
+    "pages": 8
   },
   {
     "category": "Sprinklers",
@@ -6573,10 +6588,10 @@
     "sinNumbers": "TY313, TY323",
     "id": "e77ec0f239db7c3d",
     "fileName": "Tyco - TY-323 - Quick Response - K5.6 - Pendent, Upright, Recessed - Pendent Upright Recessed Quick Response Sprinkler.pdf",
-    "pages": 5,
+    "pages": 4,
     "metadataVersion": 2,
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp172",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp172",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/SC0wntXoMEz0fJHGSDFKYg/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/SC0wntXoMEz0fJHGSDFKYg/content",
     "verifiedSource": "Tyco",
     "sourceMethod": "Existing local PDF catalog plus official latest-link convention",
     "linkStatus": "Derived from local PDF",
@@ -6634,8 +6649,8 @@
     "kFactor": "K8.0, K5.6, K2.8",
     "orientation": "Pendent, Upright, Recessed, Upright, Pendent, Recessed Pendent",
     "type": "Standard Coverage",
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp130",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp130",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/v23RYMhJ~TH~mqeMgJkLaw/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/v23RYMhJ~TH~mqeMgJkLaw/content",
     "productPage": "",
     "verifiedSource": "Tyco",
     "sourceMethod": "Existing local PDF catalog plus official latest-link convention",
@@ -6677,7 +6692,8 @@
       "Intermediate"
     ],
     "temperatureStatus": "extracted",
-    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/v23RYMhJ~TH~mqeMgJkLaw/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29"
+    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/v23RYMhJ~TH~mqeMgJkLaw/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29",
+    "pages": 4
   },
   {
     "category": "Sprinklers",
@@ -6693,8 +6709,8 @@
     "fileName": "Tyco - TY3111 - Quick Response - Pendent, Upright, Recessed - Pendent Upright Recessed Quick Response Sprinkler.pdf",
     "pages": 6,
     "metadataVersion": 2,
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp110",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp110",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/8BTETmsXvwydNuciRETKmw/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/8BTETmsXvwydNuciRETKmw/content",
     "verifiedSource": "Tyco",
     "sourceMethod": "Existing local PDF catalog plus official latest-link convention",
     "linkStatus": "Derived from local PDF",
@@ -6746,8 +6762,8 @@
     "kFactor": "K5.6",
     "orientation": "Upright, Pendent",
     "type": "",
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp352",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp352",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/79hQJx47qqfsRntCm8aZBg/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/79hQJx47qqfsRntCm8aZBg/content",
     "productPage": "",
     "verifiedSource": "Tyco",
     "sourceMethod": "Tyco public product-page index and docs.jci.com latest-link convention",
@@ -6798,7 +6814,8 @@
       "Extra High"
     ],
     "temperatureStatus": "extracted",
-    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/79hQJx47qqfsRntCm8aZBg/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29"
+    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/79hQJx47qqfsRntCm8aZBg/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29",
+    "pages": 6
   },
   {
     "id": "97e2eeb6a9402c76",
@@ -6811,8 +6828,8 @@
     "kFactor": "K5.6",
     "orientation": "Upright, Pendent, Recessed Pendent",
     "type": "",
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp152",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp152",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/JkzpirzIsslwf83wYtBOqQ/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/JkzpirzIsslwf83wYtBOqQ/content",
     "productPage": "",
     "verifiedSource": "Tyco",
     "sourceMethod": "Tyco public product-page index and docs.jci.com latest-link convention",
@@ -6862,7 +6879,8 @@
       "Extra High"
     ],
     "temperatureStatus": "extracted",
-    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/JkzpirzIsslwf83wYtBOqQ/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29"
+    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/JkzpirzIsslwf83wYtBOqQ/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29",
+    "pages": 4
   },
   {
     "id": "caabd715ea52d32a",
@@ -6875,8 +6893,8 @@
     "kFactor": "K5.6",
     "orientation": "Horizontal Sidewall, Vertical Sidewall",
     "type": "",
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp161",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp161",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/6YmZNA4doPKjEd2UcoLoIA/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/6YmZNA4doPKjEd2UcoLoIA/content",
     "productPage": "",
     "verifiedSource": "Tyco",
     "sourceMethod": "Tyco public product-page index and docs.jci.com latest-link convention",
@@ -6927,7 +6945,8 @@
       "Extra High"
     ],
     "temperatureStatus": "extracted",
-    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/6YmZNA4doPKjEd2UcoLoIA/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29"
+    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/6YmZNA4doPKjEd2UcoLoIA/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29",
+    "pages": 6
   },
   {
     "id": "56459e839813a80b",
@@ -6940,8 +6959,8 @@
     "kFactor": "K5.6",
     "orientation": "Horizontal Sidewall, Vertical Sidewall",
     "type": "",
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp176",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp176",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/GjYamLcgtxwHCclUKVEuNg/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/GjYamLcgtxwHCclUKVEuNg/content",
     "productPage": "",
     "verifiedSource": "Tyco",
     "sourceMethod": "Tyco public product-page index and docs.jci.com latest-link convention",
@@ -6989,7 +7008,8 @@
       "High"
     ],
     "temperatureStatus": "extracted",
-    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/GjYamLcgtxwHCclUKVEuNg/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29"
+    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/GjYamLcgtxwHCclUKVEuNg/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29",
+    "pages": 6
   },
   {
     "id": "ed702219821b6871",
@@ -7002,8 +7022,8 @@
     "kFactor": "K5.6",
     "orientation": "Horizontal Sidewall",
     "type": "",
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp120",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp120",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/R3p3EG8xDl1ohL1ktS8Dxw/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/R3p3EG8xDl1ohL1ktS8Dxw/content",
     "productPage": "",
     "verifiedSource": "Tyco",
     "sourceMethod": "Tyco public product-page index and docs.jci.com latest-link convention",
@@ -7047,7 +7067,8 @@
       "High"
     ],
     "temperatureStatus": "extracted",
-    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/R3p3EG8xDl1ohL1ktS8Dxw/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29"
+    "temperatureSource": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/R3p3EG8xDl1ohL1ktS8Dxw/content?Ft-Calling-App=ft%2Fturnkey-portal&Ft-Calling-App-Version=5.3.29",
+    "pages": 4
   },
   {
     "category": "Sprinklers",
@@ -7063,8 +7084,8 @@
     "fileName": "Tyco - TY9128 - Quick Response - K25.2 - Upright - Upright Quick Response Sprinkler.pdf",
     "pages": 4,
     "metadataVersion": 2,
-    "sourceUrl": "https://docs.jci.com/tycofire/tfp213",
-    "datasheetUrl": "https://docs.jci.com/tycofire/tfp213",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/OMwy5e5SuXXrg04PuUMNKA/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/OMwy5e5SuXXrg04PuUMNKA/content",
     "verifiedSource": "Tyco",
     "sourceMethod": "Existing local PDF catalog plus official latest-link convention",
     "linkStatus": "Derived from local PDF",
@@ -11329,8 +11350,8 @@
     "kFactor": "K5.6",
     "orientation": "Vertical Sidewall, Sidewall",
     "type": "",
-    "sourceUrl": "https://www.vikinggroupinc.com/sites/default/files/migrated/020407_0.pdf",
-    "datasheetUrl": "https://www.vikinggroupinc.com/sites/default/files/migrated/020407_0.pdf",
+    "sourceUrl": "https://www.vikinggroupinc.com/sites/default/files/2026-07/020407.pdf",
+    "datasheetUrl": "https://www.vikinggroupinc.com/sites/default/files/2026-07/020407.pdf",
     "productPage": "https://www.vikinggroupinc.com/products/fire-sprinklers/standard-coverage-qr/fusible-link/vk309",
     "verifiedSource": "Viking",
     "sourceMethod": "Viking sitemap and product page",
@@ -11375,7 +11396,8 @@
       "High"
     ],
     "temperatureStatus": "extracted",
-    "temperatureSource": "https://www.vikinggroupinc.com/sites/default/files/migrated/020407_0.pdf"
+    "temperatureSource": "https://www.vikinggroupinc.com/sites/default/files/migrated/020407_0.pdf",
+    "pages": 11
   },
   {
     "id": "3f58d2b0d47b5ff8",
@@ -24476,9 +24498,9 @@
     "source": "manufacturer-link",
     "sourceCatalog": "Verified Fire Protection Valve Sources",
     "sourceMethod": "fire-valve-product-data-sheet-index",
-    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/rCTH8BJF~DQP9te L0DdlQ/content",
-    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/rCTH8BJF~DQP9te L0DdlQ/content",
-    "datasheetLink": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/rCTH8BJF~DQP9te L0DdlQ/content",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/rCTH8BJF~DQP9te_L0DdlQ/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/rCTH8BJF~DQP9te_L0DdlQ/content",
+    "datasheetLink": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/rCTH8BJF~DQP9te_L0DdlQ/content",
     "productPage": "https://docs.johnsoncontrols.com/tycofire/go/Tyco/en-US/DV-5A-Automatic-Water-Control-Valve-Deluge-Electric-Actuation-Fire-Protection-Systems-1-1/2-Inch-to-8-Inch-DN40-to-DN200/01-2025",
     "verifiedSource": "Verified Source",
     "linkStatus": "verified",
@@ -24493,7 +24515,8 @@
       "Automatic Water Control Valve - Deluge Electric Actuation",
       "TFP1321"
     ],
-    "searchText": "Tyco DV-5A Automatic Water Control Valve - Deluge Electric Actuation TFP1321 Fire Protection Valves fire protection valve riser assembly"
+    "searchText": "Tyco DV-5A Automatic Water Control Valve - Deluge Electric Actuation TFP1321 Fire Protection Valves fire protection valve riser assembly",
+    "pages": 20
   },
   {
     "id": "2250ce415b3666ce",
@@ -24754,9 +24777,9 @@
     "source": "manufacturer-link",
     "sourceCatalog": "Verified Fire Protection Valve Sources",
     "sourceMethod": "fire-valve-product-data-sheet-index",
-    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/w3P W58HfBSoK8k6v sj4w/content",
-    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/w3P W58HfBSoK8k6v sj4w/content",
-    "datasheetLink": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/w3P W58HfBSoK8k6v sj4w/content",
+    "sourceUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/w3P_W58HfBSoK8k6v_sj4w/content",
+    "datasheetUrl": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/w3P_W58HfBSoK8k6v_sj4w/content",
+    "datasheetLink": "https://docs.johnsoncontrols.com/tycofire/api/khub/documents/w3P_W58HfBSoK8k6v_sj4w/content",
     "productPage": "https://docs.johnsoncontrols.com/tycofire/go/Tyco/en-US/Resilient-Seated-Gate-Valves-Outside-Screw-and-Yoke/12-2024",
     "verifiedSource": "Verified Source",
     "linkStatus": "verified",
@@ -24771,7 +24794,8 @@
       "Gate Valve - Outside Screw and Yoke (OS&Y)",
       "TFP1541"
     ],
-    "searchText": "Tyco TJR Gate Valve - Outside Screw and Yoke (OS&Y) TFP1541 Fire Protection Valves fire protection valve riser assembly"
+    "searchText": "Tyco TJR Gate Valve - Outside Screw and Yoke (OS&Y) TFP1541 Fire Protection Valves fire protection valve riser assembly",
+    "pages": 6
   },
   {
     "id": "6391a18d788fc940",
@@ -25542,9 +25566,9 @@
     "source": "manufacturer-link",
     "sourceCatalog": "Verified Fire Protection Valve Sources",
     "sourceMethod": "fire-valve-product-data-sheet-index",
-    "sourceUrl": "https://www.vikinggroupinc.com/sites/default/files/migrated/070392 01.pdf",
-    "datasheetUrl": "https://www.vikinggroupinc.com/sites/default/files/migrated/070392 01.pdf",
-    "datasheetLink": "https://www.vikinggroupinc.com/sites/default/files/migrated/070392 01.pdf",
+    "sourceUrl": "https://www.vikinggroupinc.com/sites/default/files/migrated/070392_01.pdf",
+    "datasheetUrl": "https://www.vikinggroupinc.com/sites/default/files/migrated/070392_01.pdf",
+    "datasheetLink": "https://www.vikinggroupinc.com/sites/default/files/migrated/070392_01.pdf",
     "productPage": "https://www.vikinggroupinc.com/products/valve-systems/dry/model-f/f1",
     "verifiedSource": "Verified Source",
     "linkStatus": "verified",
@@ -25559,7 +25583,8 @@
       "F-1 Dry Valve",
       ""
     ],
-    "searchText": "Viking Model F-1 Dry Valve F-1 Dry Valve Fire Protection Valves fire protection valve riser assembly"
+    "searchText": "Viking Model F-1 Dry Valve F-1 Dry Valve Fire Protection Valves fire protection valve riser assembly",
+    "pages": 11
   },
   {
     "id": "745ca2e66a9db9b2",
@@ -25576,9 +25601,9 @@
     "source": "manufacturer-link",
     "sourceCatalog": "Verified Fire Protection Valve Sources",
     "sourceMethod": "fire-valve-product-data-sheet-index",
-    "sourceUrl": "https://www.vikinggroupinc.com/sites/default/files/migrated/110802 0.pdf",
-    "datasheetUrl": "https://www.vikinggroupinc.com/sites/default/files/migrated/110802 0.pdf",
-    "datasheetLink": "https://www.vikinggroupinc.com/sites/default/files/migrated/110802 0.pdf",
+    "sourceUrl": "https://www.vikinggroupinc.com/sites/default/files/migrated/110802_0.pdf",
+    "datasheetUrl": "https://www.vikinggroupinc.com/sites/default/files/migrated/110802_0.pdf",
+    "datasheetLink": "https://www.vikinggroupinc.com/sites/default/files/migrated/110802_0.pdf",
     "productPage": "https://www.vikinggroupinc.com/products/valves-systems/deluge-preaction-systems/deluge-valve-straight-through/model-f-1-straight",
     "verifiedSource": "Verified Source",
     "linkStatus": "verified",
@@ -25593,7 +25618,8 @@
       "F-1 Straight Through Deluge Valve, 2-1/2” (DN65) - 8” (DN200)",
       ""
     ],
-    "searchText": "Viking Model F-1 Straight Through Deluge Valve F-1 Straight Through Deluge Valve, 2-1/2” (DN65) - 8” (DN200) Fire Protection Valves fire protection valve riser assembly"
+    "searchText": "Viking Model F-1 Straight Through Deluge Valve F-1 Straight Through Deluge Valve, 2-1/2” (DN65) - 8” (DN200) Fire Protection Valves fire protection valve riser assembly",
+    "pages": 10
   },
   {
     "id": "4b2fa5c7769dc93b",
@@ -25712,9 +25738,9 @@
     "source": "manufacturer-link",
     "sourceCatalog": "Verified Fire Protection Valve Sources",
     "sourceMethod": "fire-valve-product-data-sheet-index",
-    "sourceUrl": "https://www.vikinggroupinc.com/sites/default/files/migrated/040402 0.pdf",
-    "datasheetUrl": "https://www.vikinggroupinc.com/sites/default/files/migrated/040402 0.pdf",
-    "datasheetLink": "https://www.vikinggroupinc.com/sites/default/files/migrated/040402 0.pdf",
+    "sourceUrl": "https://www.vikinggroupinc.com/sites/default/files/migrated/040402_0.pdf",
+    "datasheetUrl": "https://www.vikinggroupinc.com/sites/default/files/migrated/040402_0.pdf",
+    "datasheetLink": "https://www.vikinggroupinc.com/sites/default/files/migrated/040402_0.pdf",
     "productPage": "https://www.vikinggroupinc.com/products/valve-systems/flow-control-pressure-regulation/flow-control/j1-dn65-200",
     "verifiedSource": "Verified Source",
     "linkStatus": "verified",
@@ -25729,7 +25755,8 @@
       "J-1 Flow Control Valve, 2-1/2\" - 8\" (DN65 - DN200)",
       ""
     ],
-    "searchText": "Viking Model J-1 Flow Control Valve J-1 Flow Control Valve, 2-1/2\" - 8\" (DN65 - DN200) Fire Protection Valves fire protection valve riser assembly"
+    "searchText": "Viking Model J-1 Flow Control Valve J-1 Flow Control Valve, 2-1/2\" - 8\" (DN65 - DN200) Fire Protection Valves fire protection valve riser assembly",
+    "pages": 11
   },
   {
     "id": "1403a49a56c478da",
@@ -25780,9 +25807,9 @@
     "source": "manufacturer-link",
     "sourceCatalog": "Verified Fire Protection Valve Sources",
     "sourceMethod": "fire-valve-product-data-sheet-index",
-    "sourceUrl": "https://www.vikinggroupinc.com/sites/default/files/migrated/032405 0.pdf",
-    "datasheetUrl": "https://www.vikinggroupinc.com/sites/default/files/migrated/032405 0.pdf",
-    "datasheetLink": "https://www.vikinggroupinc.com/sites/default/files/migrated/032405 0.pdf",
+    "sourceUrl": "https://www.vikinggroupinc.com/sites/default/files/migrated/032405_0.pdf",
+    "datasheetUrl": "https://www.vikinggroupinc.com/sites/default/files/migrated/032405_0.pdf",
+    "datasheetLink": "https://www.vikinggroupinc.com/sites/default/files/migrated/032405_0.pdf",
     "productPage": "https://www.vikinggroupinc.com/products/valve-systems/wet/additional/m2-check",
     "verifiedSource": "Verified Source",
     "linkStatus": "verified",
@@ -25797,7 +25824,8 @@
       "M-2 Check Valve",
       ""
     ],
-    "searchText": "Viking Model M-2 Check Valve M-2 Check Valve Fire Protection Valves fire protection valve riser assembly"
+    "searchText": "Viking Model M-2 Check Valve M-2 Check Valve Fire Protection Valves fire protection valve riser assembly",
+    "pages": 3
   },
   {
     "id": "3629e17f63803eeb",
@@ -26052,9 +26080,9 @@
     "source": "manufacturer-link",
     "sourceCatalog": "Verified Miscellaneous Fire Protection Sources",
     "sourceMethod": "verified-misc-product-data-sheet-index",
-    "sourceUrl": "https://www.pottersignal.com/product/datasheet/5400777 BELLS.pdf",
-    "datasheetUrl": "https://www.pottersignal.com/product/datasheet/5400777 BELLS.pdf",
-    "datasheetLink": "https://www.pottersignal.com/product/datasheet/5400777 BELLS.pdf",
+    "sourceUrl": "https://www.pottersignal.com/product/datasheet/5400777_BELLS.pdf",
+    "datasheetUrl": "https://www.pottersignal.com/product/datasheet/5400777_BELLS.pdf",
+    "datasheetLink": "https://www.pottersignal.com/product/datasheet/5400777_BELLS.pdf",
     "productPage": "https://www.pottersignal.com/product/datasheet/5400777 BELLS.pdf",
     "verifiedSource": "Verified Source",
     "linkStatus": "verified",
@@ -26069,7 +26097,8 @@
       "Alarm Bells",
       "5400777"
     ],
-    "searchText": "Potter 5400777 Alarm Bells 5400777 Bells in-building riser"
+    "searchText": "Potter 5400777 Alarm Bells 5400777 Bells in-building riser",
+    "pages": 2
   },
   {
     "id": "ed90338540d75c92",
@@ -26120,9 +26149,9 @@
     "source": "manufacturer-link",
     "sourceCatalog": "Verified Miscellaneous Fire Protection Sources",
     "sourceMethod": "verified-misc-product-data-sheet-index",
-    "sourceUrl": "https://www.pottersignal.com/product/datasheet/8830229 PE Horns Strobes.pdf",
-    "datasheetUrl": "https://www.pottersignal.com/product/datasheet/8830229 PE Horns Strobes.pdf",
-    "datasheetLink": "https://www.pottersignal.com/product/datasheet/8830229 PE Horns Strobes.pdf",
+    "sourceUrl": "https://www.pottersignal.com/product/datasheet/8830229_PE_Horns_Strobes.pdf",
+    "datasheetUrl": "https://www.pottersignal.com/product/datasheet/8830229_PE_Horns_Strobes.pdf",
+    "datasheetLink": "https://www.pottersignal.com/product/datasheet/8830229_PE_Horns_Strobes.pdf",
     "productPage": "https://www.pottersignal.com/product/datasheet/8830229 PE Horns Strobes.pdf",
     "verifiedSource": "Verified Source",
     "linkStatus": "verified",
@@ -26137,7 +26166,8 @@
       "Horns and Strobes",
       "8830229"
     ],
-    "searchText": "Potter PE Series Horns and Strobes 8830229 Horns and Strobes in-building riser"
+    "searchText": "Potter PE Series Horns and Strobes 8830229 Horns and Strobes in-building riser",
+    "pages": 5
   },
   {
     "category": "Fittings",
