@@ -7509,7 +7509,10 @@ function manufacturerKey(value) {
 }
 
 function catalogItemManufacturer(item) {
-  return String(item?.manufacturer || "").trim();
+  // Healed, not raw: local imports can carry a blank manufacturer while the
+  // title says "(Victaulic)" - the preference matcher and the teach-my-default
+  // link must see the same manufacturer the row displays.
+  return displayManufacturer(item);
 }
 
 /** The preference actually in force for a category, or "" when there is none. */
@@ -7530,7 +7533,7 @@ function pickPreferredCatalogItem(items, category) {
   for (const manufacturer of scanPreferredManufacturerChain(wanted)) {
     const key = manufacturerKey(manufacturer);
     if (!key) continue;
-    const hit = list.find((item) => manufacturerKey(item.manufacturer) === key);
+    const hit = list.find((item) => manufacturerKey(displayManufacturer(item)) === key);
     if (hit) return hit;
   }
   return null;
