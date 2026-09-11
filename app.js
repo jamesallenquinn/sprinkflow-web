@@ -7607,7 +7607,21 @@ function buildPlanCatalogSuggestions(projectInfo) {
       status: isRemoteCatalogItem(defaultOption) ? "import" : "choice",
     });
   };
-  for (const sprinkler of Array.isArray(projectInfo.sprinklers) ? projectInfo.sprinklers : []) {
+  // Criteria-only sprinkler records (no model) with no manufacturer are legend
+  // fragments or note prose. When the plans name a maker anywhere, a maker-less
+  // fragment can only match the WRONG brand (a K4.9 concealed fragment on a
+  // Senju job used to surface Tyco heads), so it is dropped; a fragment whose
+  // K-factor is already covered by an exact record IS that head, so it is
+  // dropped too. Maker-less plans keep the old behavior so legend-less sets
+  // still get criteria suggestions.
+  const sprinklerRecords = Array.isArray(projectInfo.sprinklers) ? projectInfo.sprinklers : [];
+  const namedMakers = new Set(sprinklerRecords.map((r) => manufacturerKey(r.manufacturer)).filter(Boolean));
+  const exactKFactors = new Set(sprinklerRecords.filter((r) => r.model).map((r) => normalizeKFactor(r.kFactor || "")).filter(Boolean));
+  for (const sprinkler of sprinklerRecords) {
+    if (!sprinkler.model && !sprinkler.manufacturer) {
+      if (namedMakers.size) continue;
+      if (sprinkler.kFactor && exactKFactors.has(normalizeKFactor(sprinkler.kFactor))) continue;
+    }
     addSuggestion("sprinkler", sprinkler, matchSprinklerFromPlan(sprinkler));
   }
   for (const aliasMatch of catalogAliasMatchesFromPlan(projectInfo)) {
@@ -7657,6 +7671,7 @@ function buildPlanCatalogSuggestions(projectInfo) {
         offerKey: "cpvc-hangers",
         category: "Hangers",
         label: "CPVC pipe detected — add CPVC hangers?",
+        detected: { term: "CPVC hanger", sourceText: "Offered because CPVC pipe was detected" },
         offerOptions: cpvcHangers,
         selectable: false,
         checked: false,
@@ -7677,14 +7692,15 @@ function buildPlanCatalogSuggestions(projectInfo) {
       else addSuggestion("hanger", hanger, matchCatalogTermFromPlan(hanger, "Hangers"));
     }
   }
-  for (const bracing of Array.isArray(projectInfo.bracing) ? projectInfo.bracing : []) {
-    const choice = planChoiceConfig(bracing, "Bracing");
-    if (choice) addChoiceSuggestion("bracing-choice", bracing, "Bracing", choice.terms, choice.label, { excludeTerms: choice.excludeTerms, preferred: choice.preferred });
-    else addSuggestion("bracing", bracing, matchCatalogTermFromPlan(bracing, "Bracing"));
-  }
+  appendSeismicBracingSuggestions(suggestions, projectInfo);
   for (const valve of Array.isArray(projectInfo.valves) ? projectInfo.valves : []) {
     if (isFlowSwitchDetection(valve)) continue;
-    const specificValveText = normalize(`${valve?.term || ""} ${valve?.sourceText || ""}`);
+    // normalizeSearchText, NOT normalize: normalize() deletes every separator
+    // ("Viking EasyPac Riser" -> "vikingeasypacriser"), so the \b anchors below
+    // could never fire on anything but a one-word detection. The riser detail on
+    // the owner's 2814 Clay St set says "3in VIKING EASYPAC RISER ASSY" and the
+    // review still defaulted to a Victaulic UMC.
+    const specificValveText = normalizeSearchText(`${valve?.term || ""} ${valve?.sourceText || ""}`);
     if (/\bumc\b|\beasypac\b|\buniversal manifold check\b/.test(specificValveText)) {
       addSuggestion("valve", valve, matchCatalogTermFromPlan(valve, "Valves"));
     } else {
@@ -7702,6 +7718,127 @@ function buildPlanCatalogSuggestions(projectInfo) {
   // cannot absorb them into a "Choose one" dropdown - they are the owner's
   // standing answer, not another candidate.
   return appendLoadoutSuggestions(consolidatePlanChoiceSuggestions(suggestions), projectInfo);
+}
+
+// ===========================================================================
+//  Seismic bracing - ONE detection, not two
+//
+//  The scan used to surface "Lateral Brace" AND "Sway Brace" as two generic
+//  rows. They are the same object: a sway brace IS a lateral or longitudinal
+//  brace. Worse, neither row named a part - the customer got two prompts to
+//  go and look up the same thing.
+//
+//  What a plan set actually carries is the manufacturer's seismic bracing CALC
+//  SHEET, and it names the exact components. When the scan finds those (the
+//  calc sheet is an embedded picture, so this needs the detail OCR pass), the
+//  review shows them: one grouped block, one row per component, each pointing
+//  at its datasheet. When it does not, the review shows ONE row that asks the
+//  only question left - whose bracing does this shop use - in the same
+//  two-stage maker-chip shape the CPVC hanger offer uses.
+// ===========================================================================
+
+function seismicBracingComponents(projectInfo) {
+  return (Array.isArray(projectInfo?.bracing) ? projectInfo.bracing : [])
+    .filter((record) => record?.seismicBracing);
+}
+
+/** Datasheets for one calc-sheet component, best first. */
+function bracingComponentOptions(component) {
+  const model = normalizeSearchText(component?.model || "");
+  const maker = manufacturerKey(component?.catalogManufacturer || component?.manufacturer || "");
+  if (!model) return [];
+  const exact = state.catalog.filter((item) => {
+    if (item.category !== "Bracing") return false;
+    if (maker && manufacturerKey(item.manufacturer) !== maker) return false;
+    return normalizeSearchText(item.model || "") === model;
+  });
+  if (exact.length) return dedupeCatalogIdentity(exact).sort(compareCatalogItems);
+  // No row filed under that model: fall back to the ordinary term search, which
+  // also reads aliases and searchText. (nVent CADDY bracing has no catalog rows
+  // at all today, so this is the path a CADDY calc takes.)
+  return findCatalogChoiceOptions("Bracing", [component.model, component.product].filter(Boolean));
+}
+
+/**
+ * The candidate list behind the "choose your manufacturer" fallback.
+ *
+ * The whole Bracing category, not a term-filtered slice: the question this row
+ * asks is "whose bracing does this shop use", and a term search answers a
+ * different one. Filtering by the generic "lateral brace" / "sway brace"
+ * wording offered 23 Tolco sheets against 1 AFCON - which reads as a
+ * recommendation rather than a choice, purely because of how each maker words
+ * its product titles.
+ */
+function genericBracingOfferOptions() {
+  return dedupeCatalogIdentity(state.catalog.filter((item) => item.category === "Bracing"))
+    .sort(compareCatalogItems);
+}
+
+function seismicBracingHeading(seismic, count) {
+  const maker = String(seismic?.manufacturer || "").trim();
+  const page = Number(seismic?.calcSheetPage) || 0;
+  const where = page ? ` read off the calc sheet on sheet ${page}` : "";
+  const types = Array.isArray(seismic?.braceTypes) && seismic.braceTypes.length
+    ? ` (${seismic.braceTypes.join(" + ")})`
+    : "";
+  return `Seismic bracing${maker ? ` — ${maker}` : ""}${types}: ${count} component${count === 1 ? "" : "s"}${where}`;
+}
+
+function appendSeismicBracingSuggestions(suggestions, projectInfo) {
+  const seismic = projectInfo?.seismicBracing || null;
+  const components = seismicBracingComponents(projectInfo);
+  const detections = Array.isArray(projectInfo?.bracing) ? projectInfo.bracing : [];
+  if (!detections.length) return;
+
+  if (components.length) {
+    const rows = [];
+    for (const component of components) {
+      const options = bracingComponentOptions(component);
+      if (!options.length) continue;
+      const preferred = pickPreferredCatalogItem(options, "Bracing") || options[0];
+      rows.push({
+        kind: "bracing-choice",
+        detected: component,
+        category: "Bracing",
+        label: `${component.model} — ${component.roleLabel || "Bracing"}`,
+        options,
+        selectedId: preferred?.id || "",
+        selectable: true,
+        // A model printed on the calc sheet is not a guess: it arrives ticked.
+        checked: true,
+        status: isRemoteCatalogItem(preferred) ? "import" : "choice",
+      });
+    }
+    if (rows.length) {
+      rows[0].groupLabel = seismicBracingHeading(seismic, rows.length);
+      suggestions.push(...rows);
+      return;
+    }
+  }
+
+  // Nothing specific found - ask the one question that is left, once.
+  const offerOptions = genericBracingOfferOptions();
+  if (!offerOptions.length) return;
+  const genericTerms = detections
+    .filter((record) => !record?.seismicBracing)
+    .map((record) => record.term)
+    .filter(Boolean);
+  suggestions.push({
+    kind: "offer",
+    offerKey: "seismic-bracing",
+    category: "Bracing",
+    label: "Seismic bracing detected — choose your manufacturer",
+    offerNoun: "bracing components",
+    offerOptions,
+    detected: {
+      term: "Seismic Bracing",
+      sourceText: genericTerms.length
+        ? `Detected from: ${genericTerms.join(", ")}`
+        : "Detected from the plan text",
+    },
+    selectable: false,
+    checked: false,
+  });
 }
 
 function consolidatePlanChoiceSuggestions(suggestions) {
@@ -7778,6 +7915,10 @@ function dedupePlanChoiceRows(suggestions) {
       continue;
     }
     const selectedItem = planSuggestionSelectedItem(existing) || planSuggestionSelectedItem(suggestion);
+    // Keep the detection that can PROVE itself. The same label can arrive twice
+    // - once inferred from the pipe material, once read off a rendered detail -
+    // and only the second one knows which crop of which sheet it came from.
+    if (!existing.detected?.source && suggestion.detected?.source) existing.detected = suggestion.detected;
     existing.options = uniqueCatalogItems([...existing.options, ...suggestion.options]).sort(compareCatalogItems);
     // A merge widens the option list, so the preference gets another look - but
     // never over a pick the user made by hand in this dialog.
@@ -8080,7 +8221,10 @@ function firedPlanTriggerKeys(projectInfo) {
 
   const pipeRecords = Array.isArray(projectInfo.pipeTypes) ? projectInfo.pipeTypes : [];
   const pipeText = normalizeSearchText(pipeRecords.map((record) => `${record?.pipeType || ""} ${record?.sourceText || ""}`).join(" "));
-  const bodyText = normalizeSearchText(projectInfo.scanTextSample || "");
+  const bodyText = normalizeSearchText(
+    `${projectInfo.scanTextSample || ""}
+${projectInfo.detailTextSample || ""}`,
+  );
   for (const trigger of PLAN_MATERIAL_TRIGGERS) {
     if (trigger.pattern.test(pipeText)) fired.add(trigger.key);
     else if (trigger.bodyFallback && bodyText && trigger.pattern.test(bodyText)) fired.add(trigger.key);
@@ -8277,8 +8421,13 @@ function aliasesText(item) {
 }
 
 function catalogAliasMatchesFromPlan(projectInfo) {
-  const source = normalizeSearchText(projectInfo?.scanTextSample || "");
-  if (!source) return [];
+  // Details drawn on the sheet count too: a shop whose custom term is "EASYPAC"
+  // wants it found whether it was lettered as text or printed into a picture.
+  const source = normalizeSearchText(
+    `${projectInfo?.scanTextSample || ""}
+${projectInfo?.detailTextSample || ""}`,
+  );
+  if (!source.trim()) return [];
   const results = [];
   const seen = new Set();
   for (const item of state.catalog) {
@@ -8870,7 +9019,7 @@ function wireScanSourceViewer() {
 
 function refreshPlansReviewSuggestionList(review) {
   review.suggestions = dedupePlanChoiceRows(review.suggestions);
-  dom.plansReviewSuggestions.innerHTML = renderPlansReviewSuggestions(review.suggestions);
+  dom.plansReviewSuggestions.innerHTML = renderPlansReviewSuggestions(review.suggestions, review.project?.provenance || null);
   const visibleMatches = review.suggestions.filter((suggestion) => suggestion.item || suggestion.options?.length).length;
   const importCount = review.suggestions.filter((suggestion) => {
     const item = planSuggestionSelectedItem(suggestion);
@@ -8887,7 +9036,7 @@ function refreshPlansReviewSuggestionList(review) {
   }
 }
 
-function renderPlansReviewSuggestions(suggestions) {
+function renderPlansReviewSuggestions(suggestions, provenance = null) {
   if (!suggestions.length) {
     return '<p class="empty-category">No sprinkler or pipe datasheet matches were found in the plans text.</p>';
   }
@@ -8897,10 +9046,22 @@ function renderPlansReviewSuggestions(suggestions) {
     const attributionHtml = attribution
       ? `<span class="plan-suggestion-loadout">${escapeHtml(attribution)}</span>`
       : "";
+    // A grouped block (today: the components off one seismic bracing calc
+    // sheet) gets a heading before its first row. The rows stay ordinary
+    // suggestions, so every downstream behaviour - checkbox, import, apply,
+    // teach-my-default - keeps working with no new code path.
+    const groupHtml = suggestion.groupLabel
+      ? `<h4 class="plan-suggestion-group">${escapeHtml(suggestion.groupLabel)}</h4>`
+      : "";
+    const sourceHtml = planSourceButtonHtml(suggestion, index, provenance);
     if (suggestion.kind === "offer" && suggestion.offerOptions?.length) {
       // Two-stage picker: 22 hangers at once was too long a list. First pick a
       // manufacturer, then add all of theirs or hand-pick from just that maker.
       const makers = [...new Set(suggestion.offerOptions.map((item) => item.manufacturer || "Other"))];
+      // The offer pattern is no longer CPVC-hangers-only: seismic bracing uses
+      // it too, so the noun comes from the row instead of being spelled into
+      // the markup.
+      const noun = suggestion.offerNoun || "hangers";
       let controls = "";
       if (!suggestion.offerMaker) {
         // The shop's default maker is highlighted, not auto-picked: this step
@@ -8914,7 +9075,7 @@ function renderPlansReviewSuggestions(suggestions) {
           // one is yours" - and would say nothing to a colorblind user.
           const label = `${escapeHtml(maker)} (${count})${isPreferred ? '<span class="plan-offer-default-tag">your default</span>' : ""}`;
           const aria = isPreferred
-            ? ` aria-label="${escapeHtml(maker)}, ${count} hangers — your default manufacturer" title="Your default manufacturer"`
+            ? ` aria-label="${escapeHtml(maker)}, ${count} ${noun} — your default manufacturer" title="Your default manufacturer"`
             : "";
           return `<button class="small-button plan-offer-button${isPreferred ? " is-preferred" : ""}" type="button" data-plan-offer-maker="${escapeHtml(maker)}" data-plan-offer-index="${index}"${aria}>${label}</button>`;
         }).join("");
@@ -8927,8 +9088,9 @@ function renderPlansReviewSuggestions(suggestions) {
       }
       const meta = suggestion.offerMaker
         ? `${escapeHtml(suggestion.offerMaker)} — add all of theirs, or pick from just that list`
-        : `${suggestion.offerOptions.length} hangers across ${makers.length} manufacturers — pick one`;
+        : `${suggestion.offerOptions.length} ${escapeHtml(noun)} across ${makers.length} manufacturer${makers.length === 1 ? "" : "s"} — pick one`;
       return `
+        ${groupHtml}
         <article class="plan-suggestion-row offer-row">
           <span class="plan-offer-glyph" aria-hidden="true">+</span>
           <span>
@@ -8936,6 +9098,7 @@ function renderPlansReviewSuggestions(suggestions) {
             <span class="plan-suggestion-meta">${meta}</span>
             <span class="plan-offer-controls">${controls}</span>
             ${planTeachDefaultHtml(suggestion, index)}
+            ${sourceHtml}
           </span>
         </article>
       `;
@@ -8950,6 +9113,7 @@ function renderPlansReviewSuggestions(suggestions) {
         `<option value="${escapeHtml(item.id)}" ${item.id === selectedItem?.id ? "selected" : ""}>${escapeHtml(displayName(item))}${isRemoteCatalogItem(item) ? " (import needed)" : ""}</option>`
       )).join("");
       return `
+        ${groupHtml}
         <article class="plan-suggestion-row choice-row${attribution ? " is-from-loadout" : ""}">
           <input type="checkbox" data-plan-suggestion="${index}" ${checked} />
           <span>
@@ -8962,6 +9126,7 @@ function renderPlansReviewSuggestions(suggestions) {
             ${selectedItem?.includesFittings && !/includes fittings/i.test(displayName(selectedItem))
               ? '<span class="plan-suggestion-note">This datasheet also covers the matching fittings.</span>' : ""}
             ${planTeachDefaultHtml(suggestion, index)}
+            ${sourceHtml}
           </span>
           ${action}
         </article>
@@ -8977,12 +9142,14 @@ function renderPlansReviewSuggestions(suggestions) {
         ? `<button class="small-button download-button plan-import-button" type="button" data-plan-import="${index}">Import Datasheet</button>`
         : `<span class="plan-suggestion-badge">${escapeHtml(badge)}</span>`;
       return `
+        ${groupHtml}
         <article class="plan-suggestion-row${attribution ? " is-from-loadout" : ""}">
           <input type="checkbox" data-plan-suggestion="${index}" ${checked} ${disabled} />
           <span>
             <span class="plan-suggestion-title">${escapeHtml(displayName(suggestion.item))}</span>
             <span class="plan-suggestion-meta">${escapeHtml(planDetectedSummary(suggestion.detected))}</span>
             ${attributionHtml}
+            ${sourceHtml}
           </span>
           ${action}
         </article>
@@ -9016,16 +9183,39 @@ function planTeachDefaultHtml(suggestion, index) {
 }
 
 function planDetectedSummary(detected) {
+  // A model-number detection files the SAME string as both model and term
+  // ("Fig. 3000"), and printing it twice reads like a data error.
+  const term = normalize(detected.term || "") === normalize(detected.model || "") ? "" : detected.term;
   return [
     detected.manufacturer,
     detected.model,
-    detected.term,
+    term,
     detected.pipeType,
     detected.kFactor ? `K${detected.kFactor}` : "",
     detected.response,
     detected.orientation,
     detected.type,
+    planDetectionOriginText(detected),
   ].filter(Boolean).join(" | ") || detected.sourceLine || detected.sourceText || "Detected from plans";
+}
+
+/**
+ * Where a detection came from, when that is not "the plan's own text". A value
+ * read out of a PICTURE on the sheet is a weaker claim than one read from the
+ * PDF's glyphs, and the row has to say so before the customer trusts it.
+ */
+function planDetectionOriginText(detected) {
+  const source = detected?.source;
+  if (!source || source.kind !== "detail-ocr") return "";
+  const page = Number(source.page) || 0;
+  return `${source.label || "OCR of rendered detail"}${page ? `, sheet ${page}` : ""}`;
+}
+
+/** "Show source" affordance for a row the scan can prove. */
+function planSourceButtonHtml(suggestion, index, provenance) {
+  const key = String(suggestion?.detected?.source?.provenanceKey || "");
+  if (!key || !provenance?.fields?.[key]) return "";
+  return `<button class="link-button plan-suggestion-source" type="button" data-plan-source="${index}">Show source</button>`;
 }
 
 function showPlansReviewDialog(review) {
@@ -9094,11 +9284,16 @@ function showPlansReviewDialog(review) {
       // Materialize ordinary item rows for the chosen manufacturer only:
       // every existing behavior (checkbox, import, apply) works on them with
       // zero new code paths. "Add all" arrives pre-checked; manual unchecked.
+      // The offer's own detection describes why it was offered - the CPVC
+      // hanger offer and the seismic bracing offer are not the same prompt, and
+      // the materialized rows have to say which one they came from.
+      const detected = offer.detected
+        || { term: "CPVC hanger", sourceText: "Offered because CPVC pipe was detected" };
       const rows = offer.offerOptions
         .filter((item) => (item.manufacturer || "Other") === offer.offerMaker)
         .map((item) => ({
-          kind: "hanger",
-          detected: { term: "CPVC hanger", sourceText: "Offered because CPVC pipe was detected" },
+          kind: String(offer.category || "Hangers").toLowerCase().replace(/s$/, ""),
+          detected,
           item,
           status: isRemoteCatalogItem(item) ? "import" : "exact",
           selectable: true,
@@ -9190,6 +9385,19 @@ function showPlansReviewDialog(review) {
       showToast(`${manufacturer} is now your default for ${category} — change it any time in Settings > Scanning.`, { tone: "success" });
       refreshPlansReviewSuggestionList(review);
     };
+    // "Show source" on a detection row. Same viewer the name/address fields
+    // use - a detection read out of a picture on the sheet is exactly the kind
+    // of claim a customer wants to see the picture for.
+    const onShowSource = (event) => {
+      const button = event.target.closest("[data-plan-source]");
+      if (!button) return;
+      event.preventDefault();
+      const suggestion = review.suggestions[Number(button.dataset.planSource)];
+      const key = String(suggestion?.detected?.source?.provenanceKey || "");
+      if (!key) return;
+      const noun = String(suggestion?.detected?.term || suggestion?.detected?.model || "detection");
+      openScanSourceViewer(review.project?.provenance, key, noun);
+    };
     // Dismiss-on-backdrop must require the PRESS to start on the backdrop, not
     // just the release. A `click` dispatches on the nearest common ancestor of
     // its mousedown/mouseup targets, so pressing inside the dialog and drifting
@@ -9219,6 +9427,7 @@ function showPlansReviewDialog(review) {
       dom.plansReviewSuggestions.removeEventListener("click", onImport);
       dom.plansReviewSuggestions.removeEventListener("click", onOfferExpand);
       dom.plansReviewSuggestions.removeEventListener("click", onTeachDefault);
+      dom.plansReviewSuggestions.removeEventListener("click", onShowSource);
       dom.plansReviewSuggestions.removeEventListener("change", onChoiceChange);
       dom.plansReviewDialog.removeEventListener("cancel", onCancel);
       dom.plansReviewDialog.removeEventListener("pointerdown", onBackdropPress);
@@ -9231,6 +9440,7 @@ function showPlansReviewDialog(review) {
     dom.plansReviewSuggestions.addEventListener("click", onImport);
     dom.plansReviewSuggestions.addEventListener("click", onOfferExpand);
     dom.plansReviewSuggestions.addEventListener("click", onTeachDefault);
+    dom.plansReviewSuggestions.addEventListener("click", onShowSource);
     dom.plansReviewSuggestions.addEventListener("change", onChoiceChange);
     dom.plansReviewDialog.addEventListener("cancel", onCancel);
     dom.plansReviewDialog.addEventListener("pointerdown", onBackdropPress);

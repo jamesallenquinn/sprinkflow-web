@@ -12193,6 +12193,43 @@ body[data-theme="vellum"] .seismic-cond.is-acked { border-left-color: #3c6a37; }
   text-align: left;
 }
 
+/* "Show source" on a detection row - the same affordance the name and address
+   fields carry, in the same link shape, sitting beside the teach link. */
+.plan-suggestion-source {
+  display: inline-block;
+  font-size: 0.8rem;
+  margin-top: 8px;
+  margin-right: 12px;
+  text-align: left;
+}
+
+/* Heading over a run of rows that belong to ONE detection - today, the
+   components read off a seismic bracing calc sheet. It is a label for the
+   rows beneath it, so it sits flush above them (the list's own 8px gap is the
+   only separation) and never floats away from what it names. */
+.plan-suggestion-group {
+  align-items: baseline;
+  color: var(--muted);
+  display: flex;
+  font-size: 0.78rem;
+  font-weight: 900;
+  gap: 8px;
+  letter-spacing: 0.04em;
+  margin: 8px 0 0;
+  text-transform: uppercase;
+}
+
+.plans-suggestion-list > .plan-suggestion-group:first-child {
+  margin-top: 0;
+}
+
+.plan-suggestion-group::after {
+  background: var(--line);
+  content: "";
+  flex: 1;
+  height: 1px;
+}
+
 /* ===========================================================================
    Global drop chooser (Phase 4a). Shown when a file is dropped anywhere that
    is not already a specific drop zone. Structure mirrors the command palette
