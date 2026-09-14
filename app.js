@@ -14972,8 +14972,14 @@ function dwgpdfTextOutlineOn() {
   const el = dwgpdfEl("dwgpdfTextOutline");
   return el ? !!el.checked : true;
 }
+function dwgpdfSolidFills() {
+  const v = dwgpdfEl("dwgpdfSolidFillsSelect")?.value || "screen";
+  if (v === "screen50") return { mode: "screen", screen: 50, value: v };
+  if (v === "screen") return { mode: "screen", screen: 25, value: v };
+  return { mode: v, screen: 25, value: v };
+}
 function dwgpdfSavePrefs() {
-  try { localStorage.setItem(DWGPDF_PREFS_KEY, JSON.stringify({ lineWidthMm: dwgpdfLineWeightMm(), textOutline: dwgpdfTextOutlineOn() })); } catch (_) {}
+  try { localStorage.setItem(DWGPDF_PREFS_KEY, JSON.stringify({ lineWidthMm: dwgpdfLineWeightMm(), textOutline: dwgpdfTextOutlineOn(), solidFills: dwgpdfSolidFills().value })); } catch (_) {}
 }
 function dwgpdfRestorePrefs() {
   let prefs = null;
@@ -14985,8 +14991,11 @@ function dwgpdfRestorePrefs() {
     if ([...sel.options].some((o) => o.value === want)) sel.value = want;
   }
   if (chk && prefs && typeof prefs.textOutline === "boolean") chk.checked = prefs.textOutline;
+  const fills = dwgpdfEl("dwgpdfSolidFillsSelect");
+  if (fills && prefs && typeof prefs.solidFills === "string" && [...fills.options].some((o) => o.value === prefs.solidFills)) fills.value = prefs.solidFills;
   sel?.addEventListener("change", dwgpdfSavePrefs);
   chk?.addEventListener("change", dwgpdfSavePrefs);
+  fills?.addEventListener("change", dwgpdfSavePrefs);
 }
 
 function dwgpdfReset() {
@@ -15174,6 +15183,8 @@ async function dwgpdfGenerate() {
         modelPaper: dwgpdfEl("dwgpdfPaperSelect")?.value || "tabloid",
         lineWidthMm: dwgpdfLineWeightMm(),
         textOutline: dwgpdfTextOutlineOn(),
+        solidFills: dwgpdfSolidFills().mode,
+        fillScreen: dwgpdfSolidFills().screen,
         baseName: dwgpdfState.fileName,
         // only the checked reference drawings get merged into the print
         xrefs: dwgpdfSelectedXrefs(),

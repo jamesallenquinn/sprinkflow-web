@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0914-2110-fd7a6ce" />
+    <link rel="stylesheet" href="./styles.css?v=b0914-2301-dbe96a6" />
   </head>
   <body>
     <div class="app-shell">
@@ -2068,6 +2068,15 @@
                 <option value="0.18">Medium (0.18 mm)</option>
                 <option value="0.25">Heavy (0.25 mm)</option>
                 <option value="0.35">Extra heavy (0.35 mm)</option>
+              </select>
+            </label>
+            <label id="dwgpdfSolidFillsWrap">Large solid fills
+              <select id="dwgpdfSolidFillsSelect">
+                <option value="screen" selected>Light grey screen (25%)</option>
+                <option value="screen50">Grey screen (50%)</option>
+                <option value="black">Black (as drawn)</option>
+                <option value="outline">Outline only</option>
+                <option value="hide">Hide</option>
               </select>
             </label>
             <label class="checkbox-row" id="dwgpdfTextOutlineWrap"><input type="checkbox" id="dwgpdfTextOutline" checked /> <span>Outline text and fills (AutoCAD-like weight; off prints lettering lighter)</span></label>
@@ -4306,11 +4315,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0914-2110-fd7a6ce"></script>
-    <script src="./app.js?v=b0914-2110-fd7a6ce"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0914-2110-fd7a6ce"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0914-2110-fd7a6ce"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0914-2110-fd7a6ce"></script>
-    <script src="./prelim-calc-desktop.js?v=b0914-2110-fd7a6ce"></script>
+    <script src="./web-backend.js?v=b0914-2301-dbe96a6"></script>
+    <script src="./app.js?v=b0914-2301-dbe96a6"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0914-2301-dbe96a6"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0914-2301-dbe96a6"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0914-2301-dbe96a6"></script>
+    <script src="./prelim-calc-desktop.js?v=b0914-2301-dbe96a6"></script>
   </body>
 </html>
