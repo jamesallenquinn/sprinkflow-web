@@ -15741,7 +15741,29 @@ function initDwgpdf() {
 }
 
 // ===================== Convert PDF to CAD =====================
-const pdfcadState = { token: null, pageCount: 0, page: 0, groups: [], fileName: "", dims: null, textLines: 0, observer: null };
+const pdfcadState = { token: null, pageCount: 0, page: 0, groups: [], fileName: "", dims: null, textLines: 0, observer: null,
+                      smart: false, smartStats: null, smartLocked: false, analyzing: false };
+
+// ---- Smart layers ----------------------------------------------------------
+// The converter can name each layer after what the linework IS (A-WALL, A-DOOR,
+// A-GRID, plus L-* layers read off the sheet's own legend) instead of what
+// colour it happens to be. It is opt-in per import, defaults ON for PDFs with
+// no CAD layer data, and is switched OFF (and locked) for PDFs that DO carry
+// real layers - those already have better names than we could invent.
+const PDFCAD_SMART_PREF = "sprinkflow.pdfcad.smartLayers";
+
+function pdfcadSmartPref() {
+  try { return localStorage.getItem(PDFCAD_SMART_PREF); } catch (error) { return null; }
+}
+function pdfcadSetSmartPref(on) {
+  try { localStorage.setItem(PDFCAD_SMART_PREF, on ? "1" : "0"); } catch (error) { /* private mode */ }
+}
+/** Should Smart layers be on for the sheet we are about to read? */
+function pdfcadSmartWanted(layerMode) {
+  if (layerMode) return false;              // real CAD layers win, always
+  const pref = pdfcadSmartPref();
+  return pref === null ? true : pref === "1";
+}
 
 // lazy thumbnail loader — a few in flight at a time (the server serializes
 // renders anyway; this just keeps the request queue orderly and prioritized).
@@ -15775,19 +15797,40 @@ async function pdfcadPickFile() {
   }
 }
 
-async function pdfcadAnalyze(fileDataUrl, fileName, page, freshOverride) {
+async function pdfcadAnalyze(fileDataUrl, fileName, page, freshOverride, smartOverride) {
   const status = document.getElementById("pdfcadFileStatus");
   // the native-pick path already set a more informative message
   if (status && freshOverride !== true) status.textContent = fileDataUrl ? "Reading PDF..." : "Reading sheet...";
+  const smart = smartOverride === undefined
+    ? (pdfcadState.smartLocked ? false : pdfcadSmartWanted(false))
+    : !!smartOverride;
+  pdfcadState.analyzing = true;
   try {
+    const common = { smart, scale: pdfcadScale() || 96 };
     const body = fileDataUrl
-      ? { file: { name: fileName, dataUrl: fileDataUrl }, page: page || 0 }
-      : { token: pdfcadState.token, page: page || 0 };
+      ? { file: { name: fileName, dataUrl: fileDataUrl }, page: page || 0, ...common }
+      : { token: pdfcadState.token, page: page || 0, ...common };
     const payload = await readApiJson("./api/pdf-to-cad/analyze", { method: "POST", body: JSON.stringify(body) });
     pdfcadApplyAnalyze(payload, fileName, freshOverride === true || !!fileDataUrl);
+    // A PDF that carries real CAD layers keeps them - Smart layers would only
+    // rename content that is already named. Lock the toggle and re-read the
+    // sheet the plain way (the server caches the page, so this is instant).
+    if (payload && payload.layerMode && smart) {
+      pdfcadState.analyzing = false;
+      await pdfcadAnalyze(null, null, payload.page || 0, false, false);
+      return;
+    }
   } catch (error) {
     if (status) status.textContent = error.message || "Could not read that PDF.";
+  } finally {
+    pdfcadState.analyzing = false;
   }
+}
+
+/** Re-read the current sheet after a control that changes the classification. */
+function pdfcadReanalyzeSmart() {
+  if (!pdfcadState.token || pdfcadState.analyzing) return;
+  pdfcadAnalyze(null, null, pdfcadState.page, false, pdfcadState.smart);
 }
 
 function pdfcadApplyAnalyze(payload, fileName, isFreshImport) {
@@ -15810,12 +15853,18 @@ function pdfcadApplyAnalyze(payload, fileName, isFreshImport) {
     pdfcadState.dims = { w: payload.pageWidthIn, h: payload.pageHeightIn };
     pdfcadState.textLines = payload.textLines || 0;
     pdfcadState.layerMode = !!payload.layerMode;
+    pdfcadState.smart = !!payload.smart;
+    pdfcadState.smartStats = payload.smartStats || null;
+    pdfcadState.smartLocked = !!payload.layerMode;
     if (payload.dwgCapable !== undefined) pdfcadApplyDwgCapable(!!payload.dwgCapable);
     if (fileName) pdfcadState.fileName = fileName;
     const layerNote = document.getElementById("pdfcadLayerNote");
-    if (layerNote) layerNote.textContent = pdfcadState.layerMode
-      ? "This PDF carries real CAD layer data - each layer imports under its original name (like PDFIMPORT)."
-      : "Each color becomes its own CAD layer.";
+    if (layerNote) layerNote.textContent = pdfcadState.smart
+      ? "Each layer is named for what the linework is. Low-confidence guesses are marked - uncheck anything that looks wrong."
+      : (pdfcadState.layerMode
+        ? "This PDF carries real CAD layer data - each layer imports under its original name (like PDFIMPORT)."
+        : "Each color becomes its own CAD layer.");
+    pdfcadSyncSmartUI();
     renderPdfcadGroups();
     renderPdfcadSummary();
     if (isFreshImport) pdfcadBuildCards();    // fresh import — (re)build the sheet grid
@@ -15911,19 +15960,118 @@ function pdfcadSelectPage(page) {
   pdfcadAnalyze(null, null, page);   // refresh layers/size/scale for the chosen sheet
 }
 
+/** "high" / "fair" / "low" for a 0-1 confidence, or "" when there isn't one. */
+function pdfcadConfidenceWord(value) {
+  if (typeof value !== "number") return "";
+  if (value >= 0.75) return "high";
+  if (value >= 0.5) return "fair";
+  return "low";
+}
+
 function renderPdfcadGroups() {
   const box = document.getElementById("pdfcadGroupsList");
   if (!box) return;
   box.innerHTML = pdfcadState.groups.map((g, i) => {
     const swatch = g.hex || "#000000";
-    return `<label class="pdfcad-group-row">
+    const word = g.kind === "smart" ? pdfcadConfidenceWord(g.confidence) : "";
+    const conf = word
+      ? `<span class="pdfcad-group-conf${word === "high" ? " is-high" : ""}" title="How sure the classifier is about this layer">${word}</span>`
+      : "";
+    const hint = g.kind === "smart" && g.hint
+      ? `<span class="pdfcad-group-hint">${escapeHtml(g.hint)}</span>` : "";
+    return `<label class="pdfcad-group-row${g.kind === "smart" ? " is-smart" : ""}">
       <input type="checkbox" data-pdfcad-group="${i}"${g.defaultOn ? " checked" : ""} />
       <span class="pdfcad-group-swatch" style="background:${escapeHtml(swatch)}"></span>
-      <span class="pdfcad-group-label">${escapeHtml(g.label)}</span>
-      <span class="pdfcad-group-count">${g.count.toLocaleString()} obj</span>
+      <span class="pdfcad-group-text">
+        <span class="pdfcad-group-label">${escapeHtml(g.label)}</span>
+        ${hint}
+      </span>
+      <span class="pdfcad-group-meta">
+        <span class="pdfcad-group-count">${g.count.toLocaleString()} obj</span>
+        ${conf}
+      </span>
     </label>`;
   }).join("");
   box.querySelectorAll("[data-pdfcad-group]").forEach((el) => el.addEventListener("change", renderPdfcadSummary));
+}
+
+/** Reflect Smart-layers state in the toggle, the note and the action row. */
+function pdfcadSyncSmartUI() {
+  const wrap = document.querySelector(".pdfcad-smart");
+  const toggle = document.getElementById("pdfcadSmartToggle");
+  const note = document.getElementById("pdfcadSmartNote");
+  const actions = document.getElementById("pdfcadSmartActions");
+  if (!toggle) return;
+  toggle.checked = !!pdfcadState.smart;
+  toggle.disabled = !!pdfcadState.smartLocked;
+  if (wrap) wrap.classList.toggle("is-locked", !!pdfcadState.smartLocked);
+  if (actions) actions.hidden = !pdfcadState.smart;
+  if (note) {
+    note.textContent = pdfcadState.smartLocked
+      ? "This PDF already carries real CAD layer names, so there is nothing to guess — Smart layers stays off."
+      : (pdfcadState.smart
+        ? "Layers are named for what the linework is — walls, doors, columns, grid, dimensions — and anything no test could name lands on A-MISC."
+        : "Name each layer after what the linework is — walls, doors, columns, grid, dimensions — instead of what color it happens to be.");
+  }
+  pdfcadSyncScaleHint();
+}
+
+/** The classifier measures the sheet from its own dimension strings. When that
+ *  disagrees with the selected plot scale, offer the measured one. */
+function pdfcadSyncScaleHint() {
+  const hint = document.getElementById("pdfcadScaleHint");
+  if (!hint) return;
+  const stats = pdfcadState.smartStats;
+  const detected = stats && stats.scaleDetected;
+  const current = pdfcadScale();
+  if (!pdfcadState.smart || !detected || !current || Math.abs(detected - current) < 0.5) {
+    hint.hidden = true;
+    hint.innerHTML = "";
+    return;
+  }
+  hint.hidden = false;
+  hint.innerHTML = `This sheet's own dimension strings measure <strong>${escapeHtml(pdfcadScaleName(detected))}</strong>, not the scale selected above. `
+    + `<button class="link-button" type="button" id="pdfcadUseDetectedScale">Use ${escapeHtml(pdfcadScaleName(detected))}</button>`;
+  document.getElementById("pdfcadUseDetectedScale")?.addEventListener("click", () => {
+    const select = document.getElementById("pdfcadScaleSelect");
+    if (!select) return;
+    const exact = [...select.options].find((o) => Number(o.value) === detected);
+    if (exact) { select.value = exact.value; }
+    else {
+      select.value = "custom";
+      const input = document.getElementById("pdfcadCustomScaleInput");
+      if (input) input.value = String(detected);
+    }
+    syncPdfcadCustomScale();
+    pdfcadReanalyzeSmart();
+  });
+}
+
+/** 96 -> '1/8" = 1'-0"', falling back to the raw ratio. */
+function pdfcadScaleName(value) {
+  const select = document.getElementById("pdfcadScaleSelect");
+  const match = select && [...select.options].find((o) => Number(o.value) === value);
+  return match ? match.textContent.trim() : `1 in = ${(value / 12).toFixed(2)} ft`;
+}
+
+/** "For sprinkler design": the backgrounds a sprinkler designer traces over. */
+const PDFCAD_PRESET_ON = ["A-WALL", "A-DOOR", "A-WINDOW", "A-COLS", "A-GRID", "A-ROOM"];
+const PDFCAD_PRESET_OFF = ["A-DIMS", "A-ANNO", "A-FURN", "A-HATCH", "A-FILL", "A-TITLE", "A-MISC"];
+
+function pdfcadApplyPreset() {
+  const box = document.getElementById("pdfcadGroupsList");
+  if (!box) return;
+  box.querySelectorAll("[data-pdfcad-group]").forEach((el) => {
+    const g = pdfcadState.groups[+el.dataset.pdfcadGroup];
+    if (!g || g.kind !== "smart") return;
+    const name = String(g.id || "").replace(/^smart:/, "");
+    if (PDFCAD_PRESET_OFF.includes(name)) el.checked = false;
+    else if (PDFCAD_PRESET_ON.includes(name) || name.startsWith("L-")) el.checked = true;
+  });
+  renderPdfcadSummary();
+  const status = document.getElementById("pdfcadStatus");
+  if (status) status.textContent =
+    "Sprinkler preset: kept walls, doors, windows, columns, grid, room names and the sheet's legend symbols; dropped dimensions, notes, furniture, hatch, fills and the title block.";
 }
 
 function pdfcadGroupId(g) {
@@ -16048,7 +16196,8 @@ function renderPdfcadSummary() {
   box.innerHTML =
     line("Page size (paper)", `${pdfcadState.dims.w.toFixed(1)}" x ${pdfcadState.dims.h.toFixed(1)}"`) +
     line("Real-world size", scale ? `${wFt.toFixed(0)} ft x ${hFt.toFixed(0)} ft` : "— enter a custom scale") +
-    line(pdfcadState.layerMode ? "CAD layers" : "Color groups", `${pdfcadState.groups.length}`) +
+    line(pdfcadState.smart ? "Smart layers" : (pdfcadState.layerMode ? "CAD layers" : "Color groups"),
+         `${pdfcadState.groups.length}`) +
     line("Selected objects", selObjs.toLocaleString()) +
     line("Text lines", pdfcadState.textLines.toLocaleString());
 }
@@ -16080,6 +16229,7 @@ async function pdfcadConvert() {
         includeText: !!document.getElementById("pdfcadTextToggle")?.checked,
         includeFills: !!document.getElementById("pdfcadFillsToggle")?.checked,
         dxfVersion: document.getElementById("pdfcadWeightsSelect")?.value || "R12",
+        smart: !!pdfcadState.smart,
         format: wantFmt,
         defaultName: `${base}-p${pdfcadState.page + 1}.${wantFmt}`,
       }),
@@ -18528,8 +18678,32 @@ function initPdfcad() {
   } else {
     pickBtn?.addEventListener("click", pdfcadPickFile);
   }
-  document.getElementById("pdfcadScaleSelect")?.addEventListener("change", syncPdfcadCustomScale);
-  document.getElementById("pdfcadCustomScaleInput")?.addEventListener("input", syncPdfcadCustomScale);
+  // Smart layers: the toggle, the preset, and the "back to colours" escape hatch.
+  // The plot scale tunes every real-world test (wall thickness, column size,
+  // door radius), so changing it re-reads the sheet while Smart layers are on.
+  document.getElementById("pdfcadSmartToggle")?.addEventListener("change", (e) => {
+    const on = !!e.target.checked;
+    pdfcadSetSmartPref(on);
+    if (!pdfcadState.token) { pdfcadState.smart = on; pdfcadSyncSmartUI(); return; }
+    pdfcadAnalyze(null, null, pdfcadState.page, false, on);
+  });
+  document.getElementById("pdfcadColorModeLink")?.addEventListener("click", () => {
+    pdfcadSetSmartPref(false);
+    if (!pdfcadState.token) { pdfcadState.smart = false; pdfcadSyncSmartUI(); return; }
+    pdfcadAnalyze(null, null, pdfcadState.page, false, false);
+  });
+  document.getElementById("pdfcadPresetButton")?.addEventListener("click", pdfcadApplyPreset);
+  document.getElementById("pdfcadScaleSelect")?.addEventListener("change", () => {
+    syncPdfcadCustomScale();
+    if (pdfcadState.smart) pdfcadReanalyzeSmart();
+  });
+  let pdfcadScaleTypeTimer = null;
+  document.getElementById("pdfcadCustomScaleInput")?.addEventListener("input", () => {
+    syncPdfcadCustomScale();
+    if (!pdfcadState.smart) return;
+    if (pdfcadScaleTypeTimer) clearTimeout(pdfcadScaleTypeTimer);
+    pdfcadScaleTypeTimer = setTimeout(() => { pdfcadScaleTypeTimer = null; pdfcadReanalyzeSmart(); }, 900);
+  });
   // ODA download link (PDF-to-CAD note)
   document.getElementById("pdfcadOdaLink")?.addEventListener("click", () => window.open(ODA_DOWNLOAD_URL, "_blank", "noopener"));
   // Tell the truth about the output format BEFORE a PDF is loaded. The button
@@ -18547,6 +18721,9 @@ function initPdfcad() {
     if (pdfcadState.observer) { pdfcadState.observer.disconnect(); pdfcadState.observer = null; }
     pdfcadState.token = null; pdfcadState.groups = []; pdfcadState.dims = null; pdfcadState.fileName = "";
     pdfcadState.pageCount = 0; pdfcadState.page = 0; pdfcadState.layerMode = false;
+    pdfcadState.smartStats = null; pdfcadState.smartLocked = false;
+    pdfcadState.smart = pdfcadSmartWanted(false);
+    pdfcadSyncSmartUI();
     const clearNote = document.getElementById("pdfcadLayerNote");
     if (clearNote) clearNote.textContent = "Each color becomes its own CAD layer.";
     document.getElementById("pdfcadGroupsList").innerHTML = "";
@@ -18558,6 +18735,8 @@ function initPdfcad() {
     if (cards) cards.innerHTML = '<div class="pdfcad-cards-empty" id="pdfcadCardsEmpty">Drop or import a PDF and every sheet shows up here as a thumbnail &mdash; click the one you want to convert.</div>';
     pdfcadUpdatePageLabel();
   });
+  pdfcadState.smart = pdfcadSmartWanted(false);
+  pdfcadSyncSmartUI();
   pdfcadUpdatePageLabel();
 }
 

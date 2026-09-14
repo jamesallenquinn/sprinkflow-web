@@ -25,7 +25,7 @@
   if (!WEB) return;                                 // desktop: do nothing
   window.__SPRINKFLOW_WEB__ = true;
   // stamped by packaging/build_web_edition.py at deploy time; "dev" locally
-  var WEB_BUILD = "b0914-1723-2de7965";
+  var WEB_BUILD = "b0914-1817-28b25f6";
   window.__SPRINKFLOW_WEB_BUILD__ = WEB_BUILD;
   console.log("[web-backend] SprinkFlow Web Edition active — build " + WEB_BUILD);
   // mobile layer: web-only stylesheet (media-query gated), never active on desktop
@@ -824,10 +824,13 @@
           try {
             pdfcadStage(py, token, entry);
             py.globals.set("_pc_page", page);
+            py.globals.set("_pc_smart", !!body.smart);
+            py.globals.set("_pc_scale", Number(body.scale) || 96);
             var out = py.runPython(
               "import json, pathlib\n" +
               "import pdf_to_cad\n" +
-              "_r = pdf_to_cad.analyze(pathlib.Path('/pdfcad/in.pdf'), _pc_page)\n" +
+              "_r = pdf_to_cad.analyze(pathlib.Path('/pdfcad/in.pdf'), _pc_page,\n" +
+              "                        smart=bool(_pc_smart), scale=float(_pc_scale))\n" +
               "json.dumps(_r)");
           } finally { setBadge(null); }
           return jsonResp(Object.assign(
@@ -881,6 +884,7 @@
       includeText: body.includeText !== false,
       includeFills: body.includeFills !== false,
       dxfVersion: String(body.dxfVersion || "").toUpperCase() === "R2000" ? "R2000" : "R12",
+      smart: !!body.smart,
     };
     return seismicEngine().then(function (py) {
       return ensurePdfcadDeps(py).then(function () {
@@ -898,7 +902,8 @@
             "_a = json.loads(_pc_args)\n" +
             "_r = pdf_to_cad.convert(pathlib.Path('/pdfcad/in.pdf'), _a['page'], _a['selected'],\n" +
             "                        _a['scale'], include_text=_a['includeText'],\n" +
-            "                        include_fills=_a['includeFills'], dxf_version=_a['dxfVersion'])\n" +
+            "                        include_fills=_a['includeFills'], dxf_version=_a['dxfVersion'],\n" +
+            "                        smart=bool(_a['smart']))\n" +
             "json.dumps(_r)");
         } finally { setBadge(null); }
         var r = JSON.parse(out);

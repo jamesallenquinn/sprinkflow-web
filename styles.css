@@ -11355,6 +11355,22 @@ body[data-theme="plain-light"] .seismic-constraint.is-unavailable { border-left-
 .pdfcad-group-swatch { border: 1px solid rgba(0,0,0,0.35); border-radius: 4px; flex: none; height: 18px; width: 18px; }
 .pdfcad-group-label { color: var(--ink); font: 600 0.88rem Inter; flex: 1; }
 .pdfcad-group-count { color: var(--muted); font: 600 0.78rem Inter; white-space: nowrap; }
+/* smart-layer rows carry a second line (what the test looked for) plus a
+   confidence chip, so the label column stacks instead of sitting on one line */
+.pdfcad-group-row.is-smart { align-items: flex-start; }
+.pdfcad-group-row.is-smart input, .pdfcad-group-row.is-smart .pdfcad-group-swatch { margin-top: 2px; }
+.pdfcad-group-text { display: flex; flex: 1 1 auto; flex-direction: column; gap: 2px; min-width: 0; }
+.pdfcad-group-hint { color: var(--muted); font: 500 0.74rem Inter; line-height: 1.35; }
+.pdfcad-group-meta { align-items: flex-end; display: flex; flex: none; flex-direction: column; gap: 3px; }
+.pdfcad-group-conf { border: 1px solid var(--line); border-radius: 4px; color: var(--muted);
+  font: 700 0.62rem Inter; letter-spacing: 0.04em; padding: 1px 5px; text-transform: uppercase; white-space: nowrap; }
+.pdfcad-group-conf.is-high { border-color: var(--ok, #2e7d32); color: var(--ok, #2e7d32); }
+/* Smart-layers control block: toggle, its explanation, then the two actions -
+   one spacing unit apart, no voids (Conformance 1/2a). */
+.pdfcad-smart { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 10px; }
+.pdfcad-smart .toggle-row { margin: 0; }
+.pdfcad-smart-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 12px; }
+.pdfcad-smart.is-locked .toggle-row { opacity: 0.55; }
 .pdfcad-summary { color: var(--ink); font-size: 0.9rem; }
 .pdfcad-summary .pdfcad-empty { color: var(--muted); line-height: 1.6; }
 .pdfcad-summary .layout-result-line { padding: 7px 0; }

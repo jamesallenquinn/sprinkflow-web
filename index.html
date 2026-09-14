@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0914-1723-2de7965" />
+    <link rel="stylesheet" href="./styles.css?v=b0914-1817-28b25f6" />
   </head>
   <body>
     <div class="app-shell">
@@ -1829,6 +1829,18 @@
             <p class="hydreport-note" id="pdfcadCustomScaleNote" hidden></p>
 
             <div class="section-heading hydreport-subhead"><p class="eyebrow">Layers to import</p></div>
+            <div class="pdfcad-smart">
+              <label class="toggle-row" id="pdfcadSmartRow">
+                <input id="pdfcadSmartToggle" type="checkbox" />
+                <span>Smart layers <span class="ea-pill" title="Experimental &mdash; fully usable, still getting polish">Experimental</span></span>
+              </label>
+              <p class="hydreport-note" id="pdfcadSmartNote">Name each layer after what the linework <em>is</em> &mdash; walls, doors, columns, grid, dimensions &mdash; instead of what color it happens to be.</p>
+              <div class="pdfcad-smart-actions" id="pdfcadSmartActions" hidden>
+                <button class="secondary-button compact-button" id="pdfcadPresetButton" type="button">For sprinkler design</button>
+                <button class="link-button" id="pdfcadColorModeLink" type="button">Show by color instead</button>
+              </div>
+              <p class="hydreport-note" id="pdfcadScaleHint" hidden></p>
+            </div>
             <p class="hydreport-note" id="pdfcadLayerNote">Each color becomes its own CAD layer.</p>
             <div id="pdfcadGroupsList" class="pdfcad-groups"></div>
 
@@ -4233,11 +4245,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0914-1723-2de7965"></script>
-    <script src="./app.js?v=b0914-1723-2de7965"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0914-1723-2de7965"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0914-1723-2de7965"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0914-1723-2de7965"></script>
-    <script src="./prelim-calc-desktop.js?v=b0914-1723-2de7965"></script>
+    <script src="./web-backend.js?v=b0914-1817-28b25f6"></script>
+    <script src="./app.js?v=b0914-1817-28b25f6"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0914-1817-28b25f6"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0914-1817-28b25f6"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0914-1817-28b25f6"></script>
+    <script src="./prelim-calc-desktop.js?v=b0914-1817-28b25f6"></script>
   </body>
 </html>
