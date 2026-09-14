@@ -12551,3 +12551,181 @@ body.is-drop-routing .drop-router-veil { display: block; }
   .studiobug-grid { grid-template-columns: 1fr; min-height: 0; }
   .studiobug-listcol { max-height: 320px; }
 }
+
+/* ===========================================================================
+   "Report this error" — the dialog, and the inline Report action that every
+   error status line and error toast grows.
+
+   Colours are tokens only (PROJECT_CONFORMANCE.md 5/5a): every rule below
+   resolves through --surface / --surface-soft / --ink / --muted / --line /
+   --line-strong / --brand, all of which flip on body[data-theme="plain-light"],
+   so there is nothing here to re-tune per theme.
+   ======================================================================== */
+
+/* The inline "Report this error" action appended to a tool's status line by
+   attachErrorReportAction(). It is a button, but it reads as a link so it does
+   not compete with the real actions in the card. */
+.status-report-action {
+  background: none;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  margin-left: 8px;
+  padding: 0;
+  vertical-align: baseline;
+}
+
+.status-report-action:hover {
+  color: var(--ink);
+}
+
+.status-report-action:focus-visible {
+  outline: 2px solid var(--water);
+  outline-offset: 2px;
+}
+
+/* The shared .review-dialog form cap is min(88vh, 820px), which is 50px short of
+   this form and made it scroll even on a 1080 screen. Raised HERE only, so no
+   other dialog changes shape. Below ~1000px tall it scrolls again - correct, and
+   the action bar is sticky so Send is never off-screen (PROJECT_CONFORMANCE 9). */
+.error-report-dialog form {
+  max-height: min(88vh, 920px);
+}
+
+.error-report-dialog .error-report-body {
+  display: grid;
+  gap: var(--gap-field);
+}
+
+/* Screenshot preview. The frame is a FIXED height with the image object-fit:
+   contain inside it — a window grab is ~16:9 but a browser fallback can be any
+   shape, and letting the natural size through would shove the Send button off
+   the bottom at the app's 980x680 minimum (PROJECT_CONFORMANCE.md 9). */
+.error-report-shot {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-soft);
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.error-report-shot-frame {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  display: flex;
+  height: 104px;
+  justify-content: center;
+  overflow: hidden;
+  padding: 4px;
+}
+
+.error-report-shot-frame img {
+  display: block;
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.error-report-shot-note {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin: 0;
+  padding: 0 10px;
+  text-align: center;
+}
+
+.error-report-shot-controls {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.error-report-shot-controls .option-row {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.error-report-dialog textarea {
+  min-height: 0;
+  resize: vertical;
+}
+
+.error-report-optional {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.error-report-helper {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  margin: -4px 0 0;
+}
+
+.error-report-dialog .option-row:has(input:disabled) span {
+  opacity: 0.6;
+}
+
+/* Success state: replaces the form body in place rather than opening a second
+   dialog, so the reader's eye does not have to move. */
+.error-report-sent {
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface-soft);
+  display: grid;
+  gap: 4px;
+  padding: 16px;
+}
+
+.error-report-sent-headline {
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.error-report-sent-note {
+  color: var(--muted);
+  font-size: 0.86rem;
+  margin: 0;
+}
+
+.error-report-status {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.error-report-status:empty {
+  display: none;
+}
+
+.error-report-status[data-tone="error"] {
+  color: var(--brand);
+}
+
+/* While the desktop's native window grab runs, the dialog paints itself (and
+   its backdrop) away, so the screenshot shows the error being reported rather
+   than the box it is being reported in. It stays OPEN throughout — closing and
+   reopening would lose focus and flash the modal. */
+.error-report-dialog.is-capturing {
+  opacity: 0;
+}
+
+.error-report-dialog.is-capturing::backdrop {
+  background: transparent;
+}

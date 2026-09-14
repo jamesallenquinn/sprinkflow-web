@@ -1651,6 +1651,7 @@ function setLicenseStatusMessage(message = "", tone = "") {
   if (!dom.licenseStatusMessage) return;
   dom.licenseStatusMessage.textContent = message;
   dom.licenseStatusMessage.dataset.tone = tone || "";
+  attachErrorReportAction(dom.licenseStatusMessage, message, tone);
   // .generate-status is display:none until .active - every account action's
   // feedback was silently invisible without this.
   dom.licenseStatusMessage.classList.toggle("active", Boolean(message));
@@ -1660,6 +1661,7 @@ function setStartupLoginStatus(message = "", tone = "") {
   if (!dom.startupLoginStatus) return;
   dom.startupLoginStatus.textContent = message;
   dom.startupLoginStatus.dataset.tone = tone || "";
+  attachErrorReportAction(dom.startupLoginStatus, message, tone);
 }
 
 function renderLicenseUi() {
@@ -2065,6 +2067,7 @@ function setSignInResult(message = "", tone = "") {
   if (dom.licenseSignInResult) {
     dom.licenseSignInResult.textContent = message;
     dom.licenseSignInResult.dataset.tone = tone || "";
+    attachErrorReportAction(dom.licenseSignInResult, message, tone);
   }
   setLicenseStatusMessage(message, tone);
 }
@@ -2633,6 +2636,7 @@ function setUpdateCheckResult(message = "", tone = "") {
   if (dom.updateCheckResult) {
     dom.updateCheckResult.textContent = message;
     dom.updateCheckResult.dataset.tone = tone || "";
+    attachErrorReportAction(dom.updateCheckResult, message, tone);
     // .generate-status is display:none until .active - without this the
     // message exists but never paints (the original "nothing happened" bug).
     dom.updateCheckResult.classList.toggle("active", Boolean(message));
@@ -3258,7 +3262,19 @@ function positionToastStack(stack) {
  * @returns {{dismiss: Function, element: HTMLElement}}
  */
 function showToast(message, options = {}) {
-  const { undoLabel = "Undo", onUndo = null, timeoutMs = TOAST_DEFAULT_MS, tone = "info" } = options;
+  const {
+    undoLabel = "Undo",
+    onUndo = null,
+    timeoutMs = TOAST_DEFAULT_MS,
+    tone = "info",
+    // Error toasts grow a "Report" action. `reportText` overrides what the
+    // dialog is prefilled with (the unhandled-error reporter passes message +
+    // stack); anything else reports the toast's own words, which is what the
+    // user just read. Pass reportable:false for an error the user cannot act on
+    // and we cannot fix - there are none today, but the escape hatch is cheap.
+    reportText = "",
+    reportable = true,
+  } = options;
   const stack = toastStackEl();
   positionToastStack(stack);
   const toast = document.createElement("div");
@@ -3298,6 +3314,18 @@ function showToast(message, options = {}) {
       }
     });
     toast.appendChild(undo);
+  }
+
+  if (tone === "error" && reportable) {
+    const report = document.createElement("button");
+    report.type = "button";
+    report.className = "toast-action";
+    report.textContent = "Report";
+    report.addEventListener("click", () => {
+      dismiss();
+      openErrorReportDialog({ errorText: reportText || message });
+    });
+    toast.appendChild(report);
   }
 
   const close = document.createElement("button");
@@ -4194,6 +4222,7 @@ function setSettingsStatus(message, type = "info") {
   if (!dom.settingsStatus) return;
   dom.settingsStatus.textContent = message || "";
   dom.settingsStatus.dataset.status = message ? type : "";
+  attachErrorReportAction(dom.settingsStatus, message, type);
   scheduleStatusAutoClear(dom.settingsStatus, message, type, () => setSettingsStatus(""));
 }
 
@@ -4599,7 +4628,11 @@ function generatedOutputMessage(result, label) {
 
 function setProjectPackageStatus(message, type = "info") {
   const els = [...document.querySelectorAll("[data-package-status]")];
-  els.forEach((el) => { el.textContent = message || ""; el.dataset.status = type; });
+  els.forEach((el) => {
+    el.textContent = message || "";
+    el.dataset.status = type;
+    attachErrorReportAction(el, message, type);
+  });
   if (els[0]) scheduleStatusAutoClear(els[0], message, type, () => setProjectPackageStatus(""));
 }
 
@@ -6336,6 +6369,7 @@ function setGenerateStatus(message, type = "info") {
   dom.generateStatus.classList.toggle("error", active && type === "error");
   dom.generateStatus.classList.toggle("success", active && type === "success");
   dom.generateStatus.classList.toggle("info", active && type === "info");
+  attachErrorReportAction(dom.generateStatus, message, type);
   scheduleStatusAutoClear(dom.generateStatus, message, type, () => setGenerateStatus(""));
 }
 
@@ -6348,6 +6382,7 @@ function setDatasheetImportStatus(message, type = "info") {
   dom.datasheetImportStatus.classList.toggle("error", active && type === "error");
   dom.datasheetImportStatus.classList.toggle("success", active && type === "success");
   dom.datasheetImportStatus.classList.toggle("info", active && type === "info");
+  attachErrorReportAction(dom.datasheetImportStatus, message, type);
 }
 
 function renderCoverSheet(page, contractor) {
@@ -10967,6 +11002,7 @@ function setPdfAnnotationStatus(message, type = "info") {
   if (!dom.pdfAnnotationStatus) return;
   dom.pdfAnnotationStatus.textContent = message;
   dom.pdfAnnotationStatus.dataset.status = type;
+  attachErrorReportAction(dom.pdfAnnotationStatus, message, type);
   scheduleStatusAutoClear(dom.pdfAnnotationStatus, message, type, () => setPdfAnnotationStatus(""));
 }
 
@@ -19476,6 +19512,7 @@ function setPdfMergeStatus(message, type = "info") {
   if (!dom.pdfMergeStatus) return;
   dom.pdfMergeStatus.textContent = message || "";
   dom.pdfMergeStatus.dataset.status = type;
+  attachErrorReportAction(dom.pdfMergeStatus, message, type);
   scheduleStatusAutoClear(dom.pdfMergeStatus, message, type, () => setPdfMergeStatus(""));
 }
 
@@ -20141,6 +20178,7 @@ function setHydraulicStatus(message, type = "info") {
   if (!dom.hydraulicStatus) return;
   dom.hydraulicStatus.textContent = message || "";
   dom.hydraulicStatus.dataset.status = type;
+  attachErrorReportAction(dom.hydraulicStatus, message, type);
   scheduleStatusAutoClear(dom.hydraulicStatus, message, type, () => setHydraulicStatus(""));
 }
 
@@ -20801,6 +20839,7 @@ function setFeetStatus(message, type = "info") {
   if (!dom.feetStatus) return;
   dom.feetStatus.textContent = message || "";
   dom.feetStatus.dataset.status = type;
+  attachErrorReportAction(dom.feetStatus, message, type);
   scheduleStatusAutoClear(dom.feetStatus, message, type, () => setFeetStatus(""));
 }
 
@@ -20934,6 +20973,7 @@ function setHazenStatus(message, type = "info") {
   if (!dom.hazenStatus) return;
   dom.hazenStatus.textContent = message || "";
   dom.hazenStatus.dataset.status = type;
+  attachErrorReportAction(dom.hazenStatus, message, type);
   scheduleStatusAutoClear(dom.hazenStatus, message, type, () => setHazenStatus(""));
 }
 
@@ -21447,6 +21487,7 @@ function setWaterStatus(message, type = "info") {
   if (!dom.waterStatus) return;
   dom.waterStatus.textContent = message || "";
   dom.waterStatus.dataset.status = type;
+  attachErrorReportAction(dom.waterStatus, message, type);
   scheduleStatusAutoClear(dom.waterStatus, message, type, () => setWaterStatus(""));
 }
 
@@ -22417,6 +22458,7 @@ function setNfpa1142Status(message, type = "info") {
   if (!dom.nfpa1142Status) return;
   dom.nfpa1142Status.textContent = message || "";
   dom.nfpa1142Status.dataset.status = type;
+  attachErrorReportAction(dom.nfpa1142Status, message, type);
   scheduleStatusAutoClear(dom.nfpa1142Status, message, type, () => setNfpa1142Status(""));
 }
 
@@ -23759,8 +23801,8 @@ let clientErrorToastShown = false;
 // Kept as a name so the client-error reporter's call sites don't change, but
 // there is now ONE toast system (showToast) instead of two that could stack on
 // top of each other at the bottom of the window.
-function showAppToast(message, { duration = 8000 } = {}) {
-  return showToast(message, { tone: "error", timeoutMs: duration });
+function showAppToast(message, { duration = 8000, reportText = "" } = {}) {
+  return showToast(message, { tone: "error", timeoutMs: duration, reportText });
 }
 
 function installClientErrorReporting() {
@@ -23789,10 +23831,14 @@ function installClientErrorReporting() {
 }
 
 function reportClientError(payload) {
+  rememberClientError(payload);
   if (!clientErrorToastShown) {
     clientErrorToastShown = true;
     try {
-      showAppToast("Something went wrong, but your work is safe. If the app misbehaves, save your project and restart SprinkFlow.");
+      showAppToast(
+        "Something went wrong, but your work is safe. If the app misbehaves, save your project and restart SprinkFlow.",
+        { reportText: clientErrorReportText(payload) },
+      );
     } catch (_) {}
   }
   if (clientErrorReportCount >= 5) return;
@@ -23818,6 +23864,468 @@ function reportClientError(payload) {
     body,
     keepalive: true,
   }).catch(() => {});
+}
+
+// ---------------------------------------------------------------------------
+// "Report this error"
+// ---------------------------------------------------------------------------
+//
+// One dialog, reached four ways: the Report button on any error toast, the
+// "Report this error" link beside any tool's error status line, Settings >
+// Help & Support, and the Ctrl+K palette. It sends the error text, a screenshot
+// of the user's window, what they were doing, and (optionally) their email plus
+// a request to be told when the fix ships.
+//
+// THE SCREENSHOT is a NATIVE window grab on the desktop (POST
+// ./api/error-report/screenshot -> PIL.ImageGrab in error_reporting.py) because
+// html2canvas re-draws the DOM and loses everything that is not DOM. The browser
+// edition has no such option, so it falls back to html2canvas, which is loaded
+// LAZILY the first time the dialog needs it - never on app boot.
+//
+// While the native grab runs the dialog paints itself invisible
+// (.is-capturing, which also clears its ::backdrop), so the picture shows the
+// error the user is reporting rather than the box they are reporting it in. The
+// html2canvas path skips the dialog with its own ignoreElements instead.
+
+const ERROR_REPORT_MAX_EDGE = 1600;
+const ERROR_REPORT_MAX_BASE64 = 2 * 1024 * 1024;
+const ERROR_REPORT_RECENT_MAX = 5;
+const HTML2CANVAS_SRC = "./assets/vendor/html2canvas.min.js";
+
+// Last few client errors, for context on whatever the user is reporting now.
+const recentClientErrors = [];
+
+const errorReport = {
+  screenshot: "",
+  capturing: false,
+  sending: false,
+  captureNote: "",
+  // What the USER wants, independent of whether a capture has landed yet. The
+  // checkbox is unticked and disabled while there is no image, so without this
+  // the arriving screenshot would re-enable an unticked box and quietly ship the
+  // report without the picture the dialog is showing.
+  includeWanted: true,
+};
+
+function errorReportEl(id) {
+  return document.getElementById(id);
+}
+
+function rememberClientError(payload) {
+  try {
+    recentClientErrors.push({
+      type: String(payload?.type || "error"),
+      message: String(payload?.message || "").slice(0, 400),
+      source: String(payload?.source || "").slice(0, 200),
+      line: Number(payload?.line) || 0,
+      at: new Date().toISOString(),
+    });
+    while (recentClientErrors.length > ERROR_REPORT_RECENT_MAX) recentClientErrors.shift();
+  } catch (_) {}
+}
+
+function clientErrorReportText(payload) {
+  const stack = String(payload?.stack || "").slice(0, 3000);
+  const message = String(payload?.message || "Unhandled frontend error");
+  const where = payload?.source ? `\n${payload.source}:${payload.line || 0}:${payload.column || 0}` : "";
+  return stack ? `${message}${where}\n\n${stack}` : `${message}${where}`;
+}
+
+/**
+ * Append (or remove) the inline "Report this error" action on a status line.
+ *
+ * ONE helper rather than markup copy-pasted into a dozen status setters. Every
+ * setter writes `element.textContent = message` first, which wipes any previous
+ * action, so this is always called AFTER the text is in place; the explicit
+ * removal below covers the setters that reuse the same element for a success or
+ * info message without clearing it in between.
+ */
+function attachErrorReportAction(element, message, type = "error") {
+  if (!element) return;
+  const existing = element.querySelector(":scope > .status-report-action");
+  if (type !== "error" || !String(message || "").trim()) {
+    if (existing) existing.remove();
+    return;
+  }
+  if (existing) existing.remove();
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "status-report-action";
+  button.textContent = "Report this error";
+  const text = String(message);
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    openErrorReportDialog({ errorText: text });
+  });
+  element.appendChild(button);
+}
+
+function errorReportContext() {
+  const license = runtime.license || {};
+  const app = runtime.app || {};
+  return {
+    appVersion: app.version || "",
+    channel: app.channel || (window.__SPRINKFLOW_WEB__ ? "web" : ""),
+    platform: window.__SPRINKFLOW_WEB__ ? "web" : (navigator.platform || ""),
+    surface: window.__SPRINKFLOW_WEB__ ? "web" : "desktop",
+    activeTool: state?.activeTool || "",
+    viewMode: state?.viewMode || "",
+    href: window.location.href,
+    recentClientErrors: recentClientErrors.slice(-ERROR_REPORT_RECENT_MAX),
+    // Status and tier only - never the token, the device id, or the email.
+    licenseStatus: {
+      authenticated: Boolean(license.authenticated),
+      status: license.status || "",
+      statusLabel: license.statusLabel || "",
+      plan: license.plan || "",
+    },
+    userAgent: navigator.userAgent || "",
+    screen: {
+      w: window.screen?.width || 0,
+      h: window.screen?.height || 0,
+      dpr: window.devicePixelRatio || 1,
+    },
+    timestamp: new Date().toISOString(),
+  };
+}
+
+// ---- screenshot ------------------------------------------------------------
+
+function loadHtml2Canvas() {
+  if (window.html2canvas) return Promise.resolve(window.html2canvas);
+  if (window.__sprinkflowHtml2CanvasPromise) return window.__sprinkflowHtml2CanvasPromise;
+  window.__sprinkflowHtml2CanvasPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = HTML2CANVAS_SRC;
+    script.async = true;
+    script.addEventListener("load", () => {
+      if (window.html2canvas) resolve(window.html2canvas);
+      else reject(new Error("html2canvas loaded but did not register."));
+    });
+    script.addEventListener("error", () => reject(new Error("Could not load the screenshot library.")));
+    document.head.appendChild(script);
+  }).catch((error) => {
+    window.__sprinkflowHtml2CanvasPromise = null;
+    throw error;
+  });
+  return window.__sprinkflowHtml2CanvasPromise;
+}
+
+/**
+ * Two frames plus a beat, so the WebView has actually painted the change.
+ *
+ * Raced against a plain timer: requestAnimationFrame does not fire in a hidden
+ * or throttled tab, and a capture that hangs forever waiting for a frame is
+ * worse than one that grabs a beat early. (Found exactly that way - the dialog
+ * sat on "Capturing your window..." in a background tab.)
+ */
+function nextPaint(delayMs = 90) {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      resolve();
+    };
+    requestAnimationFrame(() => requestAnimationFrame(() => window.setTimeout(finish, delayMs)));
+    window.setTimeout(finish, delayMs + 250);
+  });
+}
+
+async function captureNativeScreenshot() {
+  const dialog = errorReportEl("errorReportDialog");
+  if (dialog) dialog.classList.add("is-capturing");
+  try {
+    await nextPaint();
+    const payload = await readApiJson("./api/error-report/screenshot", { method: "POST", body: "{}" });
+    if (!payload?.ok || !payload.screenshotPng) throw new Error(payload?.error || "Capture failed.");
+    return payload.screenshotPng;
+  } finally {
+    if (dialog) dialog.classList.remove("is-capturing");
+  }
+}
+
+async function captureDomScreenshot() {
+  const html2canvas = await loadHtml2Canvas();
+  const canvas = await html2canvas(document.body, {
+    backgroundColor: getComputedStyle(document.body).backgroundColor || "#0d1116",
+    scale: 1,
+    logging: false,
+    useCORS: true,
+    // The report dialog itself is not evidence of anything.
+    ignoreElements: (element) => element?.id === "errorReportDialog",
+  });
+  return canvas.toDataURL("image/png");
+}
+
+/**
+ * Shrink a PNG data URL until the long edge is <= maxEdge AND the base64
+ * payload is <= maxBytes. The size loop exists because a 1600px screenshot of a
+ * dense CAD-ish screen can still base64 past 2 MB, and the cloud route rejects
+ * a body over ~3.5 MB - better a slightly softer picture than no picture.
+ */
+function shrinkScreenshot(dataUrl, maxEdge = ERROR_REPORT_MAX_EDGE, maxBytes = ERROR_REPORT_MAX_BASE64) {
+  return new Promise((resolve) => {
+    if (!dataUrl) {
+      resolve("");
+      return;
+    }
+    const image = new Image();
+    image.addEventListener("error", () => resolve(""));
+    image.addEventListener("load", () => {
+      try {
+        let scale = Math.min(1, maxEdge / Math.max(image.width || 1, image.height || 1));
+        let output = dataUrl;
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round((image.width || 1) * scale));
+          canvas.height = Math.max(1, Math.round((image.height || 1) * scale));
+          canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+          output = canvas.toDataURL("image/png");
+          if (output.length <= maxBytes) break;
+          scale *= 0.75;
+        }
+        resolve(output.length <= maxBytes ? output : "");
+      } catch (error) {
+        resolve("");
+      }
+    });
+    image.src = dataUrl;
+  });
+}
+
+async function captureErrorScreenshot() {
+  errorReport.capturing = true;
+  errorReport.screenshot = "";
+  errorReport.captureNote = "";
+  renderErrorReportScreenshot("Capturing your window…");
+  let raw = "";
+  try {
+    raw = window.__SPRINKFLOW_WEB__ ? await captureDomScreenshot() : await captureNativeScreenshot();
+  } catch (nativeError) {
+    try {
+      raw = await captureDomScreenshot();
+    } catch (domError) {
+      raw = "";
+    }
+  }
+  const shrunk = raw ? await shrinkScreenshot(raw) : "";
+  errorReport.screenshot = shrunk;
+  errorReport.capturing = false;
+  errorReport.captureNote = shrunk
+    ? ""
+    : "Couldn't grab a screenshot on this machine — you can still send the report without one.";
+  renderErrorReportScreenshot();
+}
+
+function renderErrorReportScreenshot(placeholder = "") {
+  const image = errorReportEl("errorReportShotImage");
+  const note = errorReportEl("errorReportShotNote");
+  const include = errorReportEl("errorReportIncludeShot");
+  const retake = errorReportEl("errorReportRetakeButton");
+  const has = Boolean(errorReport.screenshot);
+  if (image) {
+    if (has) image.src = errorReport.screenshot;
+    else image.removeAttribute("src");
+    image.hidden = !has;
+  }
+  if (note) {
+    note.hidden = has;
+    note.textContent = placeholder || errorReport.captureNote || "No screenshot.";
+  }
+  if (include) {
+    include.disabled = !has;
+    include.checked = has && errorReport.includeWanted;
+  }
+  if (retake) retake.disabled = errorReport.capturing || errorReport.sending;
+}
+
+// ---- the dialog ------------------------------------------------------------
+
+function setErrorReportStatus(message = "", tone = "") {
+  const element = errorReportEl("errorReportStatus");
+  if (!element) return;
+  element.textContent = message;
+  element.dataset.tone = tone || "";
+}
+
+function syncErrorReportNotifyState() {
+  const email = errorReportEl("errorReportEmail");
+  const notify = errorReportEl("errorReportNotify");
+  if (!email || !notify) return;
+  const hasEmail = Boolean(String(email.value || "").trim());
+  notify.disabled = !hasEmail;
+  if (!hasEmail) notify.checked = false;
+}
+
+function openErrorReportDialog({ errorText = "" } = {}) {
+  const dialog = errorReportEl("errorReportDialog");
+  if (!dialog) return;
+
+  errorReport.sending = false;
+  errorReport.screenshot = "";
+  errorReport.captureNote = "";
+  errorReport.includeWanted = true;
+
+  const body = errorReportEl("errorReportBody");
+  const sent = errorReportEl("errorReportSent");
+  if (body) body.hidden = false;
+  if (sent) sent.hidden = true;
+
+  const errorField = errorReportEl("errorReportErrorText");
+  if (errorField) errorField.value = String(errorText || "");
+  const notes = errorReportEl("errorReportNotes");
+  if (notes) notes.value = "";
+
+  const emailField = errorReportEl("errorReportEmail");
+  if (emailField) emailField.value = String(runtime.license?.email || "").trim();
+  const notify = errorReportEl("errorReportNotify");
+  // Ticked by default when we already know where to write - the whole promise of
+  // the feature is "you'll hear when it's fixed", so opting in should be the
+  // default rather than something to remember.
+  if (notify) notify.checked = Boolean(emailField && emailField.value.trim());
+  syncErrorReportNotifyState();
+
+  const send = errorReportEl("errorReportSendButton");
+  if (send) {
+    send.disabled = false;
+    send.textContent = "Send";
+    send.hidden = false;
+  }
+  const cancel = errorReportEl("errorReportCancelButton");
+  if (cancel) cancel.textContent = "Cancel";
+  const copy = errorReportEl("errorReportCopyButton");
+  if (copy) copy.hidden = true;
+  setErrorReportStatus("");
+
+  if (!openDialogSafely(dialog)) return;
+  window.setTimeout(() => notes?.focus(), 0);
+  captureErrorScreenshot();
+}
+
+function closeErrorReportDialog() {
+  closeDialogSafely(errorReportEl("errorReportDialog"));
+}
+
+function errorReportPayload() {
+  const include = errorReportEl("errorReportIncludeShot");
+  const notify = errorReportEl("errorReportNotify");
+  return {
+    errorText: String(errorReportEl("errorReportErrorText")?.value || "").trim(),
+    userNotes: String(errorReportEl("errorReportNotes")?.value || "").trim(),
+    email: String(errorReportEl("errorReportEmail")?.value || "").trim(),
+    notifyOnRelease: Boolean(notify?.checked && !notify.disabled),
+    screenshotPng: include?.checked ? errorReport.screenshot : "",
+    context: errorReportContext(),
+  };
+}
+
+/** The plain-text fallback for "Copy report" - what they'd paste into an email. */
+function errorReportAsText(payload) {
+  const context = payload.context || {};
+  return [
+    "SprinkFlow error report",
+    `Version: ${context.appVersion || "unknown"} (${context.channel || "unknown"})`,
+    `Tool: ${context.activeTool || "unknown"} / ${context.viewMode || "unknown"}`,
+    `When: ${context.timestamp || ""}`,
+    payload.email ? `From: ${payload.email}` : "From: (no email given)",
+    "",
+    "Error:",
+    payload.errorText || "(none)",
+    "",
+    "What I was doing:",
+    payload.userNotes || "(not given)",
+    "",
+    `User agent: ${context.userAgent || ""}`,
+  ].join("\n");
+}
+
+async function sendErrorReport() {
+  if (errorReport.sending) return;
+  const payload = errorReportPayload();
+  if (!payload.errorText) {
+    setErrorReportStatus("Add the error message before sending.", "error");
+    errorReportEl("errorReportErrorText")?.focus();
+    return;
+  }
+
+  const send = errorReportEl("errorReportSendButton");
+  const retake = errorReportEl("errorReportRetakeButton");
+  errorReport.sending = true;
+  if (send) {
+    send.disabled = true;
+    send.textContent = "Sending…";
+  }
+  if (retake) retake.disabled = true;
+  setErrorReportStatus("");
+
+  try {
+    const result = await readApiJson("./api/error-report", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    if (result?.ok === false) throw new Error(result.error || result.detail || "The report could not be sent.");
+    showErrorReportSuccess(result?.message || "");
+  } catch (error) {
+    errorReport.sending = false;
+    if (send) {
+      send.disabled = false;
+      send.textContent = "Send";
+    }
+    if (retake) retake.disabled = false;
+    setErrorReportStatus(
+      `${error.message || "The report could not be sent."} Copy it and send it through sprinkflow.studio/support instead.`,
+      "error",
+    );
+    const copy = errorReportEl("errorReportCopyButton");
+    if (copy) copy.hidden = false;
+  }
+}
+
+function showErrorReportSuccess(message) {
+  errorReport.sending = false;
+  const body = errorReportEl("errorReportBody");
+  const sent = errorReportEl("errorReportSent");
+  if (body) body.hidden = true;
+  if (sent) sent.hidden = false;
+  const headline = sent?.querySelector(".error-report-sent-headline");
+  // The desktop queues the report when it is offline and says so - do not
+  // overwrite an honest "it will go out later" with "Sent."
+  if (headline && message) headline.textContent = message;
+  const send = errorReportEl("errorReportSendButton");
+  if (send) send.hidden = true;
+  const copy = errorReportEl("errorReportCopyButton");
+  if (copy) copy.hidden = true;
+  const cancel = errorReportEl("errorReportCancelButton");
+  if (cancel) cancel.textContent = "Close";
+  setErrorReportStatus("");
+  window.setTimeout(() => {
+    if (errorReportEl("errorReportSent")?.hidden === false) closeErrorReportDialog();
+  }, 4000);
+}
+
+function wireErrorReportDialog() {
+  const dialog = errorReportEl("errorReportDialog");
+  if (!dialog) return;
+  errorReportEl("errorReportSendButton")?.addEventListener("click", sendErrorReport);
+  errorReportEl("errorReportCancelButton")?.addEventListener("click", closeErrorReportDialog);
+  errorReportEl("errorReportRetakeButton")?.addEventListener("click", () => {
+    if (!errorReport.capturing && !errorReport.sending) captureErrorScreenshot();
+  });
+  errorReportEl("errorReportCopyButton")?.addEventListener("click", async () => {
+    await copyTextToClipboard(errorReportAsText(errorReportPayload()));
+    setErrorReportStatus("Report copied — paste it into the form at sprinkflow.studio/support.", "");
+  });
+  errorReportEl("errorReportIncludeShot")?.addEventListener("change", (event) => {
+    errorReport.includeWanted = Boolean(event.target.checked);
+  });
+  errorReportEl("errorReportEmail")?.addEventListener("input", syncErrorReportNotifyState);
+  // A <form method="dialog"> with one text input submits (and closes) on Enter.
+  // Losing a half-typed report to the Enter key would be its own bug report.
+  errorReportEl("errorReportEmail")?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") event.preventDefault();
+  });
+  errorReportEl("settingsReportProblemButton")?.addEventListener("click", () => openErrorReportDialog());
 }
 
 // ---------------------------------------------------------------------------
@@ -24439,6 +24947,7 @@ function setEstimatorStatus(message, type = "info") {
   el.classList.toggle("error", active && type === "error");
   el.classList.toggle("success", active && type === "success");
   el.classList.toggle("info", active && type === "info");
+  attachErrorReportAction(el, message, type);
 }
 
 function findEstimatorSection(secId) {
@@ -24755,6 +25264,7 @@ function setBidIntakeStatus(message, type = "info") {
   el.classList.toggle("active", Boolean(message));
   el.classList.toggle("error", Boolean(message) && type === "error");
   el.classList.toggle("success", Boolean(message) && type === "success");
+  attachErrorReportAction(el, message, type);
 }
 
 function renderBidIntakeExtras() {
@@ -25017,6 +25527,7 @@ function initEstimator() {
 
 async function initializeApp() {
   installClientErrorReporting();
+  wireErrorReportDialog();
   wireEvents();
   await loadAppInfo();
   await loadState();
@@ -25082,6 +25593,7 @@ if ("serviceWorker" in navigator) {
     if (!el) return;
     el.textContent = message || "";
     el.dataset.status = type;
+    attachErrorReportAction(el, message, type);
   }
   function isPdf(file) { return file && /\.pdf$/i.test(file.name); }
   function fileLabel(value) {
@@ -25524,6 +26036,7 @@ const PALETTE_SETTINGS_SECTIONS = [
   { id: "shortcuts", label: "Keyboard", keywords: "shortcuts keys hotkeys palette bindings" },
   { id: "shop", label: "Output, Documents & Email", keywords: "output folder toc table of contents default contractor email subject body template open generated pdf" },
   { id: "scanning", label: "What the Plan Scan Looks For", keywords: "scan categories sprinklers piping hangers bracing valves miscellaneous preferred manufacturer default brand victaulic anvil tolco" },
+  { id: "support", label: "Help & Support", keywords: "support contact report problem error bug help james feedback" },
 ];
 
 function paletteOpenSettingsSection(sectionId) {
@@ -25593,6 +26106,11 @@ function paletteActions() {
       key: "action:open-output-folder", label: "Open Output Folder",
       keywords: "reveal explorer finder generated pdfs where are my files destination",
       run: () => paletteOpenOutputFolder(),
+    },
+    {
+      key: "action:report-problem", label: "Report a Problem",
+      keywords: "error bug broken crash support contact james feedback screenshot report this error help",
+      run: () => openErrorReportDialog(),
     },
   ];
 

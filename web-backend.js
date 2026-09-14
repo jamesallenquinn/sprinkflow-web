@@ -25,7 +25,7 @@
   if (!WEB) return;                                 // desktop: do nothing
   window.__SPRINKFLOW_WEB__ = true;
   // stamped by packaging/build_web_edition.py at deploy time; "dev" locally
-  var WEB_BUILD = "b0914-1641-7b65770";
+  var WEB_BUILD = "b0914-1723-2de7965";
   window.__SPRINKFLOW_WEB_BUILD__ = WEB_BUILD;
   console.log("[web-backend] SprinkFlow Web Edition active — build " + WEB_BUILD);
   // mobile layer: web-only stylesheet (media-query gated), never active on desktop
@@ -233,6 +233,37 @@
       return jsonResp({ ok: true });
     }).catch(function (e) {
       return jsonResp({ ok: false, error: "Could not open billing from this site - subscribe from the desktop app (Account -> Billing), or at sprinkflow.studio/account.html. (" + ((e && e.message) || "blocked") + ")" });
+    });
+  }
+
+  // ---- "Report this error" ------------------------------------------------
+  // The cloud route is unauthenticated on purpose (the thing that is broken is
+  // often the sign-in), but the bearer token is attached when we have one so the
+  // report can be tied to the account. No log tail exists in a browser.
+  function webErrorReport(body) {
+    var s = webSessionSafe();
+    var headers = { "Content-Type": "application/json" };
+    if (s && s.accessToken) headers.Authorization = "Bearer " + s.accessToken;
+    var payload = {
+      errorText: String((body && body.errorText) || ""),
+      userNotes: String((body && body.userNotes) || ""),
+      email: String((body && body.email) || ""),
+      notifyOnRelease: !!(body && body.notifyOnRelease),
+      screenshotPng: String((body && body.screenshotPng) || ""),
+      logTail: "",
+      context: (body && body.context) || {},
+    };
+    return orig(WEB_AUTH.apiBase + "/support/error-report", {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify(payload),
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (!r.ok) throw new Error(j.detail || j.message || ("The report could not be sent (HTTP " + r.status + ")."));
+        return jsonResp({ ok: true, queued: false, message: "Sent. Thanks - this goes straight to James." });
+      });
+    }).catch(function (e) {
+      return jsonResp({ ok: false, error: (e && e.message) || "The report could not be sent." });
     });
   }
 
@@ -1058,6 +1089,13 @@
       case "/api/admin/studio-bugs/file":   return webStudioBugsFile(url);
       case "/api/billing/checkout":  return webBilling("checkout");
       case "/api/billing/portal":    return webBilling("portal");
+
+      // ---- "Report this error" ----
+      // Straight through to the cloud route, which accepts anonymous reports and
+      // allows this origin. There is no native window here, so the screenshot
+      // endpoint says so and app.js falls back to html2canvas.
+      case "/api/error-report":            return webErrorReport(body);
+      case "/api/error-report/screenshot": return Promise.resolve(jsonResp({ ok: false, error: "No native window in the browser edition." }));
 
       // ---- catalog: static seed + IndexedDB imports, like the desktop's live catalog ----
       case "/api/catalog":    return catalogListWeb();

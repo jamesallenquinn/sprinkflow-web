@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0914-1641-7b65770" />
+    <link rel="stylesheet" href="./styles.css?v=b0914-1723-2de7965" />
   </head>
   <body>
     <div class="app-shell">
@@ -3303,6 +3303,19 @@
               <ul class="shortcut-list" id="settingsShortcutList"></ul>
               <p class="settings-helper settings-shortcuts-note">Press <kbd>Ctrl</kbd> + <kbd>K</kbd> anywhere for the command palette, or <kbd>?</kbd> for this list as a full-screen overlay.</p>
             </section>
+
+            <section class="panel-section calculator-section" data-settings-section="support">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Help &amp; support</p>
+                  <h3>Something went wrong?</h3>
+                </div>
+              </div>
+              <p class="settings-helper">Report a problem and it goes straight to James with a screenshot of your window. Error fixes are usually handled immediately, and you can be emailed when the update that fixes it ships.</p>
+              <div class="inline-actions settings-actions">
+                <button class="secondary-button" id="settingsReportProblemButton" type="button">Report a Problem</button>
+              </div>
+            </section>
           </div>
 
           <div class="settings-col">
@@ -3717,6 +3730,64 @@
         <div class="dialog-actions">
           <button class="ghost-button" id="startOverCancelButton" type="button">Cancel</button>
           <button class="primary-button" id="startOverConfirmButton" type="button">Yes, start over</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- "Report this error". Opened from the Report button on any error toast, the
+         "Report this error" link beside any tool's error status line, Settings > Help &
+         Support, and the Ctrl+K palette. The screenshot is captured when the dialog
+         opens (native window grab on desktop, html2canvas in the browser edition). -->
+    <dialog class="review-dialog error-report-dialog" id="errorReportDialog">
+      <form method="dialog">
+        <div class="dialog-heading">
+          <p class="eyebrow">Support</p>
+          <h2>Report this error</h2>
+        </div>
+        <p class="dialog-copy">Send this to SprinkFlow support with a screenshot of your window. Error fixes are usually handled immediately, and you can be emailed when the update that fixes it ships.</p>
+
+        <div class="error-report-body" id="errorReportBody">
+          <div class="error-report-shot">
+            <div class="error-report-shot-frame">
+              <img id="errorReportShotImage" alt="Screenshot of your SprinkFlow window" hidden />
+              <p class="error-report-shot-note" id="errorReportShotNote">Capturing your window&hellip;</p>
+            </div>
+            <div class="error-report-shot-controls">
+              <label class="option-row"><input type="checkbox" id="errorReportIncludeShot" checked /><span>Include screenshot</span></label>
+              <button class="ghost-button compact-button" id="errorReportRetakeButton" type="button">Retake</button>
+            </div>
+          </div>
+
+          <label>
+            Error message
+            <textarea id="errorReportErrorText" rows="3" placeholder="What did SprinkFlow say?"></textarea>
+          </label>
+
+          <label>
+            What were you doing? <span class="error-report-optional">optional</span>
+            <textarea id="errorReportNotes" rows="3" placeholder="The step you were on, the file you dropped, what you expected to happen."></textarea>
+          </label>
+
+          <label>
+            Your email <span class="error-report-optional">optional</span>
+            <input id="errorReportEmail" type="email" autocomplete="email" placeholder="you@company.com" />
+          </label>
+          <p class="error-report-helper">So we can tell you when it&rsquo;s fixed.</p>
+
+          <label class="option-row"><input type="checkbox" id="errorReportNotify" /><span>Email me when the next SprinkFlow update is released</span></label>
+        </div>
+
+        <div class="error-report-sent" id="errorReportSent" hidden>
+          <p class="error-report-sent-headline">Sent. Thanks &mdash; this goes straight to James.</p>
+          <p class="error-report-sent-note">Error fixes are usually handled immediately.</p>
+        </div>
+
+        <p class="error-report-status" id="errorReportStatus" aria-live="polite"></p>
+
+        <div class="dialog-actions">
+          <button class="ghost-button" id="errorReportCopyButton" type="button" hidden>Copy report</button>
+          <button class="ghost-button" id="errorReportCancelButton" type="button">Cancel</button>
+          <button class="primary-button" id="errorReportSendButton" type="button">Send</button>
         </div>
       </form>
     </dialog>
@@ -4162,11 +4233,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0914-1641-7b65770"></script>
-    <script src="./app.js?v=b0914-1641-7b65770"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0914-1641-7b65770"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0914-1641-7b65770"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0914-1641-7b65770"></script>
-    <script src="./prelim-calc-desktop.js?v=b0914-1641-7b65770"></script>
+    <script src="./web-backend.js?v=b0914-1723-2de7965"></script>
+    <script src="./app.js?v=b0914-1723-2de7965"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0914-1723-2de7965"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0914-1723-2de7965"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0914-1723-2de7965"></script>
+    <script src="./prelim-calc-desktop.js?v=b0914-1723-2de7965"></script>
   </body>
 </html>
