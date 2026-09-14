@@ -11371,6 +11371,57 @@ body[data-theme="plain-light"] .seismic-constraint.is-unavailable { border-left-
 .pdfcad-smart .toggle-row { margin: 0; }
 .pdfcad-smart-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 12px; }
 .pdfcad-smart.is-locked .toggle-row { opacity: 0.55; }
+/* ---- AI layers ----
+   Same rhythm as the Smart-layers block above: a title row, one note, then the
+   actions - 6px apart, no voids. Every colour here is a token so both themes
+   flip together (Conformance 5/5a); the only raw colours are the per-layer
+   swatches, which come from the converter's own palette and are drawn on the
+   canvas, not on text. */
+.pdfcad-ai { border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px;
+  margin: 0 0 10px; padding-top: 10px; }
+.pdfcad-ai-head { align-items: center; display: flex; gap: 10px; justify-content: space-between; }
+.pdfcad-ai-title { align-items: center; color: var(--ink); display: flex; font: 600 0.9rem Inter; gap: 6px; }
+.pdfcad-group-conf.is-ai { border-color: var(--brand, #4aa3ff); color: var(--brand, #4aa3ff); }
+.pdfcad-group-reason { color: var(--muted); font: 500 0.74rem Inter; line-height: 1.35; }
+
+/* review & clean up dialog */
+.pdfcad-ai-dialog { max-width: min(1500px, 96vw); width: min(1500px, 96vw); }
+.pdfcad-ai-shell { display: flex; flex-direction: column; gap: 12px; max-height: 88vh; }
+.pdfcad-ai-topbar { align-items: flex-end; display: flex; gap: 12px; justify-content: space-between; }
+.pdfcad-ai-topbar h2 { margin: 2px 0 0; }
+.pdfcad-ai-topbar-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; }
+/* Two columns that share a top AND a bottom rail: the stage stretches, the side
+   column scrolls inside its own height rather than pushing the dialog taller. */
+.pdfcad-ai-body { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  min-height: 0; }
+@media (max-width: 1000px) { .pdfcad-ai-body { grid-template-columns: 1fr; } }
+.pdfcad-ai-stage { background: var(--surface-soft); border: 1px solid var(--line); border-radius: 10px;
+  display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow: hidden; padding: 8px; }
+.pdfcad-ai-stage canvas { background: #ffffff; border-radius: 6px; cursor: grab; display: block;
+  flex: 1 1 auto; min-height: 0; touch-action: none; width: 100%; }
+.pdfcad-ai-stage.is-lasso canvas { cursor: crosshair; }
+.pdfcad-ai-stage-hint { color: var(--muted); font: 500 0.74rem Inter; margin: 0; }
+.pdfcad-ai-side { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.pdfcad-ai-layers { display: flex; flex: 1 1 auto; flex-direction: column; gap: 6px; min-height: 0;
+  overflow-y: auto; padding-right: 4px; }
+.pdfcad-ai-selection { align-items: center; background: var(--surface-soft); border: 1px solid var(--line);
+  border-radius: 8px; color: var(--ink); display: flex; flex-wrap: wrap; font: 600 0.8rem Inter;
+  gap: 8px; justify-content: space-between; padding: 8px 10px; }
+.pdfcad-ai-selection-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.pdfcad-ai-layer { align-items: center; background: var(--surface-soft); border: 1px solid var(--line);
+  border-radius: 8px; cursor: pointer; display: flex; gap: 10px; padding: 8px 10px; text-align: left; width: 100%; }
+.pdfcad-ai-layer:hover, .pdfcad-ai-layer:focus-visible { border-color: var(--brand, #4aa3ff); }
+.pdfcad-ai-layer.is-isolated { border-color: var(--brand, #4aa3ff); box-shadow: inset 3px 0 0 var(--brand, #4aa3ff); }
+.pdfcad-ai-layer.is-removed .pdfcad-ai-layer-name { text-decoration: line-through; }
+.pdfcad-ai-layer.is-removed { opacity: 0.6; }
+.pdfcad-ai-layer-text { display: flex; flex: 1 1 auto; flex-direction: column; gap: 2px; min-width: 0; }
+.pdfcad-ai-layer-name { color: var(--ink); font: 600 0.85rem Inter; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+.pdfcad-ai-layer-sub { color: var(--muted); font: 500 0.73rem Inter; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+.pdfcad-ai-layer-menu { background: none; border: 1px solid var(--line); border-radius: 6px; color: var(--muted);
+  cursor: pointer; flex: none; font: 700 0.8rem Inter; line-height: 1; padding: 5px 8px; }
+.pdfcad-ai-layer-menu:hover { border-color: var(--brand, #4aa3ff); color: var(--ink); }
 .pdfcad-summary { color: var(--ink); font-size: 0.9rem; }
 .pdfcad-summary .pdfcad-empty { color: var(--muted); line-height: 1.6; }
 .pdfcad-summary .layout-result-line { padding: 7px 0; }

@@ -25,7 +25,7 @@
   if (!WEB) return;                                 // desktop: do nothing
   window.__SPRINKFLOW_WEB__ = true;
   // stamped by packaging/build_web_edition.py at deploy time; "dev" locally
-  var WEB_BUILD = "b0914-1817-28b25f6";
+  var WEB_BUILD = "b0914-1942-ce4213c";
   window.__SPRINKFLOW_WEB_BUILD__ = WEB_BUILD;
   console.log("[web-backend] SprinkFlow Web Edition active — build " + WEB_BUILD);
   // mobile layer: web-only stylesheet (media-query gated), never active on desktop
@@ -126,6 +126,7 @@
       cloudConnected: s.statusConfirmed === true,
       // Same admin list the version pill uses; the cloud still re-checks every call.
       studioBugAdmin: webIsAdmin(),
+      pdfcadAiAdmin: webIsAdmin(),
       message: outputs ? "Signed in - all tools and exports enabled."
         : (s.statusConfirmed === true
             ? "Signed in on the free tier - every tool is usable; subscribe to export documents."
@@ -885,6 +886,7 @@
       includeFills: body.includeFills !== false,
       dxfVersion: String(body.dxfVersion || "").toUpperCase() === "R2000" ? "R2000" : "R12",
       smart: !!body.smart,
+      aiOverrides: body.aiOverrides || null,
     };
     return seismicEngine().then(function (py) {
       return ensurePdfcadDeps(py).then(function () {
@@ -903,7 +905,7 @@
             "_r = pdf_to_cad.convert(pathlib.Path('/pdfcad/in.pdf'), _a['page'], _a['selected'],\n" +
             "                        _a['scale'], include_text=_a['includeText'],\n" +
             "                        include_fills=_a['includeFills'], dxf_version=_a['dxfVersion'],\n" +
-            "                        smart=bool(_a['smart']))\n" +
+            "                        smart=bool(_a['smart']), ai_overrides=_a.get('aiOverrides'))\n" +
             "json.dumps(_r)");
         } finally { setBadge(null); }
         var r = JSON.parse(out);
@@ -915,6 +917,176 @@
                                        downloaded: true }, r));
       });
     }).catch(pdfcadFail);
+  }
+
+  // ---- PDF -> CAD "AI layers" ---------------------------------------------
+  // Same three steps as desktop, same request bodies, so app.js runs unchanged:
+  //   ai-groups  the REAL pdf_to_cad.ai_groups() in Pyodide (free, local)
+  //   ai-render  pdf.js rasterizes the page and we draw the identical overlay
+  //              (bbox + id + white halo) on a canvas instead of with Pillow
+  //   ai-classify  straight to the cloud with the signed-in bearer
+  // Owner-gated by WEB_ADMIN_EMAILS for visibility; the cloud re-checks.
+
+  var PDFCAD_AI_MAX_EDGE = 1568;
+  var PDFCAD_AI_TILE_THRESHOLD_IN = 30;
+  var PDFCAD_AI_MIN_LABEL_PX = 26;
+  var PDFCAD_AI_LAYER_COLORS = {
+    "A-WALL": "#1F4E79", "A-DOOR": "#C55A11", "A-WINDOW": "#2E9BD6",
+    "A-COLS": "#7030A0", "A-GRID": "#8C8C8C", "A-DIMS": "#B5651D",
+    "A-ANNO": "#375623", "A-ROOM": "#548235", "A-TITLE": "#595959",
+    "A-HATCH": "#A6A6A6", "A-FILL": "#BF8F00", "A-FURN": "#00786E",
+    "A-MISC": "#C00000",
+  };
+  var PDFCAD_AI_LEGEND_PALETTE = ["#0B7285", "#9C36B5", "#C2255C", "#2B8A3E", "#E8590C",
+                                  "#1864AB", "#5F3DC4", "#A9762A"];
+
+  function pdfcadAiColor(layer, index) {
+    return PDFCAD_AI_LAYER_COLORS[layer]
+      || PDFCAD_AI_LEGEND_PALETTE[Math.abs(index || 0) % PDFCAD_AI_LEGEND_PALETTE.length];
+  }
+
+  function pdfcadAiPlanTiles(pw, ph) {
+    if (Math.max(pw, ph) <= PDFCAD_AI_TILE_THRESHOLD_IN) return [[0, 0, pw, ph]];
+    var mx = pw / 2, my = ph / 2;
+    return [[0, my, mx, ph], [mx, my, pw, ph], [0, 0, mx, my], [mx, 0, pw, my]];
+  }
+
+  function pdfcadAiGroupsWeb(body) {
+    var entry, token = body.token;
+    try { entry = pdfcadEntry(token); } catch (e) { return Promise.resolve(pdfcadFail(e)); }
+    var page = Math.max(0, parseInt(body.page, 10) || 0);
+    var scale = Number(body.scale) || 96;
+    return seismicEngine().then(function (py) {
+      return ensurePdfcadDeps(py).then(function () {
+        setBadge("Grouping sheet " + (page + 1) + " for AI layers…");
+        var out;
+        try {
+          pdfcadStage(py, token, entry);
+          py.globals.set("_pc_page", page);
+          py.globals.set("_pc_scale", scale);
+          out = py.runPython(
+            "import json, pathlib\n" +
+            "import pdf_to_cad, pdf_to_cad_ai\n" +
+            "_r = pdf_to_cad.ai_groups(pathlib.Path('/pdfcad/in.pdf'), _pc_page, scale=float(_pc_scale))\n" +
+            "json.dumps(_r)");
+        } finally { setBadge(null); }
+        var r = JSON.parse(out);
+        var tiles = pdfcadAiPlanTiles(r.pageWidthIn, r.pageHeightIn).length;
+        // Mirrors pdf_to_cad_ai.estimate_tokens / estimate_output_tokens so both
+        // editions quote the same price for the same sheet.
+        var n = (r.groups || []).length;
+        return jsonResp(Object.assign({ ok: true, token: token, page: page, tiles: tiles,
+                                        estimatedInputTokens: 700 + tiles * 2400 + n * 40,
+                                        estimatedOutputTokens: n * 55 }, r));
+      });
+    }).catch(pdfcadFail);
+  }
+
+  /** The Pillow overlay, in canvas: bbox in the layer's colour, id with a halo. */
+  function pdfcadAiDrawOverlay(ctx, groups, tile, pageH, sx, sy) {
+    var layerIndex = {};
+    ctx.font = "600 15px Arial, Helvetica, sans-serif";
+    ctx.textBaseline = "top";
+    groups.forEach(function (g) {
+      var b = g.bbox;
+      if (b[2] < tile[0] || b[0] > tile[2] || b[3] < tile[1] || b[1] > tile[3]) return;
+      var layer = g.heuristicLayer || "A-MISC";
+      if (!(layer in layerIndex)) layerIndex[layer] = Object.keys(layerIndex).length;
+      var color = pdfcadAiColor(layer, layerIndex[layer]);
+      var x0 = (Math.max(b[0], tile[0]) - tile[0]) * sx;
+      var x1 = (Math.min(b[2], tile[2]) - tile[0]) * sx;
+      var y0 = (tile[3] - Math.min(b[3], tile[3])) * sy;   // flip y
+      var y1 = (tile[3] - Math.max(b[1], tile[1])) * sy;
+      var w = Math.max(1, x1 - x0), h = Math.max(1, y1 - y0);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x0, y0, w, h);
+      if (w < PDFCAD_AI_MIN_LABEL_PX && h < PDFCAD_AI_MIN_LABEL_PX) return;
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "#ffffff";
+      ctx.strokeText(String(g.id), x0 + 3, y0 + 2);        // the halo
+      ctx.fillStyle = color;
+      ctx.fillText(String(g.id), x0 + 3, y0 + 2);
+    });
+  }
+
+  function pdfcadAiRenderWeb(body) {
+    var entry;
+    try { entry = pdfcadEntry(body.token); } catch (e) { return Promise.resolve(pdfcadFail(e)); }
+    var page = Math.max(0, parseInt(body.page, 10) || 0);
+    return pdfcadAiGroupsWeb(body).then(function (resp) {
+      return resp.json().then(function (built) {
+        if (!built.ok) return jsonResp(built, 400);
+        var pw = built.pageWidthIn, ph = built.pageHeightIn;
+        var tiles = pdfcadAiPlanTiles(pw, ph);
+        var perSide = tiles.length > 1 ? 2 : 1;
+        return pdfcadDoc(entry).then(function (pdf) {
+          var idx = Math.max(1, Math.min(page + 1, pdf.numPages));
+          return pdf.getPage(idx).then(function (p) {
+            var base = p.getViewport({ scale: 1 });
+            var longPt = Math.max(base.width, base.height) || 1;
+            var vp = p.getViewport({ scale: (PDFCAD_AI_MAX_EDGE * perSide) / longPt });
+            var full = document.createElement("canvas");
+            full.width = Math.max(1, Math.round(vp.width));
+            full.height = Math.max(1, Math.round(vp.height));
+            var fctx = full.getContext("2d");
+            fctx.fillStyle = "#ffffff";
+            fctx.fillRect(0, 0, full.width, full.height);
+            return p.render({ canvasContext: fctx, viewport: vp }).promise.then(function () {
+              var images = tiles.map(function (t) {
+                var cv = document.createElement("canvas");
+                cv.width = Math.max(1, Math.round((t[2] - t[0]) / pw * full.width));
+                cv.height = Math.max(1, Math.round((t[3] - t[1]) / ph * full.height));
+                var ctx = cv.getContext("2d");
+                ctx.drawImage(full,
+                  Math.round(t[0] / pw * full.width), Math.round((ph - t[3]) / ph * full.height),
+                  cv.width, cv.height, 0, 0, cv.width, cv.height);
+                pdfcadAiDrawOverlay(ctx, built.groups || [], t, ph,
+                                    cv.width / (t[2] - t[0]), cv.height / (t[3] - t[1]));
+                return { tile: { x0: t[0], y0: t[1], x1: t[2], y1: t[3] },
+                         png: cv.toDataURL("image/png"), width: cv.width, height: cv.height };
+              });
+              return jsonResp({ ok: true, token: body.token, page: page,
+                                pageWidthIn: pw, pageHeightIn: ph, images: images });
+            });
+          });
+        });
+      });
+    }).catch(pdfcadFail);
+  }
+
+  function pdfcadAiCloudWeb(path, payload) {
+    var s = webSessionSafe();
+    if (!s || !s.accessToken) {
+      return Promise.resolve(jsonResp({ ok: false, error: "Sign in to SprinkFlow to use AI layers." }, 403));
+    }
+    return orig(WEB_AUTH.apiBase + path, {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + s.accessToken, "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).then(function (r) {
+      return r.json().then(function (j) {
+        if (!r.ok) throw new Error(j.detail || ("AI layers failed (HTTP " + r.status + ")."));
+        return jsonResp(Object.assign({ ok: true }, j.data || {}));
+      });
+    }).catch(function (e) {
+      return jsonResp({ ok: false, error: String((e && e.message) || e) || "AI layers failed." }, 502);
+    });
+  }
+
+  function pdfcadAiClassifyWeb(body) {
+    return pdfcadAiCloudWeb("/pdfcad/ai-classify", {
+      sheet: body.sheet || {}, images: body.images || [], groups: body.groups || [],
+    });
+  }
+
+  function pdfcadAiLabelsWeb(body) {
+    // Fire-and-forget, like desktop: a failed upload must never surface as an error.
+    return pdfcadAiCloudWeb("/pdfcad/labels", {
+      sheetHash: body.sheetHash || "", labels: (body.labels || []).slice(0, 500),
+    }).then(function (resp) {
+      return resp.json().then(function (j) { return jsonResp({ ok: true, sent: j.stored || 0 }); });
+    });
   }
 
   // ---- plans scan (the REAL plan_scan_core.py via Pyodide) -----------------
@@ -1171,6 +1343,10 @@
       case "/api/pdf-to-cad/analyze":   return pdfcadAnalyzeWeb(body);
       case "/api/pdf-to-cad/preview":   return pdfcadPreviewWeb(body);
       case "/api/pdf-to-cad/convert":   return pdfcadConvertWeb(body);
+      case "/api/pdf-to-cad/ai-groups": return pdfcadAiGroupsWeb(body);
+      case "/api/pdf-to-cad/ai-render": return pdfcadAiRenderWeb(body);
+      case "/api/pdf-to-cad/ai-classify": return pdfcadAiClassifyWeb(body);
+      case "/api/pdf-to-cad/ai-labels":  return pdfcadAiLabelsWeb(body);
       case "/api/pdf-to-cad/pick":      return Promise.resolve(jsonResp({ ok: false, error: "The file picker is desktop-only here — drop the PDF on the drop zone or use Choose PDF instead." }, 400));
       // no ODA File Converter in a browser, so DWG output is off everywhere in web
       case "/api/oda-status":           return Promise.resolve(jsonResp({ ok: true, dwgCapable: false, odaUrl: "" }));

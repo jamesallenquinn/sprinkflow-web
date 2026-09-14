@@ -15856,6 +15856,7 @@ function pdfcadApplyAnalyze(payload, fileName, isFreshImport) {
     pdfcadState.smart = !!payload.smart;
     pdfcadState.smartStats = payload.smartStats || null;
     pdfcadState.smartLocked = !!payload.layerMode;
+    pdfcadAiReset();          // a new sheet invalidates every region id
     if (payload.dwgCapable !== undefined) pdfcadApplyDwgCapable(!!payload.dwgCapable);
     if (fileName) pdfcadState.fileName = fileName;
     const layerNote = document.getElementById("pdfcadLayerNote");
@@ -15865,6 +15866,12 @@ function pdfcadApplyAnalyze(payload, fileName, isFreshImport) {
         ? "This PDF carries real CAD layer data - each layer imports under its original name (like PDFIMPORT)."
         : "Each color becomes its own CAD layer.");
     pdfcadSyncSmartUI();
+    // AI layers: fetch the regions in the background so the token estimate is on
+    // screen BEFORE the owner spends anything. Free and local - the page
+    // extraction is already cached, only the clustering re-runs.
+    if (pdfcadAiAdmin() && pdfcadState.smart && pdfcadState.token) {
+      pdfcadAiEnsureGroups(true).then(pdfcadSyncAiUI).catch(() => { /* estimate is optional */ });
+    }
     renderPdfcadGroups();
     renderPdfcadSummary();
     if (isFreshImport) pdfcadBuildCards();    // fresh import — (re)build the sheet grid
@@ -15977,6 +15984,10 @@ function renderPdfcadGroups() {
     const conf = word
       ? `<span class="pdfcad-group-conf${word === "high" ? " is-high" : ""}" title="How sure the classifier is about this layer">${word}</span>`
       : "";
+    // AI layers: the chip says this layer's name came from Claude reading the
+    // sheet rather than from the geometry heuristic, and the hint says why.
+    const aiChip = g.aiChip
+      ? `<span class="pdfcad-group-conf is-ai" title="Named by AI layers from the sheet image">AI</span>` : "";
     const hint = g.kind === "smart" && g.hint
       ? `<span class="pdfcad-group-hint">${escapeHtml(g.hint)}</span>` : "";
     return `<label class="pdfcad-group-row${g.kind === "smart" ? " is-smart" : ""}">
@@ -15988,7 +15999,7 @@ function renderPdfcadGroups() {
       </span>
       <span class="pdfcad-group-meta">
         <span class="pdfcad-group-count">${g.count.toLocaleString()} obj</span>
-        ${conf}
+        ${aiChip}${conf}
       </span>
     </label>`;
   }).join("");
@@ -16014,6 +16025,7 @@ function pdfcadSyncSmartUI() {
         : "Name each layer after what the linework is — walls, doors, columns, grid, dimensions — instead of what color it happens to be.");
   }
   pdfcadSyncScaleHint();
+  pdfcadSyncAiUI();
 }
 
 /** The classifier measures the sheet from its own dimension strings. When that
@@ -16061,6 +16073,10 @@ const PDFCAD_PRESET_OFF = ["A-DIMS", "A-ANNO", "A-FURN", "A-HATCH", "A-FILL", "A
 function pdfcadApplyPreset() {
   const box = document.getElementById("pdfcadGroupsList");
   if (!box) return;
+  // In AI layers mode the preset is the union of the regions Claude marked
+  // sprinkler-relevant, which beats a fixed list of layer names - it knows the
+  // A-STAIR and A-SPRINK-EXIST layers the heuristic could never have produced.
+  if (pdfcadAiClassified()) { pdfcadApplyAiPreset(box); return; }
   box.querySelectorAll("[data-pdfcad-group]").forEach((el) => {
     const g = pdfcadState.groups[+el.dataset.pdfcadGroup];
     if (!g || g.kind !== "smart") return;
@@ -16072,6 +16088,30 @@ function pdfcadApplyPreset() {
   const status = document.getElementById("pdfcadStatus");
   if (status) status.textContent =
     "Sprinkler preset: kept walls, doors, windows, columns, grid, room names and the sheet's legend symbols; dropped dimensions, notes, furniture, hatch, fills and the title block.";
+}
+
+/** "For sprinkler design" when AI layers has run: keep every layer that holds a
+ *  region the model called sprinkler-relevant, uncheck the rest. */
+function pdfcadApplyAiPreset(box) {
+  const keep = new Set();
+  pdfcadAiState.groups.forEach((group) => {
+    if (!pdfcadAiDeleted(group) && pdfcadAiSprinklerRelevant(group)) {
+      keep.add(`smart:${pdfcadAiFinalLayer(group)}`);
+    }
+  });
+  let kept = 0;
+  box.querySelectorAll("[data-pdfcad-group]").forEach((el) => {
+    const g = pdfcadState.groups[+el.dataset.pdfcadGroup];
+    if (!g) return;
+    el.checked = keep.has(String(g.id));
+    if (el.checked) kept += 1;
+  });
+  renderPdfcadSummary();
+  const status = document.getElementById("pdfcadStatus");
+  if (status) {
+    status.textContent = `Sprinkler preset (AI): kept ${kept} layer${kept === 1 ? "" : "s"} `
+      + "the model marked as background a sprinkler layout is drawn against; unchecked the rest.";
+  }
 }
 
 function pdfcadGroupId(g) {
@@ -16230,6 +16270,9 @@ async function pdfcadConvert() {
         includeFills: !!document.getElementById("pdfcadFillsToggle")?.checked,
         dxfVersion: document.getElementById("pdfcadWeightsSelect")?.value || "R12",
         smart: !!pdfcadState.smart,
+        // AI layers: renames, merges and deletions are applied at CONVERT time,
+        // so a region the designer removed genuinely never reaches the DXF.
+        aiOverrides: pdfcadAiClassified() ? pdfcadAiConvertOverrides() : undefined,
         format: wantFmt,
         defaultName: `${base}-p${pdfcadState.page + 1}.${wantFmt}`,
       }),
@@ -16240,10 +16283,817 @@ async function pdfcadConvert() {
     const polys = Number(payload.weldedPolylines || 0).toLocaleString();
     const texts = Number(payload.textLines || 0).toLocaleString();
     if (status) status.textContent = `${verb} ${savedFmt}: ${payload.path} (${polys} polylines, ${texts} text).${fallbackNote}`;
+    pdfcadAiSendLabels();   // fire-and-forget: the training set never blocks a save
   } catch (error) {
     if (status) status.textContent = (error.message === "Save cancelled." ? "Save cancelled." : (error.message || "Conversion failed."));
   }
   if (btn) btn.disabled = false;
+}
+
+
+// ===================== AI layers (owner preview) =====================
+// Smart layers names linework from its SHAPE. That cannot tell a stair from a
+// ramp, a duct from a joist, or existing sprinkler pipe from new. AI layers
+// clusters the sheet into at most ~250 regions (pdf_to_cad_ai), draws every
+// region's box and id number on a raster of the sheet, and asks Claude what
+// each one is. Then the designer cleans up what they do not need.
+//
+// Owner-only for now (license.pdfcadAiAdmin / the web edition's admin list).
+// The cloud re-checks the allow-list on every call, so this is visibility only.
+//
+// EVERY ACTION COMPILES TO ONE OVERRIDE MAP - {groupId: {layer} | {delete}} -
+// which rides along with Convert. That is why a deleted region actually leaves
+// the DXF instead of merely being unchecked in the picker.
+
+const PDFCAD_AI_MIN_CONF = 0.6;      // below this, the AI's label is not applied
+const PDFCAD_AI_KEEP = "KEEP";
+
+// Mirrors pdf_to_cad_smart.LAYER_COLOR / LEGEND_PALETTE so the review canvas,
+// the picker swatches and the overlay the model saw all agree on a layer's hue.
+const PDFCAD_LAYER_COLORS = {
+  "A-WALL": "#1F4E79", "A-DOOR": "#C55A11", "A-WINDOW": "#2E9BD6",
+  "A-COLS": "#7030A0", "A-GRID": "#8C8C8C", "A-DIMS": "#B5651D",
+  "A-ANNO": "#375623", "A-ROOM": "#548235", "A-TITLE": "#595959",
+  "A-HATCH": "#A6A6A6", "A-FILL": "#BF8F00", "A-FURN": "#00786E",
+  "A-MISC": "#C00000", "A-STAIR": "#B5179E", "A-CEIL": "#3A0CA3",
+  "A-PLUMB": "#0077B6", "A-ELEC": "#9D4EDD", "A-MECH": "#E85D04",
+  "A-EQUIP": "#2A9D8F", "A-LANDSCAPE": "#40916C", "A-SITE": "#6C757D",
+  "A-EXISTING": "#8D99AE", "A-SPRINK-EXIST": "#D00000",
+};
+const PDFCAD_LEGEND_PALETTE = ["#0B7285", "#9C36B5", "#C2255C", "#2B8A3E", "#E8590C",
+                               "#1864AB", "#5F3DC4", "#A9762A"];
+
+function pdfcadLayerColor(name, index) {
+  if (PDFCAD_LAYER_COLORS[name]) return PDFCAD_LAYER_COLORS[name];
+  return PDFCAD_LEGEND_PALETTE[Math.abs(index || 0) % PDFCAD_LEGEND_PALETTE.length];
+}
+
+const pdfcadAiState = {
+  groups: [],            // from /ai-groups - the reviewable regions
+  sheetHash: "",
+  byId: new Map(),
+  labels: {},            // gid -> {label, confidence, reason, sprinklerRelevant}
+  overrides: {},         // gid -> {layer?: string, delete?: true}
+  undo: [],              // snapshots of `overrides`, newest last
+  queued: [],            // training rows waiting for Convert
+  usage: null,
+  estimate: null,
+  estimateOut: 0,
+  tiles: 1,
+  model: "",
+  busy: false,
+  // review view
+  preview: null,         // {dataUrl, width, height} raster of the sheet
+  image: null,           // decoded Image
+  view: { zoom: 1, x: 0, y: 0, base: 0 },
+  isolate: "",
+  hover: "",
+  lasso: false,
+  lassoRect: null,
+  selection: [],
+  menuFor: "",
+};
+
+/** Owner/admin only. Same allow-list the Studio Bug Reports tab uses. */
+function pdfcadAiAdmin() {
+  return Boolean(runtime.license?.pdfcadAiAdmin || runtime.license?.studioBugAdmin);
+}
+
+function pdfcadAiReset() {
+  pdfcadAiState.groups = [];
+  pdfcadAiState.sheetHash = "";
+  pdfcadAiState.byId = new Map();
+  pdfcadAiState.labels = {};
+  pdfcadAiState.overrides = {};
+  pdfcadAiState.undo = [];
+  pdfcadAiState.queued = [];
+  pdfcadAiState.usage = null;
+  pdfcadAiState.estimate = null;
+  pdfcadAiState.estimateOut = 0;
+  pdfcadAiState.model = "";
+  pdfcadAiState.preview = null;
+  pdfcadAiState.image = null;
+  pdfcadAiState.isolate = "";
+  pdfcadAiState.hover = "";
+  pdfcadAiState.selection = [];
+  pdfcadAiState.lasso = false;
+  pdfcadAiState.lassoRect = null;
+  pdfcadAiState.menuFor = "";
+  pdfcadAiState.view = { zoom: 1, x: 0, y: 0, base: 0 };
+}
+
+function pdfcadAiClassified() {
+  return Object.keys(pdfcadAiState.labels).length > 0;
+}
+
+/** Show the block only for the owner, with a PDF loaded, in Smart-layers mode. */
+function pdfcadSyncAiUI() {
+  const wrap = document.getElementById("pdfcadAiWrap");
+  if (!wrap) return;
+  const visible = pdfcadAiAdmin() && pdfcadState.smart;
+  wrap.hidden = !visible;
+  if (!visible) return;
+  const btn = document.getElementById("pdfcadAiButton");
+  const note = document.getElementById("pdfcadAiNote");
+  const actions = document.getElementById("pdfcadAiActions");
+  if (btn) {
+    // Respect the license lock: applyLicenseToolAccess() disables every control in
+    // a tool panel when there is no usable license, and this sync runs afterwards -
+    // without the check it would quietly hand a locked app a button that spends money.
+    const locked = document.body.dataset.licenseLocked === "true";
+    btn.disabled = locked || !pdfcadState.token || pdfcadAiState.busy;
+    btn.textContent = pdfcadAiState.busy
+      ? "Reading the sheet…"
+      : (pdfcadAiClassified() ? "Classify again" : "Classify with AI");
+  }
+  if (actions) actions.hidden = !pdfcadAiClassified();
+  if (!note) return;
+  if (!pdfcadState.token) {
+    note.textContent = "Import a PDF and Claude can name each region of the sheet — stairs, ceiling grid, ductwork, other trades, existing sprinkler work.";
+    return;
+  }
+  if (pdfcadAiState.usage) {
+    const used = pdfcadAiState.usage;
+    note.textContent = `Classified ${pdfcadAiState.groups.length} regions with ${pdfcadAiState.model || "Claude"} — `
+      + `${Number(used.inputTokens || 0).toLocaleString()} in / ${Number(used.outputTokens || 0).toLocaleString()} out tokens `
+      + `(about $${pdfcadAiCost(used).toFixed(2)}). Review and clean up below; nothing is applied until you convert.`;
+    return;
+  }
+  if (pdfcadAiState.estimate) {
+    note.textContent = `Ready: ${pdfcadAiState.groups.length} regions across ${pdfcadAiState.tiles} sheet image`
+      + `${pdfcadAiState.tiles === 1 ? "" : "s"} — about `
+      + `${Number(pdfcadAiState.estimate).toLocaleString()} input tokens (about $${pdfcadAiCost({ inputTokens: pdfcadAiState.estimate, outputTokens: pdfcadAiState.estimateOut }).toFixed(2)}) for one call. Nothing runs until you press the button.`;
+    return;
+  }
+  note.textContent = "Have Claude look at the sheet and name each region — stairs, ceiling grid, ductwork, other trades, existing sprinkler work — then clean up what you don’t need.";
+}
+
+/** Opus 5 list price, $5/M in and $25/M out. Shown so a sheet never costs a surprise. */
+function pdfcadAiCost(usage) {
+  return (Number(usage.inputTokens || 0) * 5 + Number(usage.outputTokens || 0) * 25) / 1e6;
+}
+
+/** Step one: the regions. Local and free, so the estimate can be shown up front. */
+async function pdfcadAiEnsureGroups(force) {
+  if (!pdfcadState.token) return null;
+  if (!force && pdfcadAiState.groups.length) return pdfcadAiState.groups;
+  const payload = await readApiJson("./api/pdf-to-cad/ai-groups", {
+    method: "POST",
+    body: JSON.stringify({ token: pdfcadState.token, page: pdfcadState.page, scale: pdfcadScale() || 96 }),
+  });
+  pdfcadAiState.groups = payload.groups || [];
+  pdfcadAiState.sheetHash = payload.sheetHash || "";
+  pdfcadAiState.tiles = payload.tiles || 1;
+  pdfcadAiState.estimate = payload.estimatedInputTokens || null;
+  pdfcadAiState.estimateOut = payload.estimatedOutputTokens || 0;
+  pdfcadAiState.byId = new Map(pdfcadAiState.groups.map((g) => [g.id, g]));
+  return pdfcadAiState.groups;
+}
+
+/** Step three: the call that costs money. Never automatic. */
+async function pdfcadAiClassify() {
+  if (!pdfcadState.token || pdfcadAiState.busy) return;
+  const status = document.getElementById("pdfcadStatus");
+  pdfcadAiState.busy = true;
+  pdfcadSyncAiUI();
+  try {
+    await pdfcadAiEnsureGroups(true);
+    if (!pdfcadAiState.groups.length) throw new Error("This sheet has no vector linework to classify.");
+    if (status) status.textContent = `Drawing ${pdfcadAiState.groups.length} regions on the sheet for Claude to read…`;
+    const rendered = await readApiJson("./api/pdf-to-cad/ai-render", {
+      method: "POST",
+      body: JSON.stringify({ token: pdfcadState.token, page: pdfcadState.page, scale: pdfcadScale() || 96 }),
+    });
+    if (status) status.textContent = "Asking Claude what each region is… (one call, about a minute)";
+    const reply = await readApiJson("./api/pdf-to-cad/ai-classify", {
+      method: "POST",
+      body: JSON.stringify({
+        token: pdfcadState.token, page: pdfcadState.page, scale: pdfcadScale() || 96,
+        sheet: {
+          label: pdfcadState.fileName || "",
+          pageWidthIn: rendered.pageWidthIn, pageHeightIn: rendered.pageHeightIn,
+          scale: pdfcadScale() || 96,
+        },
+        images: rendered.images || [],
+        groups: pdfcadAiState.groups,
+      }),
+    });
+    const labels = {};
+    (reply.classifications || []).forEach((row) => { labels[String(row.id)] = row; });
+    pdfcadAiState.labels = labels;
+    pdfcadAiState.usage = reply.usage || null;
+    pdfcadAiState.model = reply.model || "";
+    pdfcadAiState.overrides = {};
+    pdfcadAiState.undo = [];
+    pdfcadAiApplyToPicker();
+    const named = Object.values(labels).filter((r) => r.label && r.label !== PDFCAD_AI_KEEP
+      && Number(r.confidence) >= PDFCAD_AI_MIN_CONF).length;
+    if (status) status.textContent = `Claude renamed ${named} of ${pdfcadAiState.groups.length} regions. `
+      + "Open Review & clean up to isolate, merge or delete anything you don’t want.";
+  } catch (error) {
+    if (status) status.textContent = error.message || "AI layers could not classify this sheet.";
+  }
+  pdfcadAiState.busy = false;
+  pdfcadSyncAiUI();
+}
+
+/** The AI's verdict for a region, applied only when it is confident enough. */
+function pdfcadAiLabelFor(group) {
+  const row = pdfcadAiState.labels[group.id];
+  if (!row) return "";
+  const label = String(row.label || "").toUpperCase();
+  if (!label || label === PDFCAD_AI_KEEP) return "";
+  if (Number(row.confidence) < PDFCAD_AI_MIN_CONF) return "";
+  return label;
+}
+
+function pdfcadAiBaseLayer(group) {
+  return pdfcadAiLabelFor(group) || group.heuristicLayer;
+}
+
+function pdfcadAiFinalLayer(group) {
+  const rule = pdfcadAiState.overrides[group.id];
+  if (rule && rule.layer) return rule.layer;
+  return pdfcadAiBaseLayer(group);
+}
+
+function pdfcadAiDeleted(group) {
+  return Boolean(group && pdfcadAiState.overrides[group.id] && pdfcadAiState.overrides[group.id].delete);
+}
+
+function pdfcadAiSprinklerRelevant(group) {
+  const row = pdfcadAiState.labels[group.id];
+  return Boolean(row && row.sprinklerRelevant);
+}
+
+/** Layer name rules that match pdf_to_cad_ai.sanitize_layer_name exactly, so what
+ *  the card shows is byte-for-byte what lands in the DXF. */
+function pdfcadAiCleanLayerName(name) {
+  const bad = /[\s"'*|<>?/\\:;,=`~!@$%^&()[\]{}+]/g;
+  return String(name || "").trim().toUpperCase().replace(bad, "-")
+    .replace(/-{2,}/g, "-").replace(/^-+|-+$/g, "").slice(0, 31);
+}
+
+/** The layer list the review view and the picker both read. */
+function pdfcadAiLayerRows() {
+  const rows = new Map();
+  pdfcadAiState.groups.forEach((group) => {
+    const name = pdfcadAiFinalLayer(group);
+    let row = rows.get(name);
+    if (!row) {
+      row = { name, count: 0, removedCount: 0, groups: [], ai: 0, relevant: 0, reasons: [] };
+      rows.set(name, row);
+    }
+    row.groups.push(group.id);
+    if (pdfcadAiDeleted(group)) { row.removedCount += group.count; return; }
+    row.count += group.count;
+    if (pdfcadAiLabelFor(group)) row.ai += 1;
+    if (pdfcadAiSprinklerRelevant(group)) row.relevant += 1;
+    const reason = pdfcadAiState.labels[group.id] && pdfcadAiState.labels[group.id].reason;
+    if (reason && row.reasons.length < 2 && !row.reasons.includes(reason)) row.reasons.push(reason);
+  });
+  return [...rows.values()].sort((a, b) => (b.count - a.count) || a.name.localeCompare(b.name));
+}
+
+/** {gid: {layer}|{delete}} for convert - only what actually differs. */
+function pdfcadAiConvertOverrides() {
+  const out = {};
+  pdfcadAiState.groups.forEach((group) => {
+    if (pdfcadAiDeleted(group)) { out[group.id] = { delete: true }; return; }
+    const final = pdfcadAiFinalLayer(group);
+    if (final && final !== group.heuristicLayer) out[group.id] = { layer: final };
+  });
+  return out;
+}
+
+/** Rebuild the picker's cards from the AI result, keeping what was checked. */
+function pdfcadAiApplyToPicker() {
+  const wasChecked = new Map();
+  const box = document.getElementById("pdfcadGroupsList");
+  if (box) {
+    box.querySelectorAll("[data-pdfcad-group]").forEach((el) => {
+      const g = pdfcadState.groups[+el.dataset.pdfcadGroup];
+      if (g) wasChecked.set(String(g.id), el.checked);
+    });
+  }
+  const rows = pdfcadAiLayerRows().filter((row) => row.count > 0);
+  pdfcadState.groups = rows.map((row, i) => {
+    const id = `smart:${row.name}`;
+    return {
+      id,
+      hex: pdfcadLayerColor(row.name, i),
+      label: `${row.name} — ${row.groups.length} region${row.groups.length === 1 ? "" : "s"}`,
+      kind: "smart",
+      smartKind: "ai",
+      count: row.count,
+      aiChip: row.ai > 0,
+      hint: row.reasons.join("; "),
+      defaultOn: wasChecked.has(id) ? wasChecked.get(id) : true,
+    };
+  });
+  renderPdfcadGroups();
+  renderPdfcadSummary();
+  const convert = document.getElementById("pdfcadConvertButton");
+  if (convert) convert.disabled = !pdfcadState.groups.some((g) => g.count > 0);
+  pdfcadAiRenderLayers();
+  pdfcadAiDraw();
+  pdfcadSyncAiUI();
+}
+
+function pdfcadAiPushUndo() {
+  pdfcadAiState.undo.push(JSON.stringify(pdfcadAiState.overrides));
+  if (pdfcadAiState.undo.length > 40) pdfcadAiState.undo.shift();
+}
+
+function pdfcadAiUndo() {
+  const snapshot = pdfcadAiState.undo.pop();
+  if (snapshot === undefined) return false;
+  pdfcadAiState.overrides = JSON.parse(snapshot);
+  pdfcadAiApplyToPicker();
+  return true;
+}
+
+/** Queue one human-confirmed verdict. Sent on Convert, fire-and-forget. */
+function pdfcadAiQueueLabel(group, action, finalLayer) {
+  pdfcadAiState.queued.push({
+    groupSignature: group.signature || {},
+    heuristicLayer: group.heuristicLayer || "",
+    aiLayer: (pdfcadAiState.labels[group.id] && pdfcadAiState.labels[group.id].label) || "",
+    finalLayer: finalLayer || "",
+    action,
+  });
+  if (pdfcadAiState.queued.length > 500) {
+    pdfcadAiState.queued.splice(0, pdfcadAiState.queued.length - 500);
+  }
+}
+
+function pdfcadAiMutate(gids, change, action, toastText) {
+  if (!gids.length) return;
+  pdfcadAiPushUndo();
+  gids.forEach((gid) => {
+    const group = pdfcadAiState.byId.get(gid);
+    if (!group) return;
+    const rule = Object.assign({}, pdfcadAiState.overrides[gid] || {});
+    if (change.delete === true) rule.delete = true;
+    if (change.delete === false) delete rule.delete;
+    if (change.layer) rule.layer = change.layer;
+    if (Object.keys(rule).length) pdfcadAiState.overrides[gid] = rule;
+    else delete pdfcadAiState.overrides[gid];
+    pdfcadAiQueueLabel(group, action, rule.delete ? "" : pdfcadAiFinalLayer(group));
+  });
+  pdfcadAiApplyToPicker();
+  if (toastText) showToast(toastText, { onUndo: () => pdfcadAiUndo(), timeoutMs: 8000 });
+}
+
+/** One click: keep what a sprinkler layout is drawn against, drop the rest. */
+function pdfcadAiSprinklerOnly() {
+  const drop = pdfcadAiState.groups
+    .filter((g) => !pdfcadAiSprinklerRelevant(g) && !pdfcadAiDeleted(g))
+    .map((g) => g.id);
+  if (!drop.length) {
+    showToast("Everything on this sheet is already marked sprinkler-relevant.", { timeoutMs: 4000 });
+    return;
+  }
+  pdfcadAiMutate(drop, { delete: true }, "delete",
+    `Removed ${drop.length} non-sprinkler region${drop.length === 1 ? "" : "s"}.`);
+}
+
+// ---- review & clean up -----------------------------------------------------
+
+async function pdfcadAiOpenReview() {
+  const dialog = document.getElementById("pdfcadAiDialog");
+  if (!dialog) return;
+  const title = document.getElementById("pdfcadAiDialogTitle");
+  if (title) title.textContent = `Review & clean up — sheet ${pdfcadState.page + 1}`;
+  if (!dialog.open) dialog.showModal();
+  pdfcadAiRenderLayers();
+  pdfcadAiFitView();
+  pdfcadAiDraw();
+  if (!pdfcadAiState.image) {
+    try {
+      const shot = await readApiJson("./api/pdf-to-cad/preview", {
+        method: "POST",
+        body: JSON.stringify({ token: pdfcadState.token, page: pdfcadState.page, width: 1500 }),
+      });
+      pdfcadAiState.preview = shot;
+      await new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => { pdfcadAiState.image = img; resolve(); };
+        img.onerror = () => resolve();
+        img.src = shot.dataUrl;
+      });
+    } catch (error) { /* the regions still draw without the sheet behind them */ }
+  }
+  pdfcadAiFitView();
+  pdfcadAiDraw();
+}
+
+function pdfcadAiCanvas() { return document.getElementById("pdfcadAiCanvas"); }
+
+/** Size the backing store to the element so nothing is drawn blurry or clipped. */
+function pdfcadAiSizeCanvas() {
+  const canvas = pdfcadAiCanvas();
+  if (!canvas) return null;
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width || !rect.height) return { canvas };
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = Math.max(1, Math.round(rect.width * dpr));
+  const h = Math.max(1, Math.round(rect.height * dpr));
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  return { canvas, dpr };
+}
+
+function pdfcadAiSheetSize() {
+  const dims = pdfcadState.dims || {};
+  return { w: Number(dims.w) || 1, h: Number(dims.h) || 1 };
+}
+
+function pdfcadAiFitView() {
+  const sized = pdfcadAiSizeCanvas();
+  if (!sized) return;
+  const canvas = sized.canvas;
+  const sheet = pdfcadAiSheetSize();
+  const base = Math.min(canvas.width / sheet.w, canvas.height / sheet.h) * 0.94;
+  pdfcadAiState.view = {
+    base, zoom: 1,
+    x: (canvas.width - sheet.w * base) / 2,
+    y: (canvas.height - sheet.h * base) / 2,
+  };
+}
+
+/** page inches -> canvas pixels (the PDF's y runs up, the canvas's runs down). */
+function pdfcadAiToCanvas(xIn, yIn) {
+  const v = pdfcadAiState.view;
+  const sheet = pdfcadAiSheetSize();
+  const s = v.base * v.zoom;
+  return [v.x + xIn * s, v.y + (sheet.h - yIn) * s];
+}
+
+function pdfcadAiFromCanvas(px, py) {
+  const v = pdfcadAiState.view;
+  const sheet = pdfcadAiSheetSize();
+  const s = (v.base * v.zoom) || 1;
+  return [(px - v.x) / s, sheet.h - (py - v.y) / s];
+}
+
+function pdfcadAiDraw() {
+  const dialog = document.getElementById("pdfcadAiDialog");
+  if (!dialog || !dialog.open) return;
+  const sized = pdfcadAiSizeCanvas();
+  if (!sized || !sized.dpr) return;
+  const canvas = sized.canvas;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  if (!pdfcadAiState.view.base) pdfcadAiFitView();
+  const v = pdfcadAiState.view;
+  const sheet = pdfcadAiSheetSize();
+  const s = v.base * v.zoom;
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(v.x, v.y, sheet.w * s, sheet.h * s);
+  if (pdfcadAiState.image) {
+    ctx.globalAlpha = 0.55;          // the sheet is context; the regions are the subject
+    ctx.drawImage(pdfcadAiState.image, v.x, v.y, sheet.w * s, sheet.h * s);
+    ctx.globalAlpha = 1;
+  }
+
+  const rows = pdfcadAiLayerRows();
+  const colorIndex = new Map(rows.map((row, i) => [row.name, i]));
+  const selected = new Set(pdfcadAiState.selection);
+  pdfcadAiState.groups.forEach((group) => {
+    const removed = pdfcadAiDeleted(group);
+    const layer = pdfcadAiFinalLayer(group);
+    if (pdfcadAiState.isolate && layer !== pdfcadAiState.isolate) return;
+    const topLeft = pdfcadAiToCanvas(group.bbox[0], group.bbox[3]);
+    const bottomRight = pdfcadAiToCanvas(group.bbox[2], group.bbox[1]);
+    const x0 = topLeft[0];
+    const y1 = topLeft[1];
+    const w = Math.max(2, bottomRight[0] - x0);
+    const h = Math.max(2, bottomRight[1] - y1);
+    const color = pdfcadLayerColor(layer, colorIndex.get(layer) || 0);
+    const hot = pdfcadAiState.hover && pdfcadAiState.hover === layer;
+    ctx.save();
+    if (removed) { ctx.globalAlpha = 0.28; ctx.setLineDash([5, 4]); }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = hot ? 3 : 1.5;
+    if (hot && !removed) {
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.16;
+      ctx.fillRect(x0, y1, w, h);
+      ctx.globalAlpha = 1;
+    }
+    ctx.strokeRect(x0, y1, w, h);
+    if (selected.has(group.id)) {
+      ctx.setLineDash([6, 4]);
+      ctx.strokeStyle = "#111111";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x0 - 2, y1 - 2, w + 4, h + 4);
+    }
+    ctx.restore();
+  });
+
+  if (pdfcadAiState.lassoRect) {
+    const r = pdfcadAiState.lassoRect;
+    ctx.save();
+    ctx.setLineDash([7, 5]);
+    ctx.strokeStyle = "#111111";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(Math.min(r.x0, r.x1), Math.min(r.y0, r.y1),
+                   Math.abs(r.x1 - r.x0), Math.abs(r.y1 - r.y0));
+    ctx.restore();
+  }
+}
+
+function pdfcadAiSelectionText() {
+  const bar = document.getElementById("pdfcadAiSelection");
+  const text = document.getElementById("pdfcadAiSelectionText");
+  if (!bar || !text) return;
+  const n = pdfcadAiState.selection.length;
+  bar.hidden = n === 0;
+  const objects = pdfcadAiState.selection.reduce(
+    (sum, gid) => sum + ((pdfcadAiState.byId.get(gid) || {}).count || 0), 0);
+  text.textContent = `${n} region${n === 1 ? "" : "s"} selected — ${objects.toLocaleString()} objects`;
+}
+
+function pdfcadAiRenderLayers() {
+  const box = document.getElementById("pdfcadAiLayers");
+  if (!box) return;
+  const rows = pdfcadAiLayerRows();
+  const note = document.getElementById("pdfcadAiDialogNote");
+  if (note) {
+    const dropped = pdfcadAiState.groups.filter((g) => pdfcadAiDeleted(g))
+      .reduce((sum, g) => sum + g.count, 0);
+    note.textContent = dropped
+      ? `${dropped.toLocaleString()} objects will be dropped when you convert. Nothing is written until then.`
+      : "Nothing is removed yet. Changes here are applied when you convert.";
+  }
+  box.innerHTML = rows.map((row, i) => {
+    const color = pdfcadLayerColor(row.name, i);
+    const live = row.count > 0;
+    const sub = [
+      `${row.count.toLocaleString()} objects`,
+      row.removedCount ? `${row.removedCount.toLocaleString()} removed` : "",
+      row.ai ? `${row.ai} named by AI` : "",
+    ].filter(Boolean).join(" · ");
+    const card = `<div class="pdfcad-ai-layer${pdfcadAiState.isolate === row.name ? " is-isolated" : ""}${live ? "" : " is-removed"}" data-ai-layer="${escapeHtml(row.name)}" role="button" tabindex="0">
+      <span class="pdfcad-group-swatch" style="background:${escapeHtml(color)}"></span>
+      <span class="pdfcad-ai-layer-text">
+        <span class="pdfcad-ai-layer-name">${escapeHtml(row.name)}</span>
+        <span class="pdfcad-ai-layer-sub">${escapeHtml(sub)}${row.reasons.length ? " · " + escapeHtml(row.reasons[0]) : ""}</span>
+      </span>
+      <button class="pdfcad-ai-layer-menu" type="button" data-ai-menu="${escapeHtml(row.name)}" aria-label="Actions for ${escapeHtml(row.name)}">&#8943;</button>
+    </div>`;
+    return card + (pdfcadAiState.menuFor === row.name ? pdfcadAiMenuMarkup(row, rows) : "");
+  }).join("");
+  pdfcadAiSelectionText();
+}
+
+function pdfcadAiMenuMarkup(row, rows) {
+  const others = rows.filter((r) => r.name !== row.name)
+    .map((r) => `<option value="${escapeHtml(r.name)}">${escapeHtml(r.name)}</option>`).join("");
+  return `<div class="pdfcad-ai-selection" data-ai-menu-body="${escapeHtml(row.name)}">
+    <label class="pdfcad-ai-menu-field">Rename to
+      <input type="text" id="pdfcadAiRenameInput" value="${escapeHtml(row.name)}" maxlength="31" />
+    </label>
+    <div class="pdfcad-ai-selection-actions">
+      <button class="secondary-button compact-button" type="button" data-ai-act="rename">Rename</button>
+      ${others ? `<select id="pdfcadAiMergeSelect" aria-label="Merge into">${others}</select><button class="secondary-button compact-button" type="button" data-ai-act="merge">Merge into</button>` : ""}
+      ${row.count > 0
+        ? `<button class="secondary-button compact-button" type="button" data-ai-act="delete">Delete layer</button>`
+        : `<button class="secondary-button compact-button" type="button" data-ai-act="restore">Restore</button>`}
+    </div>
+  </div>`;
+}
+
+function pdfcadAiGroupsOnLayer(name) {
+  return pdfcadAiState.groups.filter((g) => pdfcadAiFinalLayer(g) === name).map((g) => g.id);
+}
+
+function pdfcadAiLayerAction(name, action) {
+  const gids = pdfcadAiGroupsOnLayer(name);
+  if (action === "delete") {
+    pdfcadAiMutate(gids.filter((gid) => !pdfcadAiDeleted(pdfcadAiState.byId.get(gid))),
+      { delete: true }, "delete", `Deleted layer ${name}.`);
+  } else if (action === "restore") {
+    pdfcadAiMutate(gids, { delete: false }, "restore", `Restored layer ${name}.`);
+  } else if (action === "rename") {
+    const raw = document.getElementById("pdfcadAiRenameInput");
+    const clean = pdfcadAiCleanLayerName(raw && raw.value);
+    if (!clean) {
+      showToast("That layer name has no usable characters.", { tone: "error", timeoutMs: 5000 });
+      return;
+    }
+    if (clean !== name) pdfcadAiMutate(gids, { layer: clean }, "rename", `Renamed ${name} to ${clean}.`);
+  } else if (action === "merge") {
+    const select = document.getElementById("pdfcadAiMergeSelect");
+    if (!select || !select.value) return;
+    pdfcadAiMutate(gids, { layer: select.value }, "merge", `Merged ${name} into ${select.value}.`);
+  }
+  pdfcadAiState.menuFor = "";
+  pdfcadAiRenderLayers();
+}
+
+/** Every region whose CENTRE is inside the rubber band. Centre, not overlap: a
+ *  sheet-wide border would otherwise be caught by any selection at all. */
+function pdfcadAiSelectInRect(rect) {
+  const lowLeft = pdfcadAiFromCanvas(Math.min(rect.x0, rect.x1), Math.max(rect.y0, rect.y1));
+  const topRight = pdfcadAiFromCanvas(Math.max(rect.x0, rect.x1), Math.min(rect.y0, rect.y1));
+  pdfcadAiState.selection = pdfcadAiState.groups.filter((g) => {
+    if (pdfcadAiDeleted(g)) return false;
+    if (pdfcadAiState.isolate && pdfcadAiFinalLayer(g) !== pdfcadAiState.isolate) return false;
+    const cx = (g.bbox[0] + g.bbox[2]) / 2;
+    const cy = (g.bbox[1] + g.bbox[3]) / 2;
+    return cx >= lowLeft[0] && cx <= topRight[0] && cy >= lowLeft[1] && cy <= topRight[1];
+  }).map((g) => g.id);
+  pdfcadAiSelectionText();
+}
+
+function pdfcadAiClearSelection() {
+  pdfcadAiState.selection = [];
+  pdfcadAiState.lassoRect = null;
+  pdfcadAiSelectionText();
+  pdfcadAiDraw();
+}
+
+async function pdfcadAiSendLabels() {
+  if (!pdfcadAiState.queued.length) return;
+  const labels = pdfcadAiState.queued.splice(0, pdfcadAiState.queued.length);
+  try {
+    await readApiJson("./api/pdf-to-cad/ai-labels", {
+      method: "POST",
+      body: JSON.stringify({ sheetHash: pdfcadAiState.sheetHash, labels }),
+    });
+  } catch (error) { /* training data is never worth failing a conversion over */ }
+}
+
+function pdfcadAiCanvasPoint(canvas, event) {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = canvas.width / Math.max(1, rect.width);
+  return [(event.clientX - rect.left) * dpr, (event.clientY - rect.top) * dpr];
+}
+
+function wirePdfcadAi() {
+  document.getElementById("pdfcadAiButton")?.addEventListener("click", pdfcadAiClassify);
+  document.getElementById("pdfcadAiReviewButton")?.addEventListener("click", pdfcadAiOpenReview);
+  document.getElementById("pdfcadAiSprinklerOnly")?.addEventListener("click", pdfcadAiSprinklerOnly);
+  document.getElementById("pdfcadAiResetLink")?.addEventListener("click", () => {
+    if (!Object.keys(pdfcadAiState.overrides).length) return;
+    pdfcadAiPushUndo();
+    pdfcadAiState.overrides = {};
+    pdfcadAiApplyToPicker();
+    showToast("AI clean-up reset — every region is back on its classified layer.",
+      { onUndo: () => pdfcadAiUndo(), timeoutMs: 8000 });
+  });
+  document.getElementById("pdfcadAiClose")?.addEventListener("click", () => {
+    document.getElementById("pdfcadAiDialog")?.close();
+  });
+  document.getElementById("pdfcadAiShowAll")?.addEventListener("click", () => {
+    pdfcadAiState.isolate = "";
+    pdfcadAiRenderLayers();
+    pdfcadAiDraw();
+  });
+  const lassoBtn = document.getElementById("pdfcadAiLassoButton");
+  lassoBtn?.addEventListener("click", () => {
+    pdfcadAiState.lasso = !pdfcadAiState.lasso;
+    lassoBtn.setAttribute("aria-pressed", pdfcadAiState.lasso ? "true" : "false");
+    document.getElementById("pdfcadAiStage")?.classList.toggle("is-lasso", pdfcadAiState.lasso);
+    if (!pdfcadAiState.lasso) pdfcadAiClearSelection();
+  });
+  document.getElementById("pdfcadAiRemoveInside")?.addEventListener("click", () => {
+    const gids = pdfcadAiState.selection.slice();
+    pdfcadAiClearSelection();
+    pdfcadAiMutate(gids, { delete: true }, "delete",
+      `Removed ${gids.length} region${gids.length === 1 ? "" : "s"}.`);
+  });
+  document.getElementById("pdfcadAiMoveInside")?.addEventListener("click", () => {
+    const rows = pdfcadAiLayerRows();
+    const bar = document.getElementById("pdfcadAiSelection");
+    if (!bar || !rows.length) return;
+    const actions = bar.querySelector(".pdfcad-ai-selection-actions");
+    if (!actions || actions.querySelector("#pdfcadAiMoveSelect")) return;
+    actions.insertAdjacentHTML("afterbegin",
+      `<select id="pdfcadAiMoveSelect" aria-label="Move selected regions to layer">`
+      + rows.map((r) => `<option value="${escapeHtml(r.name)}">${escapeHtml(r.name)}</option>`).join("")
+      + `<option value="__new">New layer…</option></select>`);
+    actions.querySelector("#pdfcadAiMoveSelect").addEventListener("change", (event) => {
+      let target = event.target.value;
+      if (target === "__new") {
+        target = pdfcadAiCleanLayerName(window.prompt("New layer name", "A-KEEP") || "");
+        if (!target) { event.target.value = rows[0].name; return; }
+      }
+      const gids = pdfcadAiState.selection.slice();
+      pdfcadAiClearSelection();
+      pdfcadAiMutate(gids, { layer: target }, "merge",
+        `Moved ${gids.length} region${gids.length === 1 ? "" : "s"} to ${target}.`);
+    });
+  });
+
+  // layer list: hover highlights, click isolates, the menu button opens actions
+  const layers = document.getElementById("pdfcadAiLayers");
+  layers?.addEventListener("click", (event) => {
+    const act = event.target.closest("[data-ai-act]");
+    if (act) {
+      const body = act.closest("[data-ai-menu-body]");
+      if (body) pdfcadAiLayerAction(body.dataset.aiMenuBody, act.dataset.aiAct);
+      return;
+    }
+    const menu = event.target.closest("[data-ai-menu]");
+    if (menu) {
+      pdfcadAiState.menuFor = pdfcadAiState.menuFor === menu.dataset.aiMenu ? "" : menu.dataset.aiMenu;
+      pdfcadAiRenderLayers();
+      return;
+    }
+    const row = event.target.closest("[data-ai-layer]");
+    if (!row) return;
+    pdfcadAiState.isolate = pdfcadAiState.isolate === row.dataset.aiLayer ? "" : row.dataset.aiLayer;
+    pdfcadAiRenderLayers();
+    pdfcadAiDraw();
+  });
+  layers?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const row = event.target.closest("[data-ai-layer]");
+    if (!row) return;
+    event.preventDefault();
+    row.click();
+  });
+  layers?.addEventListener("mouseover", (event) => {
+    const row = event.target.closest("[data-ai-layer]");
+    const name = row ? row.dataset.aiLayer : "";
+    if (name === pdfcadAiState.hover) return;
+    pdfcadAiState.hover = name;
+    pdfcadAiDraw();
+  });
+  layers?.addEventListener("mouseleave", () => {
+    if (!pdfcadAiState.hover) return;
+    pdfcadAiState.hover = "";
+    pdfcadAiDraw();
+  });
+
+  // canvas: wheel zooms about the pointer, drag pans (or rubber-bands)
+  const canvas = pdfcadAiCanvas();
+  canvas?.addEventListener("wheel", (event) => {
+    event.preventDefault();
+    const point = pdfcadAiCanvasPoint(canvas, event);
+    const v = pdfcadAiState.view;
+    const next = Math.max(0.4, Math.min(24, v.zoom * (event.deltaY < 0 ? 1.15 : 1 / 1.15)));
+    const ratio = next / v.zoom;
+    v.x = point[0] - (point[0] - v.x) * ratio;
+    v.y = point[1] - (point[1] - v.y) * ratio;
+    v.zoom = next;
+    pdfcadAiDraw();
+  }, { passive: false });
+
+  let drag = null;
+  canvas?.addEventListener("pointerdown", (event) => {
+    const point = pdfcadAiCanvasPoint(canvas, event);
+    canvas.setPointerCapture(event.pointerId);
+    drag = { px: point[0], py: point[1], ox: pdfcadAiState.view.x, oy: pdfcadAiState.view.y,
+             lasso: pdfcadAiState.lasso };
+    if (drag.lasso) pdfcadAiState.lassoRect = { x0: point[0], y0: point[1], x1: point[0], y1: point[1] };
+  });
+  canvas?.addEventListener("pointermove", (event) => {
+    if (!drag) return;
+    const point = pdfcadAiCanvasPoint(canvas, event);
+    if (drag.lasso) {
+      pdfcadAiState.lassoRect = { x0: drag.px, y0: drag.py, x1: point[0], y1: point[1] };
+    } else {
+      pdfcadAiState.view.x = drag.ox + (point[0] - drag.px);
+      pdfcadAiState.view.y = drag.oy + (point[1] - drag.py);
+    }
+    pdfcadAiDraw();
+  });
+  const endDrag = () => {
+    if (!drag) return;
+    if (drag.lasso && pdfcadAiState.lassoRect) pdfcadAiSelectInRect(pdfcadAiState.lassoRect);
+    drag = null;
+    pdfcadAiDraw();
+  };
+  canvas?.addEventListener("pointerup", endDrag);
+  canvas?.addEventListener("pointercancel", endDrag);
+
+  // Escape cancels the rubber band before it closes the dialog; Delete removes.
+  const dialog = document.getElementById("pdfcadAiDialog");
+  dialog?.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && (pdfcadAiState.selection.length || pdfcadAiState.lassoRect)) {
+      event.preventDefault();
+      pdfcadAiClearSelection();
+      return;
+    }
+    if ((event.key === "Delete" || event.key === "Backspace") && pdfcadAiState.selection.length
+        && !["INPUT", "TEXTAREA", "SELECT"].includes(event.target.tagName)) {
+      event.preventDefault();
+      document.getElementById("pdfcadAiRemoveInside")?.click();
+    }
+  });
+  dialog?.addEventListener("close", () => {
+    pdfcadAiClearSelection();
+    pdfcadAiState.menuFor = "";
+  });
+  window.addEventListener("resize", () => {
+    if (dialog?.open) { pdfcadAiFitView(); pdfcadAiDraw(); }
+  });
 }
 
 // ============================== Seismic Bracing ==============================
@@ -18693,6 +19543,7 @@ function initPdfcad() {
     pdfcadAnalyze(null, null, pdfcadState.page, false, false);
   });
   document.getElementById("pdfcadPresetButton")?.addEventListener("click", pdfcadApplyPreset);
+  wirePdfcadAi();
   document.getElementById("pdfcadScaleSelect")?.addEventListener("change", () => {
     syncPdfcadCustomScale();
     if (pdfcadState.smart) pdfcadReanalyzeSmart();
@@ -18723,6 +19574,7 @@ function initPdfcad() {
     pdfcadState.pageCount = 0; pdfcadState.page = 0; pdfcadState.layerMode = false;
     pdfcadState.smartStats = null; pdfcadState.smartLocked = false;
     pdfcadState.smart = pdfcadSmartWanted(false);
+    pdfcadAiReset();
     pdfcadSyncSmartUI();
     const clearNote = document.getElementById("pdfcadLayerNote");
     if (clearNote) clearNote.textContent = "Each color becomes its own CAD layer.";

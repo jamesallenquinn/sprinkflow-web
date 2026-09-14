@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0914-1817-28b25f6" />
+    <link rel="stylesheet" href="./styles.css?v=b0914-1942-ce4213c" />
   </head>
   <body>
     <div class="app-shell">
@@ -1840,6 +1840,20 @@
                 <button class="link-button" id="pdfcadColorModeLink" type="button">Show by color instead</button>
               </div>
               <p class="hydreport-note" id="pdfcadScaleHint" hidden></p>
+            </div>
+            <!-- AI layers. Owner-only for now (pdfcadAiAdmin on the license
+                 payload); the cloud re-checks the allow-list on every call. -->
+            <div class="pdfcad-ai" id="pdfcadAiWrap" hidden>
+              <div class="pdfcad-ai-head">
+                <span class="pdfcad-ai-title">AI layers <span class="ea-pill" title="Experimental &mdash; fully usable, still getting polish">Experimental</span></span>
+                <button class="secondary-button compact-button" id="pdfcadAiButton" type="button">Classify with AI</button>
+              </div>
+              <p class="hydreport-note" id="pdfcadAiNote">Have Claude look at the sheet and name each region &mdash; stairs, ceiling grid, ductwork, other trades, existing sprinkler work &mdash; then clean up what you don&rsquo;t need.</p>
+              <div class="pdfcad-smart-actions" id="pdfcadAiActions" hidden>
+                <button class="secondary-button compact-button" id="pdfcadAiReviewButton" type="button">Review &amp; clean up&hellip;</button>
+                <button class="secondary-button compact-button" id="pdfcadAiSprinklerOnly" type="button">Sprinkler only</button>
+                <button class="link-button" id="pdfcadAiResetLink" type="button">Reset AI changes</button>
+              </div>
             </div>
             <p class="hydreport-note" id="pdfcadLayerNote">Each color becomes its own CAD layer.</p>
             <div id="pdfcadGroupsList" class="pdfcad-groups"></div>
@@ -4130,6 +4144,42 @@
       </form>
     </dialog>
 
+    <!-- AI layers: review & clean up. The sheet on the left (pan/zoom, every
+         group drawn in its layer colour), the layer list on the right. Every
+         action here compiles to one override map that Convert honours. -->
+    <dialog class="review-dialog pdfcad-ai-dialog" id="pdfcadAiDialog" aria-label="Review AI layers">
+      <div class="pdfcad-ai-shell">
+        <div class="pdfcad-ai-topbar">
+          <div>
+            <p class="eyebrow">AI layers</p>
+            <h2 id="pdfcadAiDialogTitle">Review &amp; clean up</h2>
+          </div>
+          <div class="pdfcad-ai-topbar-actions">
+            <button class="secondary-button compact-button" id="pdfcadAiLassoButton" type="button" aria-pressed="false">Select region</button>
+            <button class="secondary-button compact-button" id="pdfcadAiShowAll" type="button">Show all layers</button>
+            <button class="ghost-button compact-button" id="pdfcadAiClose" type="button">Done</button>
+          </div>
+        </div>
+        <div class="pdfcad-ai-body">
+          <div class="pdfcad-ai-stage" id="pdfcadAiStage">
+            <canvas id="pdfcadAiCanvas" width="900" height="640" aria-label="Sheet preview with each layer region drawn in colour"></canvas>
+            <p class="pdfcad-ai-stage-hint" id="pdfcadAiStageHint">Scroll to zoom, drag to pan. Hover a layer to highlight it; click it to isolate.</p>
+          </div>
+          <div class="pdfcad-ai-side">
+            <div class="pdfcad-ai-selection" id="pdfcadAiSelection" hidden>
+              <span id="pdfcadAiSelectionText">0 regions selected</span>
+              <div class="pdfcad-ai-selection-actions">
+                <button class="secondary-button compact-button" id="pdfcadAiRemoveInside" type="button">Remove inside</button>
+                <button class="secondary-button compact-button" id="pdfcadAiMoveInside" type="button">Move to layer&hellip;</button>
+              </div>
+            </div>
+            <div class="pdfcad-ai-layers" id="pdfcadAiLayers"></div>
+            <p class="hydreport-note" id="pdfcadAiDialogNote"></p>
+          </div>
+        </div>
+      </div>
+    </dialog>
+
     <dialog class="preview-dialog" id="datasheetPreviewDialog">
       <div class="preview-dialog-shell">
         <div class="preview-dialog-heading">
@@ -4245,11 +4295,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0914-1817-28b25f6"></script>
-    <script src="./app.js?v=b0914-1817-28b25f6"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0914-1817-28b25f6"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0914-1817-28b25f6"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0914-1817-28b25f6"></script>
-    <script src="./prelim-calc-desktop.js?v=b0914-1817-28b25f6"></script>
+    <script src="./web-backend.js?v=b0914-1942-ce4213c"></script>
+    <script src="./app.js?v=b0914-1942-ce4213c"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0914-1942-ce4213c"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0914-1942-ce4213c"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0914-1942-ce4213c"></script>
+    <script src="./prelim-calc-desktop.js?v=b0914-1942-ce4213c"></script>
   </body>
 </html>
