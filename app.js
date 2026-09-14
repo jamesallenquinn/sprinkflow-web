@@ -14961,6 +14961,34 @@ const dwgpdfState = { token: null, fileName: "", sheets: [], modelEntities: 0, h
 
 function dwgpdfEl(id) { return document.getElementById(id); }
 
+// Print settings the owner asked to be adjustable (2026-09-14): one uniform pen
+// width for every stroke, and whether text/fills get an outline stroke.
+const DWGPDF_PREFS_KEY = "sprinkflow.dwgpdf.prefs.v1";
+function dwgpdfLineWeightMm() {
+  const v = parseFloat(dwgpdfEl("dwgpdfLineWeightSelect")?.value || "0.13");
+  return Number.isFinite(v) ? v : 0.13;
+}
+function dwgpdfTextOutlineOn() {
+  const el = dwgpdfEl("dwgpdfTextOutline");
+  return el ? !!el.checked : true;
+}
+function dwgpdfSavePrefs() {
+  try { localStorage.setItem(DWGPDF_PREFS_KEY, JSON.stringify({ lineWidthMm: dwgpdfLineWeightMm(), textOutline: dwgpdfTextOutlineOn() })); } catch (_) {}
+}
+function dwgpdfRestorePrefs() {
+  let prefs = null;
+  try { prefs = JSON.parse(localStorage.getItem(DWGPDF_PREFS_KEY) || "null"); } catch (_) { prefs = null; }
+  const sel = dwgpdfEl("dwgpdfLineWeightSelect");
+  const chk = dwgpdfEl("dwgpdfTextOutline");
+  if (sel && prefs && Number.isFinite(prefs.lineWidthMm)) {
+    const want = String(prefs.lineWidthMm);
+    if ([...sel.options].some((o) => o.value === want)) sel.value = want;
+  }
+  if (chk && prefs && typeof prefs.textOutline === "boolean") chk.checked = prefs.textOutline;
+  sel?.addEventListener("change", dwgpdfSavePrefs);
+  chk?.addEventListener("change", dwgpdfSavePrefs);
+}
+
 function dwgpdfReset() {
   dwgpdfState.token = null; dwgpdfState.fileName = "";
   dwgpdfState.sheets = []; dwgpdfState.modelEntities = 0; dwgpdfState.hasPrintableSheets = false;
@@ -15144,6 +15172,8 @@ async function dwgpdfGenerate() {
         sheets: selected,
         mode,
         modelPaper: dwgpdfEl("dwgpdfPaperSelect")?.value || "tabloid",
+        lineWidthMm: dwgpdfLineWeightMm(),
+        textOutline: dwgpdfTextOutlineOn(),
         baseName: dwgpdfState.fileName,
         // only the checked reference drawings get merged into the print
         xrefs: dwgpdfSelectedXrefs(),
@@ -15734,6 +15764,7 @@ function initDwgpdf() {
     const file = [...(event.dataTransfer?.files || [])][0];
     if (file) dwgpdfAnalyzeFile(file);
   });
+  dwgpdfRestorePrefs();
   dwgpdfEl("dwgpdfPickButton")?.addEventListener("click", dwgpdfPickFile);
   dwgpdfEl("dwgpdfGenerateButton")?.addEventListener("click", dwgpdfGenerate);
   dwgpdfEl("dwgpdfClearButton")?.addEventListener("click", dwgpdfReset);
@@ -16067,8 +16098,12 @@ function pdfcadScaleName(value) {
 }
 
 /** "For sprinkler design": the backgrounds a sprinkler designer traces over. */
-const PDFCAD_PRESET_ON = ["A-WALL", "A-DOOR", "A-WINDOW", "A-COLS", "A-GRID", "A-ROOM"];
-const PDFCAD_PRESET_OFF = ["A-DIMS", "A-ANNO", "A-FURN", "A-HATCH", "A-FILL", "A-TITLE", "A-MISC"];
+// E-LITE rides along: a light fixture is a ceiling obstruction the sprinkler
+// layout has to clear. Its wiring, tags and switches are not.
+const PDFCAD_PRESET_ON = ["A-WALL", "A-DOOR", "A-WINDOW", "A-COLS", "A-GRID", "A-ROOM",
+                          "E-LITE"];
+const PDFCAD_PRESET_OFF = ["A-DIMS", "A-ANNO", "A-FURN", "A-HATCH", "A-FILL", "A-TITLE",
+                           "E-WIRE", "E-ANNO", "E-SWITCH", "A-MISC"];
 
 function pdfcadApplyPreset() {
   const box = document.getElementById("pdfcadGroupsList");
@@ -16315,6 +16350,8 @@ const PDFCAD_LAYER_COLORS = {
   "A-COLS": "#7030A0", "A-GRID": "#8C8C8C", "A-DIMS": "#B5651D",
   "A-ANNO": "#375623", "A-ROOM": "#548235", "A-TITLE": "#595959",
   "A-HATCH": "#A6A6A6", "A-FILL": "#BF8F00", "A-FURN": "#00786E",
+  "E-LITE": "#D4A017", "E-WIRE": "#E5399E", "E-ANNO": "#7B3F00",
+  "E-SWITCH": "#117A65",
   "A-MISC": "#C00000", "A-STAIR": "#B5179E", "A-CEIL": "#3A0CA3",
   "A-PLUMB": "#0077B6", "A-ELEC": "#9D4EDD", "A-MECH": "#E85D04",
   "A-EQUIP": "#2A9D8F", "A-LANDSCAPE": "#40916C", "A-SITE": "#6C757D",

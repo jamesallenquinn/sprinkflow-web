@@ -25,7 +25,7 @@
   if (!WEB) return;                                 // desktop: do nothing
   window.__SPRINKFLOW_WEB__ = true;
   // stamped by packaging/build_web_edition.py at deploy time; "dev" locally
-  var WEB_BUILD = "b0914-1951-ac3a17d";
+  var WEB_BUILD = "b0914-2108-e366c82";
   window.__SPRINKFLOW_WEB_BUILD__ = WEB_BUILD;
   console.log("[web-backend] SprinkFlow Web Edition active — build " + WEB_BUILD);
   // mobile layer: web-only stylesheet (media-query gated), never active on desktop
@@ -935,7 +935,8 @@
     "A-COLS": "#7030A0", "A-GRID": "#8C8C8C", "A-DIMS": "#B5651D",
     "A-ANNO": "#375623", "A-ROOM": "#548235", "A-TITLE": "#595959",
     "A-HATCH": "#A6A6A6", "A-FILL": "#BF8F00", "A-FURN": "#00786E",
-    "A-MISC": "#C00000",
+    "E-LITE": "#D4A017", "E-WIRE": "#E5399E", "E-ANNO": "#7B3F00",
+    "E-SWITCH": "#117A65", "A-MISC": "#C00000",
   };
   var PDFCAD_AI_LEGEND_PALETTE = ["#0B7285", "#9C36B5", "#C2255C", "#2B8A3E", "#E8590C",
                                   "#1864AB", "#5F3DC4", "#A9762A"];

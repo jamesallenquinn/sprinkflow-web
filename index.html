@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0914-1951-ac3a17d" />
+    <link rel="stylesheet" href="./styles.css?v=b0914-2108-e366c82" />
   </head>
   <body>
     <div class="app-shell">
@@ -2060,6 +2060,17 @@
                 <option value="arche">Arch E 48 &times; 36 (landscape)</option>
               </select>
             </label>
+            <label id="dwgpdfLineWeightWrap">Line weight
+              <select id="dwgpdfLineWeightSelect">
+                <option value="0.05">Ultra fine (0.05 mm)</option>
+                <option value="0.09">Fine (0.09 mm)</option>
+                <option value="0.13" selected>Hairline (0.13 mm)</option>
+                <option value="0.18">Medium (0.18 mm)</option>
+                <option value="0.25">Heavy (0.25 mm)</option>
+                <option value="0.35">Extra heavy (0.35 mm)</option>
+              </select>
+            </label>
+            <label class="checkbox-row" id="dwgpdfTextOutlineWrap"><input type="checkbox" id="dwgpdfTextOutline" checked /> <span>Outline text and fills (AutoCAD-like weight; off prints lettering lighter)</span></label>
             <button class="primary-button full-width-button" id="dwgpdfGenerateButton" type="button" disabled>Generate PDF&hellip;</button>
             <p class="calculator-status" id="dwgpdfStatus"></p>
             <p class="hydreport-note" id="dwgpdfOdaNote" hidden>DWG files are read with the free <strong>ODA File Converter</strong> (no AutoCAD, no Autodesk license). <a href="https://www.opendesign.com/guestfiles/oda_file_converter" target="_blank" rel="noopener">Download it here</a>, install it, then re-import. DXF files work without it. <button class="secondary-button compact-button oda-recheck" data-oda-recheck type="button">I&rsquo;ve installed it &mdash; check again</button></p>
@@ -4295,11 +4306,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0914-1951-ac3a17d"></script>
-    <script src="./app.js?v=b0914-1951-ac3a17d"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0914-1951-ac3a17d"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0914-1951-ac3a17d"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0914-1951-ac3a17d"></script>
-    <script src="./prelim-calc-desktop.js?v=b0914-1951-ac3a17d"></script>
+    <script src="./web-backend.js?v=b0914-2108-e366c82"></script>
+    <script src="./app.js?v=b0914-2108-e366c82"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b0914-2108-e366c82"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b0914-2108-e366c82"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b0914-2108-e366c82"></script>
+    <script src="./prelim-calc-desktop.js?v=b0914-2108-e366c82"></script>
   </body>
 </html>
