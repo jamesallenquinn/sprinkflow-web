@@ -15,7 +15,7 @@
     <link rel="manifest" href="./manifest.webmanifest?v=110" />
     <link rel="icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" type="image/png" />
     <link rel="apple-touch-icon" href="./assets/speedrun_timer_icon.png?v=sprinkflow-icon-1" />
-    <link rel="stylesheet" href="./styles.css?v=b0914-2301-dbe96a6" />
+    <link rel="stylesheet" href="./styles.css?v=b1003-0022-d27447c" />
   </head>
   <body>
     <div class="app-shell">
@@ -216,6 +216,7 @@
                 <p class="eyebrow">Project intake</p>
               </div>
               <div class="section-heading-actions">
+                <label class="checkbox-row compact-toggle" id="planScanFastToggleWrap" title="Fast: skips reading the details drawn as pictures (riser, hanger, seismic bracing calc sheets); about half the time. Project name, address and catalog matching run either way."><input type="checkbox" id="planScanFastToggle" /> <span>Fast scan</span></label>
                 <button class="ghost-button compact-button" id="startFreshIntakeButton" type="button" title="Clear the current submittal and start a new one. You'll be offered a save first if there are unsaved changes.">Start Fresh</button>
                 <span class="privacy-tip" tabindex="0" role="note" aria-label="How your plans are handled">Privacy<span class="privacy-pop">Your plans stay on this computer. SprinkFlow reads them locally to auto-fill project details &mdash; they're not uploaded anywhere and are never used to train AI. (The optional AI cut-sheet reader does send documents to a secure AI to read them &mdash; never to train it.)</span></span>
               </div>
@@ -3423,6 +3424,13 @@
                 </div>
               </div>
               <p class="settings-helper">Turn a category off to skip it when SprinkFlow reads a plan set. Fewer categories means a faster scan and a shorter review list.</p>
+              <label class="settings-field" for="settingsScanModeSelect">Scan mode
+                <select id="settingsScanModeSelect">
+                  <option value="thorough" selected>Thorough (recommended) &mdash; reads drawn details and calc sheets; about a minute on a large set</option>
+                  <option value="fast">Fast &mdash; skips the drawn details; about half the time</option>
+                </select>
+              </label>
+              <p class="settings-helper">Fast skips reading the details drawn as pictures (riser, hanger and seismic bracing calc sheets). Project name, address and catalog matching run either way. The same switch is on the intake step as &ldquo;Fast scan&rdquo;.</p>
               <div class="settings-scan-grid" id="settingsScanCategories">
                 <label class="option-row"><input type="checkbox" data-scan-category="sprinklers" checked /><span>Sprinklers</span></label>
                 <label class="option-row"><input type="checkbox" data-scan-category="piping" checked /><span>Pipe &amp; Fittings</span></label>
@@ -4315,11 +4323,11 @@
     </dialog>
 
   <script src="./assets/vendor/pdfjs/pdf.min.js?v=1"></script>
-    <script src="./web-backend.js?v=b0914-2301-dbe96a6"></script>
-    <script src="./app.js?v=b0914-2301-dbe96a6"></script>
-    <script src="./pwa/tools/prelim-calc-engine.js?v=b0914-2301-dbe96a6"></script>
-    <script src="./pwa/tools/hydro-solver.js?v=b0914-2301-dbe96a6"></script>
-    <script src="./pwa/tools/hydro-grid.js?v=b0914-2301-dbe96a6"></script>
-    <script src="./prelim-calc-desktop.js?v=b0914-2301-dbe96a6"></script>
+    <script src="./web-backend.js?v=b1003-0022-d27447c"></script>
+    <script src="./app.js?v=b1003-0022-d27447c"></script>
+    <script src="./pwa/tools/prelim-calc-engine.js?v=b1003-0022-d27447c"></script>
+    <script src="./pwa/tools/hydro-solver.js?v=b1003-0022-d27447c"></script>
+    <script src="./pwa/tools/hydro-grid.js?v=b1003-0022-d27447c"></script>
+    <script src="./prelim-calc-desktop.js?v=b1003-0022-d27447c"></script>
   </body>
 </html>

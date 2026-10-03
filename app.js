@@ -170,6 +170,9 @@ const DEFAULT_SETTINGS = {
   defaultContractorId: "",
   // --- Scanning ---
   scanCategories: Object.fromEntries(PLAN_SCAN_CATEGORIES.map((key) => [key, true])),
+  // "thorough" = every rescue pass (detail OCR, high-res title strips, AI read);
+  // "fast" = text passes + catalog only, roughly the pre-1.1.22 scan (~40% of the time).
+  planScanMode: "thorough",
   // The shop's preferred manufacturer per catalog category, plus an optional
   // "*" (every category) fallback: { "Fittings": "Victaulic", "*": "Victaulic" }.
   // Used only to break ties among datasheets a scan ALREADY matched.
@@ -747,6 +750,8 @@ const dom = {
   betaInviteResults: document.querySelector("#betaInviteResults"),
   resetProjectButton: document.querySelector("#resetProjectButton"),
   startFreshIntakeButton: document.querySelector("#startFreshIntakeButton"),
+  planScanFastToggle: document.querySelector("#planScanFastToggle"),
+  settingsScanModeSelect: document.querySelector("#settingsScanModeSelect"),
   themeSelect: document.querySelector("#themeSelect"),
   storageHazardFrame: document.querySelector("#storageHazardFrame"),
   hangerDetailFrame: document.querySelector("#hangerDetailFrame"),
@@ -1339,6 +1344,7 @@ function normalizeSettings(settings) {
     scanCategories: Object.fromEntries(
       PLAN_SCAN_CATEGORIES.map((key) => [key, scanRaw[key] !== false]),
     ),
+    planScanMode: parsed.planScanMode === "fast" ? "fast" : "thorough",
     scanPreferredManufacturers: normalizeScanPreferredManufacturers(parsed.scanPreferredManufacturers),
     density: DENSITY_MODES.includes(parsed.density) ? parsed.density : "comfortable",
     homeOnLaunch: parsed.homeOnLaunch !== false,
@@ -4090,6 +4096,7 @@ function syncSettingsFromInputs() {
       ? dom.settingsDefaultContractorSelect.value
       : state.settings.defaultContractorId,
     scanCategories,
+    planScanMode: dom.settingsScanModeSelect ? dom.settingsScanModeSelect.value : state.settings.planScanMode,
     density: dom.settingsDensitySelect?.value || state.settings.density,
     homeOnLaunch: dom.settingsHomeOnLaunchInput
       ? dom.settingsHomeOnLaunchInput.checked
@@ -4140,6 +4147,8 @@ function renderSettings() {
     const input = document.querySelector(`[data-scan-category="${key}"]`);
     if (input) input.checked = settings.scanCategories[key] !== false;
   });
+  if (dom.settingsScanModeSelect) dom.settingsScanModeSelect.value = settings.planScanMode === "fast" ? "fast" : "thorough";
+  syncPlanScanModeToggle();
   renderDefaultContractorSelect(settings);
   renderScanPreferredManufacturers();
   renderShortcutList();
@@ -7064,8 +7073,34 @@ const PLAN_SCAN_LABELS = {
 // Driven by Settings > Scanning. Every category defaults ON, so a database
 // saved before this setting existed behaves exactly as it did.
 function readPlanScanOptions() {
-  const chosen = normalizeSettings(state.settings).scanCategories;
-  return Object.fromEntries(PLAN_SCAN_CATEGORIES.map((key) => [key, chosen[key] !== false]));
+  const settings = normalizeSettings(state.settings);
+  const chosen = settings.scanCategories;
+  return {
+    ...Object.fromEntries(PLAN_SCAN_CATEGORIES.map((key) => [key, chosen[key] !== false])),
+    mode: settings.planScanMode === "fast" ? "fast" : "thorough",
+  };
+}
+
+// The intake step's quick toggle and the Settings select are the same value.
+// Owner request 2026-10-02: the thorough scan is "very good, but slow (~1 min)";
+// fast is "pretty good, very fast" - so it has to be one click away from the drop zone.
+function syncPlanScanModeToggle() {
+  const toggle = dom.planScanFastToggle;
+  if (toggle) toggle.checked = normalizeSettings(state.settings).planScanMode === "fast";
+}
+
+function setPlanScanMode(mode) {
+  const next = mode === "fast" ? "fast" : "thorough";
+  if (normalizeSettings(state.settings).planScanMode === next) {
+    syncPlanScanModeToggle();
+    return;
+  }
+  state.settings = normalizeSettings({ ...state.settings, planScanMode: next });
+  if (dom.settingsScanModeSelect) dom.settingsScanModeSelect.value = next;
+  syncPlanScanModeToggle();
+  try {
+    saveState();   // same persistence as the Settings panel's Save button
+  } catch (_) {}
 }
 
 function hasPlansScanResults(projectInfo) {
@@ -24561,6 +24596,8 @@ function wireEvents() {
   dom.settingsThemeSelect?.addEventListener("change", () => setTheme(dom.settingsThemeSelect.value));
   dom.resetProjectButton.addEventListener("click", requestNewProject);
   dom.startFreshIntakeButton?.addEventListener("click", requestNewProject);
+  dom.planScanFastToggle?.addEventListener("change", () => setPlanScanMode(dom.planScanFastToggle.checked ? "fast" : "thorough"));
+  syncPlanScanModeToggle();
   dom.newProjectCancelButton?.addEventListener("click", () => dom.newProjectDialog.close());
   dom.newProjectDiscardButton?.addEventListener("click", () => {
     dom.newProjectDialog.close();
