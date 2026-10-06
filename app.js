@@ -2904,7 +2904,7 @@ function renderProjectSelect() {
   if (dom.projectSelect) {
     dom.projectSelect.innerHTML = [
       '<option value="">Saved projects</option>',
-      ...projects.map((project) => `<option value="${escapeHtml(project.id)}">${escapeHtml(project.name || "Untitled Project")}</option>`),
+      ...projects.map((project) => `<option value="${escapeHtml(project.id)}">${escapeHtml(savedProjectOptionLabel(project))}</option>`),
     ].join("");
     if (state.activeSavedProjectId && projects.some((project) => project.id === state.activeSavedProjectId)) {
       dom.projectSelect.value = state.activeSavedProjectId;
@@ -2917,7 +2917,7 @@ function renderProjectSelect() {
     const current = hydSelect.value;
     hydSelect.innerHTML = [
       '<option value="">&mdash; pick from saved projects &mdash;</option>',
-      ...projects.map((project) => `<option value="${escapeHtml(project.id)}">${escapeHtml(project.name || "Untitled Project")}</option>`),
+      ...projects.map((project) => `<option value="${escapeHtml(project.id)}">${escapeHtml(savedProjectOptionLabel(project))}</option>`),
     ].join("");
     if (current && projects.some((project) => project.id === current)) hydSelect.value = current;
   }
@@ -2969,6 +2969,45 @@ function saveCurrentProject() {
   }
 }
 
+// The contractor a saved job was filed under. Jobs are tied to their contractor
+// (owner, 2026-10-06): EVERY picker that opens a saved project - the submittal
+// Load button, Home "Resume", the Ctrl+K palette, the hydraulic package picker
+// and the hydraulic report link - routes through here so the contractor form,
+// the cover and the generated PDFs switch with the job.
+function savedProjectContractorName(project) {
+  if (!project) return "";
+  const snapshot = project.activeContractor;
+  if (snapshot?.id === NO_CONTRACTOR_ID) return "";
+  if (snapshot?.name) return snapshot.name;
+  const id = snapshot?.id || project.activeContractorId || "";
+  if (!id || id === NO_CONTRACTOR_ID) return "";
+  return (state.contractors || []).find((entry) => entry.id === id)?.name || "";
+}
+
+function savedProjectOptionLabel(project) {
+  const name = project?.name || "Untitled Project";
+  const contractor = savedProjectContractorName(project);
+  return contractor ? `${name} \u2014 ${contractor}` : name;
+}
+
+function applySavedProjectContractor(project) {
+  if (!project) return "";
+  const snapshot = project.activeContractor;
+  if (snapshot?.id && snapshot.id !== NO_CONTRACTOR_ID) {
+    const contractorIndex = state.contractors.findIndex((entry) => entry.id === snapshot.id);
+    if (contractorIndex >= 0) state.contractors[contractorIndex] = snapshot;
+    else state.contractors.push(snapshot);
+    state.activeContractorId = snapshot.id;
+  } else {
+    state.activeContractorId = snapshot?.id || project.activeContractorId || "";
+  }
+  // The form must be re-filled from the new profile before any read-back, or
+  // the hydration guard in syncStateFromInputs treats the old text as edits.
+  contractorFormHydratedFor = null;
+  if (dom.contractorSelect) dom.contractorSelect.value = state.activeContractorId;
+  return state.activeContractorId;
+}
+
 function loadSelectedProject() {
   const id = dom.projectSelect?.value;
   if (!id) {
@@ -2979,14 +3018,7 @@ function loadSelectedProject() {
   if (!project) return;
   state.activeSavedProjectId = id;
   state.project = { ...state.project, ...(project.project || {}) };
-  if (project.activeContractor?.id) {
-    const contractorIndex = state.contractors.findIndex((entry) => entry.id === project.activeContractor.id);
-    if (contractorIndex >= 0) state.contractors[contractorIndex] = project.activeContractor;
-    else state.contractors.push(project.activeContractor);
-    state.activeContractorId = project.activeContractor.id;
-  } else {
-    state.activeContractorId = project.activeContractorId || "";
-  }
+  applySavedProjectContractor(project);
   state.selectedIds = Array.isArray(project.selectedIds) ? project.selectedIds : [];
   state.tocTitles = project.tocTitles && typeof project.tocTitles === "object" ? project.tocTitles : {};
   state.customCategories = normalizeCustomCategories([...state.customCategories, ...(project.customCategories || [])]);
@@ -3765,7 +3797,7 @@ function renderHomeResume() {
     return;
   }
   const sheets = Array.isArray(project.selectedIds) ? project.selectedIds.length : 0;
-  const contractor = project.activeContractor?.name || "";
+  const contractor = savedProjectContractorName(project);
   const when = homeFormatWhen(project.savedAt);
   if (title) title.textContent = project.name || "Untitled Project";
   body.innerHTML = `
@@ -20309,9 +20341,11 @@ function initHydreport() {
   document.getElementById("hydreportLinkProjectSelect")?.addEventListener("change", (e) => {
     const id = e.target.value;
     const nameInput = document.getElementById("hydreportProjectInput");
-    if (id && nameInput && !nameInput.value.trim()) {
-      const proj = (loadProjects() || []).find((p) => p.id === id);
-      if (proj && proj.name) { nameInput.value = proj.name; }
+    const proj = id ? (loadProjects() || []).find((p) => p.id === id) : null;
+    if (proj && nameInput && !nameInput.value.trim() && proj.name) nameInput.value = proj.name;
+    if (proj) {
+      applySavedProjectContractor(proj);
+      syncInputsFromState();
     }
     generateHydreport();
   });
@@ -24123,7 +24157,16 @@ function wireEvents() {
     const info = project.project || {};
     if (dom.hydraulicProjectNameInput) dom.hydraulicProjectNameInput.value = info.name || project.name || "";
     if (dom.hydraulicProjectAddressInput) dom.hydraulicProjectAddressInput.value = info.address || "";
-    setHydraulicStatus(`Pulled "${info.name || project.name}" from saved projects.`, "success");
+    // The calc package cover prints the ACTIVE contractor, so switching jobs
+    // here used to leave the previous job's contractor on the cover.
+    applySavedProjectContractor(project);
+    syncInputsFromState();
+    renderAll();
+    const contractor = savedProjectContractorName(project);
+    setHydraulicStatus(
+      `Pulled "${info.name || project.name}"${contractor ? ` (${contractor})` : ""} from saved projects.`,
+      "success",
+    );
   });
   dom.hydraulicGenerateButton?.addEventListener("click", generateHydraulicPackage);
   document.querySelectorAll("[data-package-export]").forEach((btn) => btn.addEventListener("click", exportProjectPackage));
@@ -27294,10 +27337,12 @@ function buildPaletteIndex() {
 
   loadProjects().forEach((project) => {
     const address = project.project?.address || "";
+    const contractor = savedProjectContractorName(project);
+    const subtitle = [address, contractor].filter(Boolean).join(" \u00b7 ") || "Saved project";
     entries.push(paletteEntry(
       "project", `project:${project.id}`, project.name || "Untitled Project",
-      address || "Saved project", "Projects",
-      `saved project job resume load open ${address}`, "",
+      subtitle, "Projects",
+      `saved project job resume load open ${address} ${contractor}`, "",
       () => homeResumeProject(project.id),
     ));
   });
